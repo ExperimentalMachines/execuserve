@@ -1,0 +1,392 @@
+/*
+ * Copyright 2026 The OpenWeights Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.experimentalmachines.execuserve.prompt
+
+/** A reply with any tool calls lifted out of the prose. */
+data class ParsedToolCalls(val text: String, val calls: List<ToolCall>)
+
+/**
+ * Extracts tool calls that llama.cpp's own parser did not recognise.
+ *
+ * llama.cpp knows the Hermes, Llama 3.x, Functionary and Mistral formats, and is tried
+ * first. It does not know every model: LFM2.5 emits Python-style calls wrapped in
+ * `<|tool_call_start|>` markers, which parse as ordinary prose and would otherwise be
+ * shown to the user as if the model had answered.
+ *
+ * Kept small and format-specific rather than clever. A parser that guesses
+ * at unknown syntax produces confident nonsense; one that recognises named formats and
+ * gives up otherwise is safe to fall back on.
+ */
+object ToolCallParser {
+
+    fun parse(raw: String): ParsedToolCalls = parseLfmStyle(raw)
+        ?: parseTaggedJson(raw)
+        ?: parseTaggedXml(raw)
+        ?: parseBareJson(raw)
+        ?: ParsedToolCalls(raw, emptyList())
+
+    /** `<|tool_call_start|>[name(arg='value', other=2)]<|tool_call_end|>`: LFM2. */
+    private fun parseLfmStyle(raw: String): ParsedToolCalls? {
+        val start = raw.indexOf(LFM_START)
+        if (start < 0) return null
+        val end = raw.indexOf(LFM_END, start)
+        if (end < 0) return null
+
+        val body = raw.substring(start + LFM_START.length, end).trim().removeSurrounding("[", "]")
+        val calls = body.splitTopLevel(',')
+            .mapNotNull { it.trim().toPythonStyleCall() }
+        if (calls.isEmpty()) return null
+
+        val text = (raw.take(start) + raw.substring(end + LFM_END.length)).trim()
+        return ParsedToolCalls(text, calls)
+    }
+
+    /** `<tool_call>{"name": "...", "arguments": {...}}</tool_call>`: Hermes and friends. */
+    private fun parseTaggedJson(raw: String): ParsedToolCalls? {
+        val calls = mutableListOf<ToolCall>()
+        val text = StringBuilder()
+        var cursor = 0
+        // Every envelope, not the first: a model asked for two things calls twice in one
+        // reply, and reading one of them ran half the errand (codex QA).
+        var start = raw.indexOf(JSON_START)
+        while (start >= 0) {
+            val end = raw.indexOf(JSON_END, start)
+            if (end < 0) break
+            val body = raw.substring(start + JSON_START.length, end).trim()
+            val name = body.jsonStringField("name")
+            if (name != null) {
+                val arguments = body.jsonObjectField("arguments") ?: "{}"
+                calls +=
+                    ToolCall(id = "$name-${calls.size}", name = name, argumentsJson = arguments)
+                text.append(raw, cursor, start)
+            } else {
+                text.append(raw, cursor, end + JSON_END.length)
+            }
+            cursor = end + JSON_END.length
+            start = raw.indexOf(JSON_START, cursor)
+        }
+        if (calls.isEmpty()) return null
+        text.append(raw, cursor, raw.length)
+        return ParsedToolCalls(text.toString().trim(), calls)
+    }
+
+    /**
+     * `{"name": "web_search", "parameters": {...}}` with no wrapper at all: Llama 3.x.
+     *
+     * Llama emits a call as a bare JSON object and nothing else, so the only safe reading
+     * is the strictest one: the entire reply, trimmed, must be one object carrying a name
+     * and a `parameters` object. Anything looser would eat ordinary answers that happen
+     * to contain JSON, which is why prose around the object disqualifies it.
+     */
+    private fun parseBareJson(raw: String): ParsedToolCalls? {
+        // Llama 3.x opens a call with its own <|python_tag|> token, which reaches this
+        // parser as literal text. Measured on a phone: the call inside was perfect and
+        // the tag alone was what kept it from being read.
+        val body = raw.trim().removePrefix(PYTHON_TAG).trim()
+        if (!body.startsWith("{") || !body.endsWith("}")) return null
+
+        // Llama 3.2 1B also writes a call in the shape its tools were declared in,
+        // `{"type": "function", "function": "get_weather", "parameters": {...}}`. Measured
+        // 2026-09-18 on the 30 BFCL prompts under this app's template: the fp32 model
+        // does so on 22, and an export faithful to it on 17, every one of which was read
+        // as prose (BFCL 7 of 30, 15 with this branch). Only root fields name the call:
+        // arguments can contain the same keys, and JSON field order is not significant.
+        val declared = if (body.jsonStringField("type") == "function") {
+            body.jsonStringField("function")
+        } else {
+            null
+        }
+        val name = declared ?: body.jsonStringField("name") ?: return null
+        val arguments = body.jsonObjectField("parameters") ?: return null
+        return ParsedToolCalls(
+            text = "",
+            calls = listOf(ToolCall(id = name, name = name, argumentsJson = arguments)),
+        )
+    }
+
+    /**
+     * The XML form of the same tags, which several models emit instead of JSON:
+     *
+     * ```
+     * <tool_call>
+     * <function=fetch_url>
+     * <parameter=url>https://example.com</parameter>
+     * </function>
+     * </tool_call>
+     * ```
+     *
+     * Worth its own branch because the failure was silent and expensive: the tags parsed
+     * as neither JSON nor prose, so the call never ran and the markup was shown to the
+     * user as the model's answer.
+     */
+    private fun parseTaggedXml(raw: String): ParsedToolCalls? {
+        val start = raw.indexOf(JSON_START)
+        if (start < 0) return null
+        val end = raw.indexOf(JSON_END, start)
+        if (end < 0) return null
+
+        val body = raw.substring(start + JSON_START.length, end)
+        val name = FUNCTION_TAG.find(body)?.groupValues?.get(1)?.trim() ?: return null
+
+        val arguments = PARAMETER_TAG.findAll(body).mapNotNull { match ->
+            val key = match.groupValues[1].trim()
+            // Trimmed because the value is usually on its own line between the tags, and a
+            // URL with a newline in it is not a URL.
+            val value = match.groupValues[2].trim()
+            if (key.isEmpty()) null else "\"$key\": ${value.asJsonString()}"
+        }.toList()
+
+        val text = (raw.take(start) + raw.substring(end + JSON_END.length)).trim()
+        return ParsedToolCalls(
+            text,
+            listOf(
+                ToolCall(
+                    id = name,
+                    name = name,
+                    argumentsJson = "{${arguments.joinToString(", ")}}",
+                ),
+            ),
+        )
+    }
+
+    /** `name(arg='value', count=2)` to a call with JSON arguments. */
+    private fun String.toPythonStyleCall(): ToolCall? {
+        val open = indexOf('(')
+        if (open <= 0 || !endsWith(")")) return null
+
+        val name = take(open).trim()
+        if (name.isEmpty()) return null
+
+        val arguments = substring(open + 1, length - 1)
+            .splitTopLevel(',')
+            .mapNotNull { argument ->
+                val equals = argument.indexOf('=')
+                if (equals <= 0) return@mapNotNull null
+                val key = argument.take(equals).trim()
+                val value = argument.substring(equals + 1).trim()
+                "\"$key\": ${value.toJsonValue()}"
+            }
+
+        return ToolCall(id = name, name = name, argumentsJson = "{${arguments.joinToString(", ")}}")
+    }
+
+    /** Python literals to JSON: quoted strings stay strings, bare numbers and booleans do not. */
+    private fun String.toJsonValue(): String = when {
+        startsWith("'") && endsWith("'") && length >= 2 -> drop(1).dropLast(1).asJsonString()
+        startsWith("\"") -> this
+        this == "True" -> "true"
+        this == "False" -> "false"
+        this == "None" -> "null"
+        toDoubleOrNull() != null -> this
+        startsWith("[") || startsWith("{") -> this
+        else -> asJsonString()
+    }
+
+    /**
+     * Quotes a value as JSON.
+     *
+     * Escaping only quotes would produce invalid JSON the moment a model passes a Windows
+     * path or a newline: `path='C:\tmp'` is perfectly reasonable output.
+     */
+    private fun String.asJsonString(): String = buildString {
+        append('"')
+        this@asJsonString.forEach { character ->
+            when {
+                character == '\\' -> append("\\\\")
+                character == '"' -> append("\\\"")
+                character == '\n' -> append("\\n")
+                character == '\r' -> append("\\r")
+                character == '\t' -> append("\\t")
+                // Hand-built rather than String.format, which is JVM only. The escape is
+                // always four hex digits, and this is the one line in the parser that
+                // stopped it compiling for iOS.
+                character < ' ' -> {
+                    append("\\u")
+                    append(character.code.toString(HEX).padStart(ESCAPE_DIGITS, '0'))
+                }
+                else -> append(character)
+            }
+        }
+        append('"')
+    }
+
+    /** Splits on a separator, ignoring ones inside quotes, brackets, or braces. */
+    private fun String.splitTopLevel(separator: Char): List<String> {
+        val scanner = TopLevelSplitter(separator)
+        forEach(scanner::accept)
+        return scanner.finish()
+    }
+
+    /**
+     * Splits argument lists without breaking on separators that are inside a string or a
+     * nested structure: `note(text='Manila, Philippines')` is one argument, not two.
+     */
+    private class TopLevelSplitter(private val separator: Char) {
+        private val parts = mutableListOf<String>()
+        private val current = StringBuilder()
+        private var depth = 0
+        private var quote: Char? = null
+
+        fun accept(character: Char) {
+            val active = quote
+            when {
+                active != null -> {
+                    current.append(character)
+                    if (character == active) quote = null
+                }
+
+                character in QUOTES -> {
+                    quote = character
+                    current.append(character)
+                }
+
+                character in OPENERS -> {
+                    depth++
+                    current.append(character)
+                }
+
+                character in CLOSERS -> {
+                    depth--
+                    current.append(character)
+                }
+
+                character == separator && depth == 0 -> {
+                    parts += current.toString()
+                    current.clear()
+                }
+
+                else -> current.append(character)
+            }
+        }
+
+        fun finish(): List<String> {
+            if (current.isNotEmpty()) parts += current.toString()
+            return parts
+        }
+
+        private companion object {
+            const val QUOTES = "'\""
+            const val OPENERS = "([{"
+            const val CLOSERS = ")]}"
+        }
+    }
+
+    private fun String.jsonStringField(field: String): String? {
+        val open = jsonFieldValueStart(field) ?: return null
+        if (this[open] != '"') return null
+        val close = jsonStringEnd(open) ?: return null
+        return substring(open + 1, close)
+    }
+
+    private fun String.jsonObjectField(field: String): String? {
+        val open = jsonFieldValueStart(field) ?: return null
+        if (this[open] != '{') return null
+
+        var depth = 0
+        var inString = false
+        var escaped = false
+
+        for (index in open until length) {
+            val character = this[index]
+            when {
+                escaped -> escaped = false
+                character == '\\' && inString -> escaped = true
+                character == '"' -> inString = !inString
+                inString -> Unit
+                character == '{' -> depth++
+                character == '}' -> {
+                    depth--
+                    // Braces inside a string value must not close the object early.
+                    if (depth == 0) return substring(open, index + 1)
+                }
+            }
+        }
+        return null
+    }
+
+    /** Finds only root members, and rejects a second object or trailing prose. */
+    private fun String.jsonFieldValueStart(field: String): Int? =
+        if (startsWith("{") && endsWith("}")) rootJsonFieldValueStart(field) else null
+
+    private fun String.rootJsonFieldValueStart(field: String): Int? {
+        var depth = 0
+        var found: Int? = null
+        var index = 0
+        while (index < length) {
+            when (this[index]) {
+                '{', '[' -> depth++
+                '}', ']' -> {
+                    depth--
+                    if (depth == 0) return found.takeIf { index == lastIndex }
+                }
+                '"' -> {
+                    val end = jsonStringEnd(index) ?: return null
+                    val next = if (depth == 1) jsonMemberValueStart(index, end, field) else null
+                    when {
+                        next == null -> Unit
+                        found != null -> return null
+                        else -> found = next
+                    }
+                    index = end
+                }
+            }
+            index++
+        }
+        return null
+    }
+
+    private fun String.jsonMemberValueStart(open: Int, end: Int, field: String): Int? {
+        if (end - open - 1 != field.length || !regionMatches(open + 1, field, 0, field.length)) {
+            return null
+        }
+        var next = end + 1
+        while (next < length && this[next].isWhitespace()) next++
+        if (next >= length || this[next] != ':') return null
+        next++
+        while (next < length && this[next].isWhitespace()) next++
+        return next
+    }
+
+    private fun String.jsonStringEnd(open: Int): Int? {
+        var index = open + 1
+        while (index < length) {
+            when (this[index]) {
+                '\\' -> index++
+                '"' -> return index
+            }
+            index++
+        }
+        return null
+    }
+
+    private const val PYTHON_TAG = "<|python_tag|>"
+
+    private const val LFM_START = "<|tool_call_start|>"
+    private const val LFM_END = "<|tool_call_end|>"
+    private const val JSON_START = "<tool_call>"
+    private const val JSON_END = "</tool_call>"
+
+    private val FUNCTION_TAG = Regex("""<function=([^>]+)>""")
+    private val PARAMETER_TAG =
+        Regex("""<parameter=([^>]+)>(.*?)</parameter>""", RegexOption.DOT_MATCHES_ALL)
+}
+
+/** Base for a `\uXXXX` escape. */
+private const val HEX = 16
+
+/** A JSON unicode escape is always four digits, zero padded. */
+private const val ESCAPE_DIGITS = 4

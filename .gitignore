@@ -1,0 +1,18 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+*.iml
+.idea/
+.DS_Store
+/captures
+.externalNativeBuild
+.cxx
+*.jks
+keystore.properties
+# Model weights never belong in git.
+*.pte
+tokenizer.json
+# Python caches from tools/.
+__pycache__/
+*.pyc

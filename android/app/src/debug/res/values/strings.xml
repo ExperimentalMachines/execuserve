@@ -1,0 +1,4 @@
+<resources>
+    <!-- Beside a release build on one phone, the two must be told apart in choosers. -->
+    <string name="app_name">ExecuServe debug</string>
+</resources>

@@ -1,0 +1,400 @@
+<resources>
+    <!--
+        Every word the app shows. Protocol text (OpenAI error messages, model ids, JSON)
+        stays in code: clients parse it. No em or en dashes, by the project's style.
+    -->
+    <string name="app_name">ExecuServe</string>
+
+    <!-- Tabs and shared actions -->
+    <string name="tab_server">Server</string>
+    <string name="tab_models">Models</string>
+    <string name="tab_runs">Runs</string>
+    <string name="tab_settings">Settings</string>
+    <string name="action_start">Start</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_restart">Restart</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_show">Show</string>
+    <string name="action_hide">Hide</string>
+    <string name="action_share">Share</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_retry">Try again</string>
+    <string name="action_open">Open</string>
+    <string name="action_add">Add</string>
+    <string name="action_revoke">Revoke</string>
+    <string name="action_send">Send</string>
+    <string name="action_fix">Fix</string>
+    <string name="action_allow">Allow</string>
+    <string name="action_exempt">Exempt</string>
+    <string name="action_ok">OK</string>
+    <string name="copied">Copied</string>
+    <string name="none">None</string>
+    <string name="none_yet">None yet</string>
+    <string name="range_hint">%1$d to %2$d</string>
+
+    <!-- The server's state: host.ServerLook -->
+    <string name="look_serving">Serving</string>
+    <string name="look_working">Working</string>
+    <string name="look_paused_hot">Paused: too hot</string>
+    <string name="look_paused_battery">Paused: low battery</string>
+    <string name="look_not_responding">Not responding</string>
+    <string name="look_starting">Starting</string>
+    <string name="look_stopping">Stopping</string>
+    <string name="look_stopped">Stopped</string>
+    <string name="look_failed_to_start">Could not start</string>
+
+    <!-- Status panel -->
+    <string name="status_ready">Ready for requests</string>
+    <string name="status_engine_starting">Starting the engine</string>
+    <string name="status_loading">Loading %1$s</string>
+    <string name="status_reading">Reading the prompt from %1$s</string>
+    <string name="status_writing">Writing for %1$s</string>
+    <string name="status_a_model">a model</string>
+    <string name="status_paused_hot">New requests are refused until the phone cools down.</string>
+    <string name="status_paused_battery">New requests are refused until the phone charges.</string>
+    <string name="status_recovered">Restarted by Android at %1$s after the app stopped unexpectedly.</string>
+    <string name="status_recovered_wedge">Restarted itself at %1$s after the model stopped responding.</string>
+    <string name="status_stopped_hint">Other apps cannot reach the model until you start it.</string>
+    <string name="status_starting_hint">Opening the port</string>
+    <string name="status_stopping_hint">Finishing the current request</string>
+    <plurals name="status_waiting">
+        <item quantity="one">%d more waiting</item>
+        <item quantity="other">%d more waiting</item>
+    </plurals>
+    <plurals name="tokens">
+        <item quantity="one">%s token</item>
+        <item quantity="other">%s tokens</item>
+    </plurals>
+    <string name="total_since">Since</string>
+    <string name="total_served">Served</string>
+    <string name="total_failed">Failed</string>
+    <string name="total_refused">Refused</string>
+
+    <string name="empty_title">No model installed</string>
+    <string name="empty_body">Download one from the catalog, or push a .pte from a computer.</string>
+    <string name="empty_action">Get a model</string>
+
+    <!-- Connect -->
+    <string name="connect_title">Connect</string>
+    <string name="connect_who">Who can connect</string>
+    <string name="bind_loopback">This phone</string>
+    <string name="bind_network">Your network</string>
+    <string name="connect_plain_http">Plain HTTP: anyone on the same Wi-Fi can read requests and the key. From outside your network, use Tailscale.</string>
+    <string name="connect_starts_loopback">Starts on port %1$d, for apps on this phone.</string>
+    <string name="connect_starts_network">Starts on port %1$d, for this phone and your network.</string>
+    <string name="connect_no_network">No network address yet. Join Wi-Fi, turn on the hotspot or connect Tailscale, and the address appears here.</string>
+    <string name="connect_key">API key: %1$s</string>
+    <string name="connect_copy_terminal">Copy for terminal</string>
+    <string name="connect_share_title">Share connection</string>
+    <string name="connect_share_text">OpenAI base URL: %1$s\nAPI key: %2$s</string>
+    <string name="connect_share_model">\nModel: %1$s</string>
+    <string name="connect_local_title">From another app on this phone</string>
+    <string name="connect_local_body">Android blocks plain HTTP unless the calling app allows it. Save this as res/xml/network_security_config.xml in that app, and name it in its manifest with android:networkSecurityConfig.</string>
+
+    <!-- host.NetworkKind -->
+    <string name="net_this_device">This phone</string>
+    <string name="net_wifi">Wi-Fi</string>
+    <string name="net_tailscale">Tailscale</string>
+    <string name="net_vpn">VPN</string>
+    <string name="net_hotspot">Hotspot</string>
+    <string name="net_usb">USB tether</string>
+    <string name="net_ethernet">Ethernet</string>
+
+    <!-- Figures -->
+    <string name="fig_model">Model</string>
+    <string name="fig_speed">Speed</string>
+    <string name="fig_cache">Cache</string>
+    <string name="fig_device">Device</string>
+    <string name="fig_model_first_request">Loads on the first request</string>
+    <string name="fig_model_not_loaded">Not loaded</string>
+    <string name="fig_window">%1$s window</string>
+    <string name="fig_rate">%1$s tok/s</string>
+    <string name="fig_speed_now">Writing now</string>
+    <string name="fig_speed_last">Last reply</string>
+    <string name="fig_speed_prompt">Prompt read at %1$s tok/s</string>
+    <string name="fig_speed_none">Tokens per second, measured on each reply</string>
+    <string name="fig_cache_detail">%1$s of %2$s prompt tokens reused</string>
+    <string name="fig_cache_none">Prompt tokens reused from earlier turns</string>
+    <string name="fig_battery">Battery %1$d%%</string>
+    <string name="fig_battery_charging">Battery %1$d%%, charging</string>
+    <string name="fig_memory">%1$s memory free</string>
+
+    <!-- host.Heat -->
+    <string name="heat_cool">Cool</string>
+    <string name="heat_warm">Warm</string>
+    <string name="heat_hot">Hot</string>
+    <string name="heat_too_hot">Too hot</string>
+    <string name="heat_critical">Critical</string>
+
+    <!-- Try it -->
+    <string name="try_title">Try it</string>
+    <string name="try_subtitle">One prompt to this server, over HTTP like any client</string>
+    <string name="try_prompt">Prompt</string>
+    <string name="try_prompt_default">Explain what an inference server does, in two sentences.</string>
+    <string name="try_stream">Stream the reply</string>
+    <string name="try_stream_on">Tokens appear as the model writes them (stream: true)</string>
+    <string name="try_stream_off">The whole reply arrives at once (stream: false)</string>
+    <string name="try_model">Model</string>
+    <string name="try_limit">Up to %1$d tokens</string>
+    <string name="try_writing">Writing…</string>
+    <string name="try_waiting">Waiting for the whole reply…</string>
+    <string name="try_reasoning">Reasoning</string>
+    <plurals name="characters">
+        <item quantity="one">%s character</item>
+        <item quantity="other">%s characters</item>
+    </plurals>
+    <string name="try_stopped">Stopped.</string>
+    <string name="try_http_error">HTTP %1$d: %2$s</string>
+    <string name="fact_first_token">First token</string>
+    <string name="fact_total">Total</string>
+    <string name="fact_tokens">Tokens</string>
+    <string name="fact_tokens_value">%1$s in, %2$s out</string>
+    <string name="fact_speed">Speed</string>
+    <string name="fact_cached">Cached</string>
+    <string name="fact_finish">Ended</string>
+    <string name="try_terminal">Same request from a terminal</string>
+    <string name="try_terminal_stream">curl -N, stream: true</string>
+    <string name="try_terminal_whole">curl, stream: false</string>
+
+    <!-- host.Outcome -->
+    <string name="outcome_done">Done</string>
+    <string name="outcome_tool_call">Tool call</string>
+    <string name="outcome_cut_off">Cut off</string>
+    <string name="outcome_client_left">Client left</string>
+    <string name="outcome_too_long">Too long</string>
+    <string name="outcome_timed_out">Timed out</string>
+    <string name="outcome_refused">Refused</string>
+    <string name="outcome_failed">Failed</string>
+
+    <!-- Needs attention -->
+    <string name="attention_title">Needs attention</string>
+    <string name="attention_restricted">Battery usage is Restricted, so Android stops the server as soon as you leave the app.</string>
+    <string name="attention_notifications">Notifications are off, so Android may stop the server without warning.</string>
+
+    <!-- Request log -->
+    <string name="log_title">Requests</string>
+    <string name="log_tokens">%1$s → %2$s</string>
+    <string name="run_tokens">%1$s tokens</string>
+    <string name="detail_model">Model</string>
+    <string name="detail_id">Request id</string>
+
+    <!-- Runs -->
+    <string name="runs_all">All models</string>
+    <string name="runs_compare">Compare models</string>
+    <string name="runs_benchmark">Benchmark</string>
+    <string name="runs_compare_close">Close comparison</string>
+    <string name="runs_benchmark_close">Close benchmark</string>
+    <string name="runs_kept_title">What is kept</string>
+    <string name="runs_col_identity">Model / client</string>
+    <string name="runs_col_tokens">In → out</string>
+    <string name="runs_col_total">Total</string>
+    <string name="runs_col_rate">Tok/s</string>
+    <string name="compare_how">How these are measured</string>
+    <string name="bucket_rate">%2$s tok/s median, %1$s, %3$d runs</string>
+    <string name="runs_export">Export CSV</string>
+    <string name="runs_clear">Clear</string>
+    <string name="runs_clear_title">Clear the run history?</string>
+    <string name="runs_clear_body">Every stored run goes, on this phone and in the API. The counters since the server started are kept.</string>
+    <string name="runs_none">No runs yet. Requests appear here as they finish, and stay across restarts.</string>
+    <string name="runs_see_all">See all runs</string>
+    <plurals name="runs_count">
+        <item quantity="one">%s run</item>
+        <item quantity="other">%s runs</item>
+    </plurals>
+    <string name="runs_kept">Figures only: never the prompt, the reply or a key. The last 10 000 runs or 30 days.</string>
+    <string name="phase_queue">Queue</string>
+    <string name="phase_load">Load</string>
+    <string name="phase_prompt">Prompt</string>
+    <string name="phase_first_token">First token</string>
+    <string name="phase_writing">Writing</string>
+    <string name="phase_total">Total</string>
+    <string name="phase_value">%1$s, %2$s tok at %3$s tok/s</string>
+    <string name="run_threads">%1$d threads</string>
+    <string name="run_api">%1$s, %2$s</string>
+    <string name="run_streamed">streamed</string>
+    <string name="run_whole">whole</string>
+    <string name="check_estimated">%1$s of the %2$s prompt tokens were counted by estimate: text read ahead of the last runtime call.</string>
+    <string name="check_decode_clocks">The runtime\'s writing time and this phone\'s clock differ by more than 10%%.</string>
+    <string name="check_phases">Queue, load and prompt add up to more than the time to the first token.</string>
+    <string name="check_first_token">The first token is timed after the request ended.</string>
+    <string name="check_cache">More tokens reused than the prompt held.</string>
+    <string name="compare_title">By model</string>
+    <string name="compare_note">Ordinary requests only; benchmarks are kept apart. Prompt processing counts cold prompts only, since a cached one reads a fraction of its tokens. Speeds are kept per context size, because generation slows as the context grows. Each figure is a median, with the number of runs behind it.</string>
+    <string name="compare_runs">%1$s runs, %2$s failed</string>
+    <string name="compare_first_token">First token</string>
+    <string name="compare_prompt">Prompt processing</string>
+    <string name="compare_writing">Generation</string>
+    <string name="compare_cache">Cache</string>
+    <plurals name="compare_cache_value">
+        <item quantity="one">%1$s of prompt tokens reused, in %2$s run</item>
+        <item quantity="other">%1$s of prompt tokens reused, in %2$s runs</item>
+    </plurals>
+    <string name="compare_threads">Threads</string>
+    <string name="compare_threads_mixed">%1$s (mixed: speeds combine settings)</string>
+    <string name="spread">%1$s median, %2$d runs</string>
+    <string name="bucket_short">context under 512 tokens</string>
+    <string name="bucket_medium">context 512 to 2k tokens</string>
+    <string name="bucket_long">context over 2k tokens</string>
+    <string name="bench_title">Benchmark</string>
+    <string name="bench_note">Three cold runs of one model: a prompt read in a single runtime call, so its token count is exact, then up to %1$d tokens written. Counts are what the runtime reported. Runs queue behind real requests.</string>
+    <string name="bench_run">Run benchmark</string>
+    <string name="bench_needs_server">Start the server to run a benchmark.</string>
+    <string name="bench_progress">Run %1$d of %2$d</string>
+    <string name="bench_result">Prompt %1$s tok/s over %2$s tokens; writing %3$s tok/s over %4$s tokens</string>
+
+    <!-- Models -->
+    <string name="models_on_phone">On this phone</string>
+    <plurals name="models_installed">
+        <item quantity="one">%d installed</item>
+        <item quantity="other">%d installed</item>
+    </plurals>
+    <string name="models_none">Nothing installed yet. Get a model from the catalog below.</string>
+    <string name="model_loaded">Loaded</string>
+    <string name="model_raw">Raw prompts only</string>
+    <string name="fact_template">Chat template</string>
+    <string name="fact_window">Window</string>
+    <string name="fact_size">Size</string>
+    <string name="model_from">From %1$s</string>
+    <string name="model_from_computer">Added from a computer</string>
+    <string name="model_did_not_load">Did not load: %1$s</string>
+    <string name="model_load_at_start">Load at start</string>
+    <string name="model_load_now">Load now</string>
+    <string name="model_unload">Unload</string>
+    <string name="models_not_usable">Not usable</string>
+    <string name="models_downloading">Downloading</string>
+    <string name="download_progress">%1$s of %2$s</string>
+    <string name="phase_queued">Queued</string>
+    <string name="phase_downloading">Downloading</string>
+    <string name="phase_verifying">Checking</string>
+    <string name="phase_done">Done</string>
+    <string name="phase_failed">Failed</string>
+    <string name="phase_cancelled">Cancelled</string>
+    <string name="models_computer">Add from a computer</string>
+    <string name="models_computer_note">With adb, without the catalog</string>
+    <string name="models_computer_cli">From the ExecuServe repository:</string>
+    <string name="models_computer_push">Or push Name.pte and Name.tokenizer.json into:</string>
+    <string name="catalog_title">Catalog</string>
+    <string name="catalog_source">experimentalmachines on Hugging Face</string>
+    <string name="catalog_browse">Browse the catalog</string>
+    <string name="catalog_unreachable_title">Could not reach Hugging Face</string>
+    <plurals name="catalog_variants">
+        <item quantity="one">%1$d variant, from %2$s</item>
+        <item quantity="other">%1$d variants, from %2$s</item>
+    </plurals>
+    <string name="catalog_get">Get</string>
+    <string name="catalog_installed">Installed</string>
+    <string name="catalog_over_budget">Over the exporter\'s phone budget</string>
+    <string name="catalog_runtime">Exported for ExecuTorch %1$s; this app runs %2$s</string>
+    <string name="delete_title">Delete %1$s?</string>
+    <string name="delete_body">Frees %1$s. Clients asking for it will get model_not_found.</string>
+
+    <!-- Settings -->
+    <string name="settings_restart_title">Restart to apply</string>
+    <string name="settings_restart_needed">Connection changes apply when the server restarts.</string>
+    <string name="settings_connection">Connection</string>
+    <string name="settings_port">Port</string>
+    <string name="settings_open_loopback">Apps on this phone need no key</string>
+    <string name="settings_open_loopback_note">Any installed app could then use the model</string>
+    <string name="settings_keys">API keys</string>
+    <string name="settings_keys_note">One per client: the log shows who asked, and each can be revoked alone.</string>
+    <string name="settings_key_new">New key for…</string>
+    <string name="settings_model">Model</string>
+    <string name="settings_load_at_start">Load at start</string>
+    <string name="settings_reasoning">Reasoning</string>
+    <string name="settings_when_unset">Used when the client does not set it</string>
+    <string name="thinking_model">Default</string>
+    <string name="thinking_on">On</string>
+    <string name="thinking_off">Off</string>
+    <string name="settings_temperature">Temperature</string>
+    <string name="settings_temperature_greedy">0 (greedy)</string>
+    <string name="settings_keep_reasoning">Reuse earlier reasoning</string>
+    <string name="settings_keep_reasoning_note">Faster follow-ups on reasoning models; the model re-reads its old thinking</string>
+    <string name="settings_threads">CPU threads</string>
+    <string name="settings_threads_now">%1$d in use now</string>
+    <string name="settings_threads_idle">Shown once a model loads</string>
+    <string name="threads_auto">Automatic</string>
+    <string name="settings_threads_note">A change reopens the loaded model. The benchmark on Runs measures which count suits this phone.</string>
+    <string name="settings_threads_why">Why Automatic may not be fastest</string>
+    <string name="settings_threads_why_body">Generating a reply is limited by memory and reading a prompt by compute, so the best count differs between the two. On the POCO X8 Pro Max, Automatic (7) generated 18 tokens a second, 4 threads 22, and 8 threads read prompts fastest.</string>
+    <string name="settings_background">Background</string>
+    <string name="settings_boot">Start when the phone starts</string>
+    <string name="settings_autostart_title">Autostart (HyperOS)</string>
+    <string name="settings_autostart">Allow it, or HyperOS will not bring the server back after the app stops unexpectedly, nor start it with the phone. The app cannot check this setting itself.</string>
+    <string name="settings_wake">Keep the CPU awake</string>
+    <string name="wake_always">While serving</string>
+    <string name="wake_busy">Only when busy</string>
+    <string name="settings_unload">Unload an idle model</string>
+    <string name="never">Never</string>
+    <plurals name="after_minutes">
+        <item quantity="one">After %d minute</item>
+        <item quantity="other">After %d minutes</item>
+    </plurals>
+    <string name="settings_battery_floor">Pause on low battery</string>
+    <string name="settings_battery_floor_note">Only when not charging</string>
+    <string name="battery_below">Below %1$d%%</string>
+    <string name="settings_optimisation">Battery optimisation</string>
+    <string name="settings_optimisation_on">On. Exempt the app if requests stall after long idle periods; the foreground service alone was enough on the phones tested.</string>
+    <string name="settings_optimisation_off">Exempt: Android will not defer the app.</string>
+    <string name="settings_limits">Limits</string>
+    <string name="settings_limits_summary">Queue of %1$d, %2$d per client, timeouts</string>
+    <string name="settings_max_queued">Requests waiting, at most</string>
+    <string name="settings_max_per_client">Per client, at most</string>
+    <string name="settings_queue_timeout">Longest wait in the queue</string>
+    <string name="settings_request_timeout">Longest request</string>
+    <string name="unit_seconds">s</string>
+    <string name="settings_advanced">Advanced</string>
+    <string name="settings_advanced_summary">Host names, browsers, other apps</string>
+    <string name="settings_hosts">Other names for this phone</string>
+    <string name="settings_hosts_note">A Tailscale MagicDNS name, say; requests naming any other host are refused</string>
+    <string name="settings_cors">Browser origins (CORS)</string>
+    <string name="settings_cors_note">Web apps allowed to call the API</string>
+    <string name="settings_external">Other apps may ask to start it</string>
+    <string name="settings_external_note">Through execuserve://start, always with your confirmation</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_about">About</string>
+    <string name="about_version">ExecuServe %1$s</string>
+    <string name="about_runtime">ExecuTorch %1$s on XNNPACK</string>
+    <string name="about_api">OpenAI-compatible API at /v1: Chat Completions, Responses, Completions and Models.</string>
+    <string name="about_license">Apache-2.0, by Experimental Machines</string>
+
+    <!-- Start from another app -->
+    <string name="start_title">Start ExecuServe?</string>
+    <string name="start_disabled">Starting the server from other apps is turned off in ExecuServe\'s settings.</string>
+    <string name="start_by_app">%1$s wants to start the model server.</string>
+    <string name="start_by_unknown">An app wants to start the model server.</string>
+    <string name="start_what_loopback">It will serve %1$s to apps on this phone, on port %2$d, with your saved settings.</string>
+    <string name="start_what_network">It will serve %1$s to this phone and your network, on port %2$d, with your saved settings.</string>
+    <string name="start_first_model">the first model a request names</string>
+
+    <!-- Notifications -->
+    <string name="channel_server">Server</string>
+    <string name="channel_server_description">Shown while ExecuServe is serving a model or downloading one.</string>
+    <string name="channel_alerts">Alerts</string>
+    <string name="notif_serving">Serving on %1$s</string>
+    <string name="notif_starting">Starting ExecuServe</string>
+    <string name="notif_stopping">Stopping ExecuServe</string>
+    <string name="notif_downloading">Downloading %1$s, %2$s</string>
+    <string name="notif_idle">Idle</string>
+    <string name="notif_ready_model">Ready, %1$s loaded</string>
+    <string name="notif_ready_no_model">Ready, no model loaded</string>
+    <plurals name="notif_answering">
+        <item quantity="one">Answering %2$s, %1$d token</item>
+        <item quantity="other">Answering %2$s, %1$d tokens</item>
+    </plurals>
+    <plurals name="notif_waiting">
+        <item quantity="one">%1$s; %2$d waiting</item>
+        <item quantity="other">%1$s; %2$d waiting</item>
+    </plurals>
+    <string name="notif_wedged">The runtime stopped responding</string>
+    <string name="alert_download_failed">Could not download %1$s</string>
+    <string name="alert_restricted_title">ExecuServe is restricted in the background</string>
+    <string name="alert_restricted_text">Battery usage is set to Restricted, so Android stops the server when you leave the app.</string>
+    <string name="alert_wedged_title">The model stopped responding</string>
+    <string name="alert_wedged_text">ExecuServe restarted itself to recover.</string>
+    <string name="unknown_error">Unknown error</string>
+</resources>

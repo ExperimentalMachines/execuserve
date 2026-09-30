@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+# execuserve: serve an ExecuTorch model from an Android phone, driven from this machine.
+#
+#   execuserve --model qwen3-1.7b --port 8080            model already on the phone
+#   execuserve --model ~/models/Qwen3-1.7B-2k.pte        push it (and its tokenizer) first
+#   execuserve --model qwen3-1.7b --network              reachable from the LAN too
+#   execuserve --model qwen3-1.7b --threads 4            CPU threads (0: ExecuTorch chooses)
+#   execuserve stop | status
+#   execuserve install app-release.apk                   install past ROMs that refuse `adb install`
+#   execuserve unrestrict                                exempt it from Doze whitelists and OEM freezers
+#   execuserve pull <hf-repo> <file.pte>                 download on the phone, verified, e.g.
+#       pull experimentalmachines/Qwen3-1.7B-ExecuTorch Qwen3-1.7B-8da4w-gptq-4k.pte
+#
+# In loopback mode the port is forwarded over adb, so http://127.0.0.1:PORT/v1 on this
+# machine reaches the phone. A key is generated per device and passed to the app through
+# an intent only the shell may send (the service is guarded by the DUMP permission).
+set -euo pipefail
+
+# The app's side of this contract: ServeService (actions and extras) and ServerSettings (the
+# default port). Change them together.
+PKG="org.experimentalmachines.execuserve"
+SERVICE="org.experimentalmachines.execuserve.app.serve.ServeService"
+ACTION="org.experimentalmachines.execuserve.action"
+MODEL=""
+PORT=8080
+BIND="loopback"
+THREADS=-1
+SERIAL=""
+KEY=""
+FORWARD=1
+COMMAND="start"
+
+die() { echo "execuserve: $*" >&2; exit 1; }
+
+usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --model) MODEL="${2:?}"; shift ;;
+    --port) PORT="${2:?}"; shift ;;
+    --network) BIND="network" ;;
+    --threads) THREADS="${2:?}"; shift ;;
+    --serial|-s) SERIAL="${2:?}"; shift ;;
+    --key) KEY="${2:?}"; shift ;;
+    --debug) PKG="$PKG.debug" ;;
+    --no-forward) FORWARD=0 ;;
+    stop|status|unrestrict) COMMAND="$1" ;;
+    install) COMMAND="install"; APK="${2:?install needs an .apk}"; shift ;;
+    pull) COMMAND="pull"; REPO="${2:?pull needs a repository}"; PULL_FILE="${3:?pull needs a file name}"; shift 2 ;;
+    -h|--help) usage 0 ;;
+    *) echo "unknown argument: $1" >&2; usage 2 ;;
+  esac
+  shift
+done
+
+command -v adb >/dev/null || die "adb is not on PATH"
+ADB=(adb)
+[ -n "$SERIAL" ] && ADB+=(-s "$SERIAL")
+DEVICE=$("${ADB[@]}" get-serialno 2>/dev/null) || die "no device (connect one, or pass --serial)"
+
+# HyperOS refuses `adb install` (INSTALL_FAILED_USER_RESTRICTED); pushing and installing
+# from the shell is the path that works there and everywhere else.
+if [ "$COMMAND" = "install" ]; then
+  [ -f "$APK" ] || die "no such file: $APK"
+  "${ADB[@]}" push "$APK" /data/local/tmp/execuserve.apk >/dev/null
+  "${ADB[@]}" shell pm install -r -t --user 0 /data/local/tmp/execuserve.apk
+  "${ADB[@]}" shell rm -f /data/local/tmp/execuserve.apk
+  exit 0
+fi
+"${ADB[@]}" shell pm path "$PKG" >/dev/null 2>&1 || die "$PKG is not installed on $DEVICE (try --debug for a debug build)"
+
+KEY_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/execuserve/${DEVICE//[:\/]/_}.key"
+
+# A forward of this port left over from another device (or an interrupted run) would make
+# `adb forward` fail; remove it wherever it is before making ours.
+forward() {
+  adb forward --list 2>/dev/null | awk -v p="tcp:$PORT" '$2 == p {print $1}' | while read -r serial; do
+    adb -s "$serial" forward --remove "tcp:$PORT" 2>/dev/null || true
+  done
+  "${ADB[@]}" forward "tcp:$PORT" "tcp:$PORT" >/dev/null
+}
+
+# The whitelist commands that stopped HyperOS's freezer from suspending OpenWeights on
+# battery (see its phone-deploy notes). Harmless on stock Android.
+if [ "$COMMAND" = "unrestrict" ]; then
+  "${ADB[@]}" shell "cmd deviceidle whitelist +$PKG; am set-standby-bucket $PKG active; \
+    cmd appops set $PKG RUN_ANY_IN_BACKGROUND allow; cmd appops set $PKG RUN_IN_BACKGROUND allow" >/dev/null
+  # HyperOS's Autostart (its app op 10008) also decides whether Android may restart the
+  # service after the process dies; without it a crash or a low-memory kill ends serving
+  # for good (measured on the POCO X8 Pro Max, 2026-09-30). Harmless where the op is unknown.
+  "${ADB[@]}" shell "cmd appops set $PKG 10008 allow" >/dev/null 2>&1 || true
+  echo "$PKG is exempt from Doze and background limits on $DEVICE, and may autostart on HyperOS."
+  exit 0
+fi
+
+# The phone downloads it itself, over its own network, pinned to the repository's commit and
+# checked against the published SHA-256; this only asks and then watches the folder.
+if [ "$COMMAND" = "pull" ]; then
+  ID=$(basename "$PULL_FILE" .pte | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')
+  DIR="/sdcard/Android/data/$PKG/files/models/$ID"
+  "${ADB[@]}" shell am start-foreground-service -n "$PKG/$SERVICE" -a "$ACTION.PULL" --es repo "$REPO" --es file "$PULL_FILE" >/dev/null
+  echo "Downloading $PULL_FILE on $DEVICE..."
+  for _ in $(seq 1 3600); do
+    if "${ADB[@]}" shell "[ -f $DIR/execuserve.json ]" 2>/dev/null; then echo; echo "Installed as $ID."; exit 0; fi
+    BYTES=$("${ADB[@]}" shell "stat -c %s $DIR/model.pte.part $DIR/model.pte 2>/dev/null | head -1" | tr -d '\r')
+    printf '\r  %s MB' "$(( ${BYTES:-0} / 1048576 ))"
+    sleep 2
+  done
+  die "the download did not finish; open the app's Models tab to see why"
+fi
+
+if [ "$COMMAND" = "stop" ]; then
+  "${ADB[@]}" shell am start-foreground-service -n "$PKG/$SERVICE" -a "$ACTION.STOP" >/dev/null
+  "${ADB[@]}" forward --remove "tcp:$PORT" 2>/dev/null || true
+  echo "Stopped ExecuServe on $DEVICE."
+  exit 0
+fi
+
+if [ -z "$KEY" ]; then
+  if [ -f "$KEY_FILE" ]; then KEY=$(cat "$KEY_FILE"); else
+    KEY="es-adb-$(openssl rand -hex 20)"
+    mkdir -p "$(dirname "$KEY_FILE")"; umask 077; printf '%s' "$KEY" > "$KEY_FILE"
+  fi
+fi
+
+if [ "$COMMAND" = "status" ]; then
+  forward
+  curl -fsS -H "Authorization: Bearer $KEY" "http://127.0.0.1:$PORT/v1/execuserve/status" || die "not reachable on port $PORT"
+  echo; exit 0
+fi
+
+[ -n "$MODEL" ] || die "--model is required"
+
+# A local .pte is pushed beside its tokenizer as Name.pte and Name.tokenizer.json, into the
+# models folder the app created. Under Android 11+ storage, a folder adb creates there
+# belongs to the shell and the app cannot read it; files pushed into the app's own folder
+# can be read. Waking the service first makes the app create that folder.
+if [ -f "$MODEL" ]; then
+  FILE="$MODEL"
+  STEM=$(basename "$FILE" .pte)
+  DIR=$(dirname "$FILE")
+  TOKENIZER=""
+  for candidate in "$DIR/$STEM.tokenizer.json" "$DIR/tokenizer.json"; do
+    [ -f "$candidate" ] && { TOKENIZER="$candidate"; break; }
+  done
+  [ -n "$TOKENIZER" ] || die "no tokenizer beside $FILE (expected $STEM.tokenizer.json or tokenizer.json)"
+  ID=$(echo "$STEM" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')
+  REMOTE="/sdcard/Android/data/$PKG/files/models"
+  "${ADB[@]}" shell am start-foreground-service -n "$PKG/$SERVICE" -a "$ACTION.KEEP_ALIVE" >/dev/null
+  for _ in $(seq 1 20); do "${ADB[@]}" shell "[ -d $REMOTE ]" && break; sleep 0.5; done
+  echo "Pushing $STEM to $DEVICE..."
+  "${ADB[@]}" push "$FILE" "$REMOTE/$ID.pte" >/dev/null
+  "${ADB[@]}" push "$TOKENIZER" "$REMOTE/$ID.tokenizer.json" >/dev/null
+  MODEL="$ID"
+fi
+MODEL="${MODEL%.pte}"
+
+"${ADB[@]}" shell am start-foreground-service -n "$PKG/$SERVICE" -a "$ACTION.START" \
+  --es model "$MODEL" --ei port "$PORT" --es bind "$BIND" --es key "$KEY" --ei threads "$THREADS" >/dev/null
+
+BASE="http://127.0.0.1:$PORT"
+if [ "$BIND" = "loopback" ] && [ "$FORWARD" = 1 ]; then
+  forward
+elif [ "$BIND" = "network" ]; then
+  IP=$("${ADB[@]}" shell ip -4 addr show wlan0 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | head -1)
+  [ -n "$IP" ] && BASE="http://$IP:$PORT"
+  forward
+fi
+
+printf 'Starting ExecuServe on %s' "$DEVICE"
+for _ in $(seq 1 60); do
+  if curl -fsS -m 2 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then break; fi
+  printf '.'; sleep 1
+done
+echo
+curl -fsS -m 2 "http://127.0.0.1:$PORT/health" >/dev/null 2>&1 || die "the server did not come up; open the app to see why"
+
+# Ask for the model to be loaded now, so the first request does not pay for it.
+curl -fsS -m 300 -X POST -H "Authorization: Bearer $KEY" "http://127.0.0.1:$PORT/v1/execuserve/models/$MODEL/load" >/dev/null \
+  || echo "warning: could not load '$MODEL' (is it installed? see the app's Models tab)" >&2
+
+cat <<INFO
+Serving $MODEL on $DEVICE
+  OpenAI base URL  $BASE/v1
+  API key          $KEY
+
+  export OPENAI_BASE_URL=$BASE/v1 OPENAI_API_KEY=$KEY
+INFO

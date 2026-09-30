@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Plain HTTP to this phone's own loopback only: the console's "Try it" is a client of the
+    server this app runs, and Android refuses cleartext from apps targeting API 28+ without
+    this (measured: "Cleartext HTTP traffic to 127.0.0.1 not permitted"). Every other
+    connection, model downloads included, stays HTTPS-only.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>
