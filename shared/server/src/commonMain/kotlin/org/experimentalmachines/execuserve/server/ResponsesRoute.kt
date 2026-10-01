@@ -40,11 +40,10 @@ internal suspend fun ApplicationCall.responses(ctx: ServerContext) {
     val client = client(ctx)
     val tree = readObject(ctx.settings.maxBodyBytes)
     val request = decode<ResponsesRequest>(tree)
-    val entry = ctx.engine.resolve(request.model)
-        ?: throw ApiError.modelNotFound(request.model, ctx.engine.installed().map { it.id })
+    val entry = resolveModel(ctx, request.model)
     val earlier = request.previousResponseId?.let { previous ->
-        ctx.conversations.get(previous, client.id) ?: throw ApiError.badRequest(
-            "Response '$previous' is not stored here: it expired, belongs to another key, or predates a restart. Send the whole conversation as input.",
+        ctx.conversations.get(previous, client.id, entry.id) ?: throw ApiError.badRequest(
+            "Response '$previous' is not stored here: it expired, belongs to another key or model, or predates a restart. Send the whole conversation as input.",
             "previous_response_id",
             "previous_response_not_found",
         )
@@ -58,7 +57,7 @@ internal suspend fun ApplicationCall.responses(ctx: ServerContext) {
     val id = "resp_${job.id}"
     val created = ctx.nowSeconds()
     suspend fun keep(result: GenerationResult) {
-        if (request.store) ctx.conversations.put(id, client.id, conversation + ResponsesTranslate.asInput(outputOf(job.id, result)))
+        if (request.store) ctx.conversations.put(id, client.id, conversation + ResponsesTranslate.asInput(outputOf(job.id, result)), entry.id)
     }
     if (request.stream) {
         stream(job, ResponsesStream(id, job.id, created, job.model.id, request))

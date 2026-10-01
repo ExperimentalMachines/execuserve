@@ -207,7 +207,10 @@ fun CopyRow(
     val style = if (prominent) Mono.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize, lineHeight = MaterialTheme.typography.titleMedium.lineHeight, fontWeight = FontWeight.Medium) else Mono
     val actions: @Composable () -> Unit = {
         extra?.invoke()
-        Action(stringResource(when (copied) { true -> R.string.copied_on_phone; false -> R.string.copy_failed; null -> R.string.action_copy }), onClick = { copied = copy(context, value, sensitive) })
+        Action(stringResource(if (copied == true) R.string.copied else R.string.action_copy), onClick = {
+            copied = copy(context, value, sensitive, notifyFailure = !qr)
+            if (copied == false && qr) showQr = true
+        })
         if (qr) Action(stringResource(R.string.action_show_qr), onClick = { showQr = true })
     }
     // With large text the value keeps the full width and the actions go under it, so an
@@ -432,7 +435,7 @@ fun resumeCount(): Int {
     return count
 }
 
-fun copy(context: Context, text: String, sensitive: Boolean = false): Boolean {
+fun copy(context: Context, text: String, sensitive: Boolean = false, notifyFailure: Boolean = true): Boolean {
     val success = runCatching {
         val clipboard = context.getSystemService(ClipboardManager::class.java)
         val clip = ClipData.newPlainText(context.getString(R.string.app_name), text)
@@ -442,7 +445,7 @@ fun copy(context: Context, text: String, sensitive: Boolean = false): Boolean {
         clipboard.setPrimaryClip(clip)
         clipboard.primaryClip?.getItemAt(0)?.text?.toString() == text
     }.getOrDefault(false)
-    if (!success || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+    if ((!success && notifyFailure) || (success && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)) {
         Toast.makeText(context, if (success) R.string.copied_on_phone else R.string.copy_failed, Toast.LENGTH_SHORT).show()
     }
     return success

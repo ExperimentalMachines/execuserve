@@ -10,7 +10,7 @@ import kotlinx.serialization.json.JsonElement
  * items, so the next request can continue it by id instead of sending it again.
  *
  * In memory only, and bounded three ways: by count, by bytes, and by age. A response
- * belongs to the key that made it; another key asking for it, an evicted one, and every id
+ * belongs to the key and canonical model that made it; a different key or model, an evicted one, and every id
  * from before a restart are all `previous_response_not_found`, never a silent fresh start.
  * Continuing a conversation this way reads the same prompt the client would have sent, so
  * it hits the KV cache exactly as often; storing it guarantees nothing about the cache.
@@ -21,22 +21,22 @@ class Conversations(
     private val maxBytes: Long = 4L * 1024 * 1024,
     private val maxAgeMs: Long = 60L * 60 * 1_000,
 ) {
-    private class Stored(val owner: String, val items: List<JsonElement>, val bytes: Long, val atMs: Long)
+    private class Stored(val owner: String, val items: List<JsonElement>, val bytes: Long, val atMs: Long, val model: String?)
 
     private val lock = Mutex()
     private val entries = LinkedHashMap<String, Stored>()
     private var bytes = 0L
 
-    suspend fun get(id: String, owner: String): List<JsonElement>? = lock.withLock {
+    suspend fun get(id: String, owner: String, model: String? = null): List<JsonElement>? = lock.withLock {
         expire()
-        entries[id]?.takeIf { it.owner == owner }?.items
+        entries[id]?.takeIf { it.owner == owner && it.model == model }?.items
     }
 
-    suspend fun put(id: String, owner: String, items: List<JsonElement>) = lock.withLock {
+    suspend fun put(id: String, owner: String, items: List<JsonElement>, model: String? = null) = lock.withLock {
         val size = JsonArray(items).toString().length.toLong()
         if (size > maxBytes) return@withLock
         entries.remove(id)?.let { bytes -= it.bytes }
-        entries[id] = Stored(owner, items, size, clock())
+        entries[id] = Stored(owner, items, size, clock(), model)
         bytes += size
         while (entries.size > maxEntries || bytes > maxBytes) drop(entries.keys.first())
     }

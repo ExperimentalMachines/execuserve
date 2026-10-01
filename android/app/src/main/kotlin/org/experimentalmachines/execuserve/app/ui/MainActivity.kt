@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -58,7 +59,7 @@ private fun App(model: MainViewModel) {
         header = { Header(stringResource(TABS[tab]), if (tab == 0) null else server, status) },
     ) { padding, twoColumns ->
         when (tab) {
-            0 -> ServerScreen(model, padding, twoColumns, openModels = { tab = 1 }, openRuns = { tab = 2 })
+            0 -> ServerScreen(model, padding, twoColumns, openModels = { tab = 1 }, openRuns = { tab = 2 }, openSettings = { tab = 3 })
             1 -> ModelsScreen(model, padding)
             2 -> RunsScreen(model, padding, twoColumns)
             else -> SettingsScreen(model, padding)
@@ -80,7 +81,11 @@ private fun Header(title: String, server: ServeHost.State?, status: EngineStatus
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(title, Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
+        Mark(32.dp, Modifier.padding(end = 4.dp))
+        Column(Modifier.weight(1f)) {
+            Text("ExecuServe", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
+        }
         if (server != null) {
             val look = ServerLook.of(server, status)
             val tone = LocalTones.current.of(look.mood)

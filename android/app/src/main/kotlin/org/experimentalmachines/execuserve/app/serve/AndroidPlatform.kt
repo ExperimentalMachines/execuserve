@@ -2,6 +2,7 @@
 
 package org.experimentalmachines.execuserve.app.serve
 
+import android.app.ActivityManager
 import android.content.Context
 import kotlinx.coroutines.CloseableCoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,7 +32,15 @@ class AndroidPlatform(context: Context) : HostPlatform {
 
     override val environment: StateFlow<Environment> = device.state
 
-    override fun runtime(): LlmRuntime = ExecuTorchRuntime()
+    private val activityManager = context.getSystemService(ActivityManager::class.java)
+
+    override fun runtime(): LlmRuntime = ExecuTorchRuntime(allowMultipleResidents = {
+        // Native weights/KV are outside the Java heap. Use the platform's pressure signal,
+        // not Runtime.freeMemory(), and do not pretend model file size predicts peak RSS.
+        val memory = ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memory)
+        !memory.lowMemory && memory.availMem > memory.threshold
+    })
 
     override fun lane(): CloseableCoroutineDispatcher = Executors.newSingleThreadExecutor { runnable ->
         Thread(null, runnable, "execuserve-lane", LANE_STACK_BYTES)

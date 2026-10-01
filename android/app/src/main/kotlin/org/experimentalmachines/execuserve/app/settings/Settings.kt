@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -149,6 +150,8 @@ class SettingsStore(private val context: Context) : HostStore {
             choice("bind", { it.bind }) { s, v -> s.copy(bind = v) },
             Field(booleanPreferencesKey("open_loopback"), { it.openLoopback }) { s, v -> s.copy(openLoopback = v) },
             Field(stringPreferencesKey("default_model"), { it.defaultModel }) { s, v -> s.copy(defaultModel = v) },
+            Field(stringSetPreferencesKey("preload_models"), { it.preloadModels }) { s, v -> s.copy(preloadModels = v) },
+            Field(intPreferencesKey("max_resident_models"), { it.maxResidentModels }) { s, v -> s.copy(maxResidentModels = v.coerceIn(1, 3)) },
             Field(booleanPreferencesKey("start_at_boot"), { it.startAtBoot }) { s, v -> s.copy(startAtBoot = v) },
             choice("wake", { it.wake }) { s, v -> s.copy(wake = v) },
             Field(intPreferencesKey("max_queued"), { it.maxQueued }) { s, v -> s.copy(maxQueued = v) },

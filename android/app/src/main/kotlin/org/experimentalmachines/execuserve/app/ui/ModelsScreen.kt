@@ -75,9 +75,14 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
                     key(entry.id) {
                         InstalledRow(
                             entry = entry,
-                            isDefault = settings?.defaultModel == entry.id,
+                            isDefault = settings?.let { entry.id == it.defaultModel || entry.id in it.preloadModels } == true,
                             status = status,
-                            onDefault = { on -> model.update { it.copy(defaultModel = if (on) entry.id else null) } },
+                            onDefault = { on -> model.update { current ->
+                                current.copy(
+                                    defaultModel = current.defaultModel.takeUnless { !on && it == entry.id },
+                                    preloadModels = if (on) current.preloadModels + entry.id else current.preloadModels - entry.id,
+                                )
+                            } },
                             onLoad = { model.load(entry.id) },
                             onUnload = { model.unload(entry.id) },
                             onDelete = { deleting = entry },
@@ -190,6 +195,8 @@ private fun InstalledRow(
                     Text(stringResource(R.string.model_loaded), style = MaterialTheme.typography.labelLarge, color = tones.good.color)
                 }
             }
+            Text(Format.bytes(entry.sizeBytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Expandable(stringResource(R.string.host_model_details)) {
             Text(entry.id, style = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.gutter), modifier = Modifier.padding(top = 4.dp)) {
                 entry.contextLength?.let { Fact(stringResource(R.string.fact_window), Format.window(it)) }
@@ -202,10 +209,11 @@ private fun InstalledRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            }
             if (broken != null) {
                 Text(stringResource(R.string.model_did_not_load, broken), color = tones.failed.color, style = MaterialTheme.typography.bodySmall)
             }
-            SwitchRow(stringResource(R.string.model_load_at_start), null, isDefault) { on -> onDefault(on) }
+            SwitchRow(stringResource(R.string.model_load_at_start), stringResource(R.string.host_startup_capacity_note), isDefault) { on -> onDefault(on) }
             // Pulled left by a text button's own padding, so the labels line up with the text above.
             FlowRow(Modifier.offset(x = -ACTION_INSET)) {
                 // Loading needs the engine, which exists only while serving.

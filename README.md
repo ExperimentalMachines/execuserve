@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/lockup-dark.svg">
+    <img src="docs/brand/lockup.svg" width="340" alt="ExecuServe">
+  </picture>
+</p>
+
 # ExecuServe
 
 **ExecuTorch models, served from your phone.**
@@ -47,7 +54,7 @@ reply = client.chat.completions.create(model="qwen3-1.7b",
 
 ## Chat in your browser
 
-Start a model, choose **Your network** in the Server tab, and open the **Browser chat**
+Start a model, choose **Your network** in Settings, and open the **Browser chat**
 address on another device on the same trusted network. On the phone itself, open
 `http://127.0.0.1:8080/`. The chat uses the root address, without `/v1`.
 
@@ -63,20 +70,43 @@ trusted LAN or an authenticated HTTPS tunnel.
 
 ### Copy or scan connection details
 
-The Server tab offers **Copy** and **Show QR** for each API URL, browser URL, API key,
+The Hosting tab offers **Copy** and **Show QR** for each API URL, browser URL, API key,
 and model ID. Settings → API keys offers the same actions. Copy confirms that the
 exact value reached the **phone’s** clipboard; a remote-device viewer does not
 necessarily forward that clipboard to your computer.
 
-QR codes are generated locally, without sending values to a website. API-key QR codes
-require an explicit reveal and close after one minute or when backgrounded. **Reveal
-on this phone** blocks screenshots/screen sharing; **Reveal in remote viewer** allows
-them for a private remote session such as Qualcomm Device Cloud. They contain the actual key, not an encrypted or one-time
-credential: anyone who scans one can use that key. URL QR codes never embed keys.
+If the device refuses clipboard access, Copy opens the QR dialog automatically.
+QR codes are generated locally. API-key QR codes require **Reveal QR code** and hide
+after one minute or when backgrounded. They are visible to remote viewers and screen
+capture: reveal only when ready to scan. The QR contains the actual key; hiding it does
+not expire that key. Revoke it in Settings when needed. URL QR codes never embed keys.
+
+### Host several models
+
+In Settings → Hosting capacity, choose how many models to keep ready (one by default,
+up to three), then load them from Hosting. Each model retains its own sequence cache.
+This uses more RAM; pressure can reduce residency. Automatic CPU threads are required
+for multiple resident models with the pinned ExecuTorch runtime.
+
+Each model's **Connect** section provides a scoped API base and browser address:
+
+- API: `http://<phone>:8080/models/<model-id>/v1`
+- Browser: `http://<phone>:8080/models/<model-id>/`
+
+Model IDs in paths are percent-encoded. Clients still send the model ID in their request.
+The original `/v1` API and root browser page continue to support all installed models.
+Scoped URLs share authentication, limits, and one compute queue; they are not separate
+security boundaries. Models can stay loaded together, but inference executes one request
+at a time. Independent parallel CPU execution would require a different runtime/process
+architecture, with additional memory and scheduling costs.
+
+Hosting shows separate prefill and decode measurements for each model. During prefill,
+it shows elapsed time and prompt character progress; token rates are reported when the
+runtime finishes measuring the request.
 
 ## Getting a model onto the phone
 
-- **In the app:** Models → Browse the catalog lists the XNNPACK exports published under
+- **In the app:** Library → Browse the catalog lists the XNNPACK exports published under
   [huggingface.co/experimentalmachines](https://huggingface.co/experimentalmachines).
   Downloads resume after a drop, are pinned to one repository commit, and are checked
   against the publisher's SHA-256 before the model is offered.
@@ -245,7 +275,9 @@ A console, not a chat, in PyTorch's colours (paper, ink and ember) and IBM Plex.
   limits.
 
 Light, dark or system theme, the same design at two brightnesses; every colour pair passes
-WCAG AA and APCA (`tools/design/contrast.py`).
+WCAG AA and APCA (`tools/design/contrast.py`). The mark, the Block, is a chip package seen
+from above with an ember die on its lid; `tools/design/mark.py` writes every copy of it,
+from the launcher icon to the web chat, and the brand kit in [docs/brand](docs/brand).
 
 ## Security
 

@@ -137,22 +137,29 @@ Three runtime facts shape everything above it, all measured in OpenWeights:
 
 ## One compute lane
 
-A phone runs one sequence at a time well. XNNPACK already spreads one sequence across every
-performance core, so two concurrent sequences each run at about half speed, the thermal
-budget drains twice as fast, and the second request's first token is no sooner than if it
-had waited. The exports are batch-size one, so there is no batching to win either.
+ExecuTorch's Android XNNPACK binding uses one process-wide thread pool. The pinned
+pthreadpool API serializes concurrent calls to the same pool; adding generation threads
+would not create independent parallel CPU compute. These exports also use batch size one.
+Latency, throughput and thermal effects of another scheduler would need device measurements.
 
-So ExecuServe has exactly one **compute lane**: a single coroutine on a single-parallelism
+ExecuServe therefore keeps one **compute lane**: a single coroutine on a single-parallelism
 dispatcher that owns every call into every runtime. Loading, unloading, prefilling,
 generating and resetting are all jobs on that lane. Nothing else touches a session, which
 removes every data race on the runtime and on the cache record by construction rather
 than by locking.
 
-One model is **resident** (loaded, mapped, holding its KV cache) at a time. The engine can
-hold several under a memory budget, but on ExecuTorch opening a second model resizes the
-process-wide thread pool and frees the one the first model's runtime still points at (see
-CPU threads), so `EngineConfig.maxResidentModels` stays 1. Residency is about avoiding reload
-time in any case, not about running in parallel: execution stays on the one lane.
+A model is **resident** when it is loaded, mapped and holding its own KV cache. The default
+is one resident; Settings can request up to two or three. With automatic CPU threads, the
+Android adapter preserves a fixed process-wide pool so several models can remain resident.
+A custom thread count limits residency to one. Each model retains its own client-owned
+sequence cache and reply ledger. All model URLs share the same listener, queue and limits.
+
+The configured count is a ceiling, not a prediction that those models fit in RAM. Weights,
+KV caches and native workspaces all consume memory. Android's low-memory signal reduces the
+safe ceiling to one; idle extras close only on the lane, including after an active request.
+Critical memory callbacks release residents through that same lane. Merely hiding the
+console to open another client does not evict models. Residency avoids model reloads;
+generation still runs one request at a time.
 
 ## Request lifecycle
 
@@ -464,7 +471,7 @@ has only temperature. The response header `x-execuserve-ignored` names them.
 | Queue full | 503 with `Retry-After` derived from recent job times; a client over its own share gets 429 |
 | Prompt longer than the window | 400 `context_length_exceeded` before queueing (estimate) or from the runtime |
 | Model file deleted while resident | the mapping keeps working; unload on next rescan |
-| Request for a model not resident | loaded on the lane; memory budget evicts the least-recently-used idle model |
+| Request for a model not resident | loaded on the lane; the residency ceiling evicts the least-recently-used idle model when needed |
 | Load fails (bad file, wrong runtime version) | that request fails 500 with the runtime's message; the model is marked broken until rescanned |
 | Generation throws | job fails, cache cleared, runtime reset; the next job is unaffected |
 | Runtime hangs | the watchdog marks the engine `WEDGED` after the grace period; admission closes and the service restarts the process |
@@ -474,7 +481,7 @@ has only temperature. The response header `x-execuserve-ignored` names them.
 | Port in use | server state `failed` with the reason; nothing half-started |
 | Thermal SEVERE | 503 for new work; running job finishes |
 | Process killed | `START_STICKY` restarts the service with the saved configuration, and the console says it restarted. On HyperOS only if Autostart is allowed: without it a crash ended serving for good on the POCO (MIUI app op 10008 logged the rejection); with it the server was back in about 2 s |
-| Two models alternating | affinity groups each model's requests; about 3 s per switch on the POCO for a 1.2B model, since one model is loaded at a time (see Threads) |
+| Two models alternating | when both remain resident, each retains its cache and avoids a reload; at capacity one, affinity groups requests to reduce reloads |
 | A second key sends a conversation that shares a prefix with the first key's | it starts over and reads `cached_tokens: 0` |
 
 ## What has been measured
@@ -509,9 +516,24 @@ model loads, and resizing after that frees the pool under it. The first version 
 from ExecuTorch's own log buffer (`Module.readLogBufferStatic`), shown in Settings, the status
 JSON and `/metrics`, and recorded on every run.
 
-The same mechanism is why one model is kept loaded at a time: opening a second model resizes
-the pool and frees the one the first model's runtime points at. Measured on the POCO,
-Qwen3-1.7B, a 704-token prompt, three runs each:
+The important distinction is changing the count. In ExecuTorch 1.4.0, a reset to the
+existing count is explicitly a no-op. Automatic-thread sessions therefore share a stable
+pool. Metadata probes must pass its known count explicitly: ordinary `Module.load` defaults
+to half the logical cores, which can differ from the LLM constructor's default. The adapter
+tracks live sessions and the pinned count across the process, synchronizes lifecycle and
+probe operations, and freezes each session's thread choice until it closes. A live settings
+change unloads existing sessions before the next model adopts its new thread choice.
+
+A manual override still permits only one resident, because constructing another LLM would
+restore the constructor's default before reapplying the override. Unidentified pool counts
+also fall back to one resident. These safeguards need no custom native build.
+
+Primary implementation references: [LLM constructor](https://github.com/pytorch/executorch/blob/v1.4.0/extension/android/jni/jni_layer_llama.cpp#L156-L165),
+[generic Module defaults](https://github.com/pytorch/executorch/blob/v1.4.0/extension/android/jni/jni_layer.cpp#L300-L319),
+[same-count reset](https://github.com/pytorch/executorch/blob/v1.4.0/extension/threadpool/threadpool.cpp#L65-L79),
+and [shared-pool call serialization](https://github.com/Maratyszcza/pthreadpool/blob/a56dcd79c699366e7ac6466792c3025883ff7704/include/pthreadpool.h#L293-L294).
+
+Earlier single-model measurements on the POCO, Qwen3-1.7B, a 704-token prompt, three runs each:
 
 | Threads | Prefill tok/s | Decode tok/s |
 |---|---|---|
@@ -563,7 +585,7 @@ taken, what was not, decided with codex:
 | Idea | Here | Why |
 |---|---|---|
 | Anthropic `/v1/messages` | adopted | every major server has it; agents built on Anthropic's SDKs |
-| stateful Responses (`previous_response_id`) | adopted, bounded and per key | LM Studio does it; agents use it; cheap, since continuing hits the cache |
+| stateful Responses (`previous_response_id`) | adopted, bounded and per key/model | LM Studio does it; agents use it; cheap, since continuing hits the cache |
 | Prometheus `/metrics` | adopted | llama.cpp and OlliteRT; scrapers exist |
 | `/apply-template` | adopted | how a client debugs a cache miss |
 | prompt progress in the stream | adopted, opt-in, in characters | llama.cpp's `return_progress`; tokens would be estimates |
@@ -572,7 +594,8 @@ taken, what was not, decided with codex:
 | a thread setting | adopted | PocketPal, MNN and llama.cpp have one; measured above |
 | `/tokenize`, `count_tokens` | not | no tokenizer on this side of the runtime; a count would be a guess |
 | grammar-constrained `json_schema`, forced tool choice | not | needs logits; a prefilled opener would promise what it cannot keep |
-| continuous batching, slots, several resident models | not | one sequence per `LlmModule`, and the thread pool (see above) |
+| several resident models | supported with automatic CPU threads | separate model caches share one unchanged thread pool and compute queue |
+| continuous batching, independent parallel generation | not implemented | batch-size-one exports and a shared CPU pool; would need a separately validated scheduler/backend |
 | KV save and restore, partial rollback | not | `LlmModule` exposes neither |
 | Ollama's `/api/*` | not | its clients speak OpenAI too |
 | energy per token | not | battery current measures the whole phone, not the model |
@@ -593,10 +616,23 @@ for Start and selection, since white on the pure ember fails contrast. A state i
 a coloured word on a neutral panel, never a painted panel; failure is crimson, off ember's
 hue. Type is IBM Plex (Plex Mono is what pytorch.org sets code in): Sans for everything read,
 with tabular figures; Mono only for what is copied. The fonts ship subset to Latin, Greek and
-Cyrillic, about 480 KB. The mark is ExecuTorch's chip turned on its point, holding a prompt in
-ember with the spark that is also the status light; the themed and notification icons are the
-same silhouette with the prompt cut out, computed rather than drawn. Every text and mark pair
-passes WCAG AA and APCA (`tools/design/contrast.py`).
+Cyrillic, about 480 KB.
+
+The mark is the Block: a chip package seen from above as one solid object, its three faces
+parted by cuts, legs on the two lower edges and an ember die on the lid. It belongs to the
+chip-with-pins family ExecuTorch's emblem sits in without borrowing PyTorch's symbol, which
+the Foundation's guidelines rule out ("don't incorporate our logo into yours"). The cuts are
+real gaps rather than lines painted in a background colour, so one drawing sits on any
+ground. In one colour (themed icon, notification), where Android keeps only the shape and
+ember cannot show, the die stays solid in a socket cut into the lid rather than becoming a
+hole the background shows through. Below 40 px a small drawing takes over, with wider cuts,
+two legs a side and a larger die.
+`tools/design/mark.py` draws it once and writes every copy: the launcher's foreground and
+monochrome layers (the farthest point 30 from centre, inside the 33 every mask keeps), the
+notification icon, `MarkPaths.kt` for the console header, the web chat's favicon and inline
+symbols (inline so the body follows the chat's own theme toggle), and `docs/brand/`. The die
+keeps the true ember in both themes; interactive text uses the darker accessible ember.
+
 
 ## Testing
 
@@ -705,3 +741,19 @@ The shell is public, while model discovery and generation keep the API key and H
 checks. No key is embedded in assets. The client stores keys and conversations only
 in memory, renders model text using DOM text nodes, and aborts the HTTP stream when
 stopped. Reloading discards the session.
+
+The settings popup captures temperature, output-token limit, and a system prompt for
+each submitted turn; retries reuse that turn's settings. User messages remain in the
+next request even when a reply stopped, failed, or exhausted its budget during reasoning.
+Only final assistant content is replayed as an assistant answer. The client never
+silently drops old turns to fit the model's context window.
+
+Each completed or stopped generation has an expandable measurements panel: prefill
+and decode rates, input/output/cached token counts, queue/load/phase timings, and
+server `first_token_ms` when available. Browser elapsed time includes network overhead;
+a browser-observed first-output time is labelled separately if server timing is absent.
+Generation settings change sampling and instructions; they do not train the model.
+
+The browser output selector includes “Available model context”, which omits `max_tokens`.
+The engine and model still enforce context capacity; prompt/history and generated tokens
+share that capacity. This setting does not expand a compiled model’s context window.

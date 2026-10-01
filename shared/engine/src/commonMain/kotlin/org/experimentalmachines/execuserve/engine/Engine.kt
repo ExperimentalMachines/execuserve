@@ -36,11 +36,10 @@ import kotlin.time.ExperimentalTime
  *
  * **One compute lane.** Every call into every [LlmSession] (load, prefill, generate, reset,
  * close) happens in one coroutine on [lane], which production code backs with a single
- * thread. A phone's CPU runs one sequence well: XNNPACK already spreads it across every
- * performance core, so a second concurrent sequence would halve both and heat the phone
- * twice as fast, and the exports are batch-size one, so there is no batching to win.
- * Serialising on the lane removes every race on the runtime and on the cache record by
- * construction.
+ * thread. Several models may stay resident, but requests share the compute lane. XNNPACK
+ * already parallelizes each sequence, and the Android binding uses a process-wide pool;
+ * independent concurrent generation needs separate backend validation. Serializing here
+ * removes races on native sessions and cache records without reloading between models.
  *
  * **Everything else is off the lane and never blocks it:** admission ([submit]) and the
  * reaper that expires queued jobs, enforces deadlines and notices a wedged native call.
@@ -125,6 +124,8 @@ class Engine(
         data class Unload(val id: String?) : Action
 
         data class EvictIdle(val force: Boolean) : Action
+
+        data object TrimResidents : Action
 
         data object ForgetFailures : Action
     }
@@ -515,6 +516,7 @@ class Engine(
                     publishQueueLocked()
                 }
             }
+            trimResidents()
             setLane(LaneState.IDLE, running = null)
             publishResidents()
             meanJobMs = meanJobMs * (1 - EWMA) + (clock() - started) * EWMA
@@ -549,16 +551,26 @@ class Engine(
 
         var fedChars = 0
         var fedMs = 0L
+        var prefillStarted = 0L
+        val totalChars = fresh.length
+        fun currentProgress(tokens: Int = 0, firstToken: Long = 0) =
+            running(job, tokens, reused, firstToken).copy(
+                prefillStartedAtMs = prefillStarted,
+                promptChars = totalChars,
+                prefilledChars = if (firstToken > 0) totalChars else fedChars,
+            )
         try {
             if (!extending) {
                 if (resident.dirty) session.reset()
                 resident.dirty = false
                 resident.heldTokens = 0
             }
-            setLane(LaneState.PREFILLING, running = running(job, 0, reused))
+            prefillStarted = clock()
+            setLane(LaneState.PREFILLING, running = currentProgress())
             val total = fresh.length
-            val readingSince = clock()
+            val readingSince = prefillStarted
             fun progress() {
+                setLane(LaneState.PREFILLING, running = currentProgress())
                 if (job.request.reportProgress) job.emit(JobEvent.Progress(total - fresh.length, total, reused, clock() - readingSince))
             }
             progress()
@@ -592,18 +604,22 @@ class Engine(
         var firstTokenAt = 0L
         var lastProgressAt = 0L
         var windowFilled = false
-        setLane(LaneState.GENERATING, running = running(job, 0, reused))
+        // generate() evaluates the remaining prompt before it produces its first token.
+        setLane(LaneState.PREFILLING, running = currentProgress())
         resident.dirty = true
 
         val outcome = try {
             session.generate(fresh, temperature) { fragment ->
                 val now = clock()
-                if (firstTokenAt == 0L) firstTokenAt = now
+                if (firstTokenAt == 0L) {
+                    firstTokenAt = now
+                    setLane(LaneState.GENERATING, running = currentProgress(firstToken = firstTokenAt))
+                }
                 val out = pipeline.accept(fragment)
                 if (!out.isEmpty) job.emit(JobEvent.Delta(out.content, out.reasoning))
                 if (now - lastProgressAt >= PROGRESS_MS) {
                     lastProgressAt = now
-                    _status.update { it.copy(running = running(job, pipeline.tokens, reused, firstTokenAt)) }
+                    _status.update { it.copy(running = currentProgress(pipeline.tokens, firstTokenAt)) }
                 }
                 // The only place stop() is called: inside the running generation's own
                 // callback, so it cannot reach any other job. Re-issued on every token
@@ -723,6 +739,7 @@ class Engine(
                         .filter { action.force || (idleFor > 0 && now - it.lastUsedMs >= idleFor) }
                         .forEach(::evict)
                 }
+                Action.TrimResidents -> trimResidents()
                 Action.ForgetFailures -> {
                     broken.clear()
                     _status.update { it.copy(broken = emptyMap()) }
@@ -737,12 +754,13 @@ class Engine(
 
     /** The resident session for [entry], loading it (and evicting to make room) if needed. */
     private fun residentFor(entry: ModelEntry): Resident {
+        trimResidents(keep = entry.id)
         residents[entry.id]?.let {
             it.lastUsedMs = clock()
             return it
         }
         broken[entry.id]?.let { throw RuntimeFailure(it) }
-        while (residents.isNotEmpty() && residents.size >= config.maxResidentModels.coerceAtLeast(1)) {
+        while (residents.isNotEmpty() && residents.size >= minOf(config.maxResidentModels, runtime.maxResidentModels).coerceAtLeast(1)) {
             evict(residents.values.minBy { it.lastUsedMs })
         }
         setLane(LaneState.LOADING, running = current?.let { running(it, 0, 0) })
@@ -764,6 +782,20 @@ class Engine(
         window?.let { knownWindows = knownWindows + (entry.id to it) }
         publishResidents()
         return resident
+    }
+
+    /** Only the lane closes sessions; pressure never frees a model during native execution. */
+    private fun trimResidents(keep: String? = null) {
+        val capacity = minOf(config.maxResidentModels, runtime.maxResidentModels).coerceAtLeast(1)
+        var changed = false
+        while (residents.size > capacity) {
+            val oldest = residents.values.filter { it.entry.id != keep }.minByOrNull { it.lastUsedMs } ?: break
+            evict(oldest)
+            changed = true
+        }
+        // An already-resident request returns from residentFor immediately after this.
+        // Publish now so dashboards never show an evicted model throughout that request.
+        if (changed) publishResidents()
     }
 
     private fun evict(resident: Resident) {
@@ -804,11 +836,15 @@ class Engine(
                 watched = null
             }
 
-            val idleFor = config.idleUnloadMs
-            if (idleFor > 0 && running == null && now >= idleCheckAt) {
+            if (running == null && now >= idleCheckAt && !stopping) {
                 idleCheckAt = now + IDLE_CHECK_MS
-                val stale = _status.value.resident.any { now - it.lastUsedMs >= idleFor }
-                if (stale && !stopping) scope.launch { runCatching { evictIdle(force = false) } }
+                val capacity = minOf(config.maxResidentModels, runtime.maxResidentModels).coerceAtLeast(1)
+                if (_status.value.resident.size > capacity) {
+                    scope.launch { runCatching { command(Action.TrimResidents) } }
+                }
+                val idleFor = config.idleUnloadMs
+                val stale = idleFor > 0 && _status.value.resident.any { now - it.lastUsedMs >= idleFor }
+                if (stale) scope.launch { runCatching { evictIdle(force = false) } }
             }
         }
     }

@@ -33,6 +33,8 @@ data class HostSettings(
     val corsOrigins: String = "",
     val extraHosts: String = "",
     val defaultModel: String? = null,
+    val preloadModels: Set<String> = emptySet(),
+    val maxResidentModels: Int = ENGINE.maxResidentModels,
     val startAtBoot: Boolean = false,
     val allowExternalStart: Boolean = true,
     val wake: WakePolicy = WakePolicy.ALWAYS,
@@ -58,6 +60,7 @@ data class HostSettings(
     )
 
     fun engineConfig() = ENGINE.copy(
+        maxResidentModels = maxResidentModels.coerceIn(1, 3),
         maxQueued = maxQueued,
         maxPerClient = maxPerClient,
         queueTimeoutMs = queueTimeoutSeconds * MS_PER_SECOND,
@@ -72,6 +75,11 @@ data class HostSettings(
         keepReasoningInHistory = keepReasoningInHistory,
         minBatteryPercent = minBatteryPercent,
     )
+
+    /** Resolve aliases and discard missing models before they consume a startup slot. */
+    fun startupModels(resolve: (String) -> String? = { it }): List<String> =
+        (listOfNotNull(defaultModel) + preloadModels.sorted()).mapNotNull(resolve).distinct()
+            .take(if (threads == 0) maxResidentModels.coerceIn(1, 3) else 1)
 
     /** Whether going from [running] to this needs the listener restarted; engine limits apply live. */
     fun needsRestartFrom(running: HostSettings) = serverSettings() != running.serverSettings()

@@ -1,6 +1,7 @@
 package org.experimentalmachines.execuserve.server
 
 import io.ktor.http.ContentType
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.response.header
 import io.ktor.server.response.respondText
@@ -17,12 +18,27 @@ internal fun Route.webChat() {
     )
     assets.forEach { (path, asset) ->
         get(path) {
-            call.response.header("Cache-Control", "no-cache")
-            call.response.header("X-Content-Type-Options", "nosniff")
-            call.response.header("Referrer-Policy", "no-referrer")
-            call.response.header("X-Frame-Options", "DENY")
-            call.response.header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+            call.webHeaders()
             call.respondText(asset.first, asset.second)
         }
     }
+}
+
+/** Assets stay at their absolute shared URLs; the frontend derives its API mount from the pathname. */
+internal fun Route.modelChat(ctx: ServerContext) {
+    get("/") {
+        call.handle {
+            hostedModel(ctx)
+            webHeaders()
+            respondText(WebAssets.html, ContentType.Text.Html)
+        }
+    }
+}
+
+private fun ApplicationCall.webHeaders() {
+    response.header("Cache-Control", "no-cache")
+    response.header("X-Content-Type-Options", "nosniff")
+    response.header("Referrer-Policy", "no-referrer")
+    response.header("X-Frame-Options", "DENY")
+    response.header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 }

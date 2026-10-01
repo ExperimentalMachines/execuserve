@@ -15,6 +15,8 @@ import io.ktor.server.request.receiveChannel
 import io.ktor.server.response.header
 import io.ktor.server.response.respondBytesWriter
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -22,6 +24,7 @@ import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.readBuffer
 import io.ktor.utils.io.writeStringUtf8
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.ChannelResult
 import kotlinx.coroutines.selects.onTimeout
 import kotlinx.coroutines.selects.select
@@ -117,53 +120,61 @@ fun Application.execuServe(ctx: ServerContext) {
                 if (stopping) HttpStatusCode.ServiceUnavailable else HttpStatusCode.OK,
             )
         }
-        get("/v1/models") {
-            call.handle {
-                client(ctx)
-                respondJson(ModelResponses.list(ctx.engine.installed().map { modelOut(ctx, it) }))
-            }
-        }
-        get("/v1/models/{id...}") {
-            call.handle {
-                client(ctx)
-                val name = parameters.getAll("id").orEmpty().joinToString("/")
-                val entry = ctx.engine.resolve(name) ?: throw ApiError.modelNotFound(name, ctx.engine.installed().map { it.id })
-                respondJson(modelOut(ctx, entry).toJson())
-            }
-        }
-        post("/v1/chat/completions") { call.handle { chat(ctx) } }
-        post("/v1/completions") { call.handle { completion(ctx) } }
-        post("/v1/responses") { call.handle { responses(ctx) } }
-        // Not wrapped in handle: the Messages API answers its errors in Anthropic's shape.
-        post("/v1/messages") { call.messages(ctx) }
-        post("/apply-template") { call.handle { applyTemplate(ctx) } }
+        apiRoutes(ctx)
         telemetry(ctx)
-        get("/v1/execuserve/status") {
-            call.handle {
-                val caller = client(ctx)
-                // A key sees its own recent requests, not what other clients asked.
-                val status = ctx.engine.status.value.let { it.copy(recent = it.recent.filter { run -> run.clientId == caller.id }) }
-                respondJson(StatusJson.of(status, ctx.version, ctx.threads()))
-            }
+        route("/models/{hostedModel}") {
+            modelChat(ctx)
+            apiRoutes(ctx)
         }
-        post("/v1/execuserve/models/{id}/load") {
-            call.handle {
-                client(ctx)
-                val id = parameters["id"].orEmpty()
-                try {
-                    ctx.engine.load(id)
-                } catch (failure: RuntimeFailure) {
-                    throw ApiError(500, "server_error", failure.message ?: "The model could not be loaded.", "model_load_failed")
-                }
-                respondJson(StatusJson.of(ctx.engine.status.value, ctx.version, ctx.threads()))
-            }
+    }
+}
+
+/** Both mounts use one engine, key identity, queue and resource policy. */
+private fun Route.apiRoutes(ctx: ServerContext) {
+    get("/v1/models") {
+        call.handle {
+            client(ctx)
+            respondJson(ModelResponses.list(hostedModels(ctx).map { modelOut(ctx, it) }))
         }
-        post("/v1/execuserve/models/{id}/unload") {
-            call.handle {
-                client(ctx)
-                ctx.engine.unload(parameters["id"].orEmpty())
-                respondJson(StatusJson.of(ctx.engine.status.value, ctx.version, ctx.threads()))
+    }
+    get("/v1/models/{id...}") {
+        call.handle {
+            client(ctx)
+            val name = routeParameters.getAll("id").orEmpty().joinToString("/")
+            val entry = resolveModel(ctx, name)
+            respondJson(modelOut(ctx, entry).toJson())
+        }
+    }
+    post("/v1/chat/completions") { call.handle { chat(ctx) } }
+    post("/v1/completions") { call.handle { completion(ctx) } }
+    post("/v1/responses") { call.handle { responses(ctx) } }
+    // Not wrapped in handle: the Messages API answers its errors in Anthropic's shape.
+    post("/v1/messages") { call.messages(ctx) }
+    post("/apply-template") { call.handle { applyTemplate(ctx) } }
+    get("/v1/execuserve/status") {
+        call.handle {
+            val caller = client(ctx)
+            // A key sees its own recent requests, not what other clients asked.
+            respondJson(statusBody(ctx, caller.id))
+        }
+    }
+    post("/v1/execuserve/models/{id}/load") {
+        call.handle {
+            val caller = client(ctx)
+            val id = resolveModel(ctx, routeParameters["id"].orEmpty()).id
+            try {
+                ctx.engine.load(id)
+            } catch (failure: RuntimeFailure) {
+                throw ApiError(500, "server_error", failure.message ?: "The model could not be loaded.", "model_load_failed")
             }
+            respondJson(statusBody(ctx, caller.id))
+        }
+    }
+    post("/v1/execuserve/models/{id}/unload") {
+        call.handle {
+            val caller = client(ctx)
+            ctx.engine.unload(resolveModel(ctx, routeParameters["id"].orEmpty()).id)
+            respondJson(statusBody(ctx, caller.id))
         }
     }
 }
@@ -176,8 +187,7 @@ private suspend fun ApplicationCall.chat(ctx: ServerContext) {
     val client = client(ctx)
     val tree = readObject(ctx.settings.maxBodyBytes)
     val request = decode<ChatCompletionRequest>(tree)
-    val entry = ctx.engine.resolve(request.model)
-        ?: throw ApiError.modelNotFound(request.model, ctx.engine.installed().map { it.id })
+    val entry = resolveModel(ctx, request.model)
     val generation = Translate.chat(request, client, ctx.engine.templateFor(entry))
     markIgnored(tree, Translate.droppedTools(request))
     val job = submit(ctx, generation)
@@ -204,8 +214,7 @@ private suspend fun ApplicationCall.applyTemplate(ctx: ServerContext) {
     val client = client(ctx)
     val tree = readObject(ctx.settings.maxBodyBytes)
     val request = decode<ChatCompletionRequest>(tree)
-    val entry = ctx.engine.resolve(request.model)
-        ?: throw ApiError.modelNotFound(request.model, ctx.engine.installed().map { it.id })
+    val entry = resolveModel(ctx, request.model)
     val prompt = try {
         ctx.engine.render(Translate.chat(request, client, ctx.engine.templateFor(entry)))
     } catch (refusal: Refusal) {
@@ -257,7 +266,8 @@ private fun chatBody(id: String, created: Long, result: GenerationResult): JsonO
     timings = timingsOf(result),
 )
 
-internal suspend fun submit(ctx: ServerContext, request: GenerationRequest): Job = try {
+internal suspend fun ApplicationCall.submit(ctx: ServerContext, request: GenerationRequest): Job = try {
+    resolveModel(ctx, request.model)
     ctx.engine.submit(request)
 } catch (refusal: Refusal) {
     throw refusalError(refusal)
@@ -328,6 +338,7 @@ internal suspend fun ApplicationCall.stream(job: Job, format: StreamFormat) {
 
         response.header(HttpHeaders.CacheControl, "no-cache")
         response.header("X-Accel-Buffering", "no")
+        val written = CompletableDeferred<Unit>()
         respondBytesWriter(contentType = ContentType.Text.EventStream) {
             try {
                 format.opening().forEach { send(it) }
@@ -351,8 +362,15 @@ internal suspend fun ApplicationCall.stream(job: Job, format: StreamFormat) {
                 // A write to a closed socket is how a disconnect shows itself.
                 job.cancel(FailureKind.CLIENT_GONE)
                 throw gone
+            } finally {
+                written.complete(Unit)
             }
         }
+        // Some engines schedule the body writer and return immediately from respond().
+        // Keep this handler alive until it finishes; otherwise our cleanup mistakes that
+        // handoff for a disconnect and cancels a healthy request during prompt evaluation.
+        // A real disconnect still cancels this await and reaches the cleanup below.
+        written.await()
     } finally {
         if (!job.outcome.isCompleted) job.cancel(FailureKind.CLIENT_GONE)
     }

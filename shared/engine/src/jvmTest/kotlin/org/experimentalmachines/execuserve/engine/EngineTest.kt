@@ -42,7 +42,7 @@ class EngineTest {
         ModelEntry(id, ModelFiles("/models/$id.pte", "/models/$id.json"), family = family, contextLength = window)
 
     private fun engine(
-        runtime: FakeRuntime,
+        runtime: LlmRuntime,
         models: List<ModelEntry> = listOf(model("lfm")),
         config: EngineConfig = EngineConfig(),
     ) = Engine(runtime, StaticModelSource(models), lane, scope, config, env, onWedged = { wedgedCalls++ })
@@ -332,6 +332,81 @@ class EngineTest {
         val order = runtime.log.filter { it.startsWith("generate") }.map { it.substringAfter("user\n").take(1) }
         assertEquals(listOf("1", "2", "3"), order)
         assertTrue("close /models/a.pte" in runtime.log, "one resident model at a time")
+    }
+
+    @Test
+    fun separateResidentModelsRetainTheirOwnConversationCaches() = test {
+        val runtime = FakeRuntime(reply = { listOf("Hello", "<|im_end|>") })
+        val engine = engine(runtime, listOf(model("a"), model("b")), EngineConfig(maxResidentModels = 2))
+        engine.submit(chat(user("First A"), model = "a")).collect()
+        engine.submit(chat(user("First B"), model = "b")).collect()
+        val continuedA = engine.submit(chat(user("First A"), assistant("Hello"), user("Next A"), model = "a")).collect()
+        val continuedB = engine.submit(chat(user("First B"), assistant("Hello"), user("Next B"), model = "b")).collect()
+        assertEquals(2, runtime.sessions.size, "A/B/A/B must not reopen either model")
+        assertEquals(setOf("a", "b"), engine.status.value.resident.map { it.id }.toSet())
+        assertTrue(continuedA.result.cachedTokens > 0)
+        assertTrue(continuedB.result.cachedTokens > 0)
+        assertFalse(runtime.sessions.any { it.closed })
+        engine.unload("a")
+        assertEquals(listOf("b"), engine.status.value.resident.map { it.id })
+        assertTrue(runtime.sessions[0].closed)
+        assertFalse(runtime.sessions[1].closed)
+    }
+
+    @Test
+    fun residencyNeverExceedsTheRuntimeSafetyLimit() = test {
+        val fake = FakeRuntime()
+        val runtime = object : LlmRuntime by fake {
+            override val maxResidentModels = 1
+        }
+        val engine = engine(runtime, listOf(model("a"), model("b")), EngineConfig(maxResidentModels = 3))
+        engine.load("a")
+        engine.load("b")
+        assertEquals(listOf("b"), engine.status.value.resident.map { it.id })
+        assertTrue(fake.sessions[0].closed)
+        assertFalse(fake.sessions[1].closed)
+    }
+
+    @Test
+    fun reducedRuntimeCapacityEvictsIdleSessionsBeforeTheNextRequest() = test {
+        val fake = FakeRuntime()
+        var capacity = 2
+        val runtime = object : LlmRuntime by fake {
+            override val maxResidentModels get() = capacity
+        }
+        val engine = engine(runtime, listOf(model("a"), model("b")), EngineConfig(maxResidentModels = 2))
+        engine.load("a")
+        engine.load("b")
+        capacity = 1
+        assertIs<JobEvent.Finished>(engine.submit(chat(user("Keep B"), model = "b")).collect().end)
+        assertEquals(listOf("b"), engine.status.value.resident.map { it.id })
+        assertTrue(fake.sessions[0].closed)
+        assertFalse(fake.sessions[1].closed)
+    }
+
+    @Test
+    fun finalRuntimePromptEvaluationStaysPrefillingUntilTheFirstToken() = test {
+        val gate = CountDownLatch(1)
+        val runtime = FakeRuntime().apply { hang = gate; tokenDelayMs = 100 }
+        val engine = engine(runtime)
+        val job = engine.submit(chat(user("Read this prompt")))
+        try {
+            val prefill = engine.status.first { it.lane == LaneState.PREFILLING }
+            assertTrue(prefill.running!!.prefillStartedAtMs > 0)
+            assertTrue(prefill.running!!.promptChars > 0)
+            assertEquals(0, prefill.running!!.firstTokenAtMs)
+            // The fake enters generate(), then waits before emitting its first token.
+            while (runtime.log.none { it.startsWith("generate ") }) delay(5)
+            assertEquals(LaneState.PREFILLING, engine.status.value.lane)
+            gate.countDown()
+            val decoding = engine.status.first { it.lane == LaneState.GENERATING }
+            assertTrue(decoding.running!!.firstTokenAtMs > 0)
+            assertEquals(decoding.running!!.promptChars, decoding.running!!.prefilledChars)
+            assertTrue(decoding.running!!.prefillElapsedMs(Long.MAX_VALUE) < Long.MAX_VALUE / 2)
+            assertIs<JobEvent.Finished>(job.collect().end)
+        } finally {
+            gate.countDown()
+        }
     }
 
     @Test

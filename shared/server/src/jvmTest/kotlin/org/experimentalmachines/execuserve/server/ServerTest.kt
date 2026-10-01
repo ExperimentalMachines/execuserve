@@ -103,6 +103,18 @@ class ServerTest {
     }
 
     @Test
+    fun chatMarkup() = serve {
+        // style-src 'self' drops inline styles without a word, and the mark's die fell back to
+        // black that way once: the page and the mark colour only through chat.css and attributes.
+        for (path in listOf("/", "/chat/assets/mark.svg")) {
+            val body = http.get(path).bodyAsText()
+            assertFalse(Regex("""\sstyle\s*=""").containsMatchIn(body), "$path has an inline style attribute")
+            assertFalse("<style" in body, "$path has a <style> element")
+        }
+        assertTrue("""fill="#EE4C2C"""" in http.get("/").bodyAsText(), "the mark's die is ember")
+    }
+
+    @Test
     fun chatAssetsRetainHostProtection() = serve {
         for (path in listOf("/", "/chat/assets/chat.js", "/chat/assets/chat.css", "/chat/assets/mark.svg")) {
             assertEquals(HttpStatusCode.Forbidden, http.get(path) { header(HttpHeaders.Host, "attacker.example") }.status)
@@ -166,10 +178,11 @@ class ServerTest {
         assertEquals("qwen3-1.7b-8da4w-gptq-2k", body["model"]!!.jsonPrimitive.content)
         val usage = body["usage"]!!.jsonObject
         assertEquals(3, usage["completion_tokens"]!!.jsonPrimitive.content.toInt())
+        assertTrue(body["timings"]!!.jsonObject["first_token_ms"]!!.jsonPrimitive.content.toLong() >= 0)
     }
 
     @Test
-    fun aStreamIsFramedAsTheSdksExpect() = serve {
+    fun aStreamIsFramedAsTheSdksExpect() = serve(runtime = FakeRuntime().apply { tokenDelayMs = 5 }) {
         val text = chat("""$hello,"stream":true,"stream_options":{"include_usage":true}}""").bodyAsText()
         val events = text.split("\n\n").filter { it.startsWith("data: ") }.map { it.removePrefix("data: ") }
         assertEquals("[DONE]", events.last())
@@ -185,6 +198,10 @@ class ServerTest {
         val usage = chunks.last()
         assertTrue(usage["choices"]!!.jsonArray.isEmpty())
         assertTrue("usage" in usage)
+        val firstTokenMs = usage["timings"]!!.jsonObject["first_token_ms"]!!.jsonPrimitive.content.toLong()
+        assertTrue(firstTokenMs > 0, "The first token includes the runtime's initial token delay")
+        val status = json(http.get("/v1/execuserve/status") { header(HttpHeaders.Authorization, "Bearer ${key.secret}") }.bodyAsText())
+        assertEquals(firstTokenMs, status["recent"]!!.jsonArray.first().jsonObject["first_token_ms"]!!.jsonPrimitive.content.toLong())
         assertTrue(chunks.all { it["id"] == chunks.first()["id"] })
     }
 

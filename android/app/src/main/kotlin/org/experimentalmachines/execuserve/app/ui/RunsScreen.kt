@@ -69,25 +69,19 @@ fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
     val shown = remember(ordinary, filter) { if (filter == null) ordinary else ordinary.filter { it.model == filter } }
     val models = remember(ordinary) { ordinary.map { it.model }.distinct() }
 
-    // On a wide screen the comparison and the benchmark stand beside the list, always open;
-    // on a phone they are a tap away, so the list of what just happened comes first.
     val side: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
-        item(key = "compare") { ComparePanel(model, ordinary) }
-        item(key = "benchmark") { BenchmarkPanel(model, installed.map { it.id }, server is ServeHost.State.Running, runs) }
-    }
-    val main: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
-        if (!wide) {
-            item(key = "actions") {
-                Panel {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.row), verticalArrangement = Arrangement.spacedBy(Dimens.row)) {
-                        OutlineButton(stringResource(if (comparing) R.string.runs_compare_close else R.string.runs_compare), onClick = { comparing = !comparing })
-                        OutlineButton(stringResource(if (benchmarking) R.string.runs_benchmark_close else R.string.runs_benchmark), onClick = { benchmarking = !benchmarking })
-                    }
+        item(key = "diagnostics") {
+            Panel {
+                Expandable(stringResource(R.string.host_diagnostics), stringResource(R.string.host_diagnostics_hint)) {
+                    Action(stringResource(if (comparing) R.string.runs_compare_close else R.string.runs_compare), { comparing = !comparing })
+                    Action(stringResource(if (benchmarking) R.string.runs_benchmark_close else R.string.runs_benchmark), { benchmarking = !benchmarking })
                 }
             }
-            if (benchmarking) item(key = "benchmark") { BenchmarkPanel(model, installed.map { it.id }, server is ServeHost.State.Running, runs) }
-            if (comparing) item(key = "compare") { ComparePanel(model, ordinary) }
         }
+        if (comparing) item(key = "compare") { ComparePanel(model, ordinary) }
+        if (benchmarking) item(key = "benchmark") { BenchmarkPanel(model, installed.map { it.id }, server is ServeHost.State.Running, runs) }
+    }
+    val main: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
         item(key = "runs") {
             Panel(
                 pluralStringResource(R.plurals.runs_count, shown.size, Format.count(shown.size)),
@@ -109,7 +103,6 @@ fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
                 if (shown.isEmpty()) {
                     Text(stringResource(R.string.runs_none), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (shown.isNotEmpty()) RunHeader()
                 // The newest hundred are drawn; the rest are in the export and the API.
                 shown.take(SHOWN_RUNS).forEach { run -> key(run.id) { RunRow(run) } }
                 Expandable(stringResource(R.string.runs_kept_title)) {
@@ -124,7 +117,7 @@ fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
             LazyColumn(Modifier.weight(1f), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = side)
         }
     } else {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = main)
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = { main(); side() })
     }
 
     if (clearing) {
@@ -172,41 +165,19 @@ fun RunRow(run: JobRecord) {
             Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = Dimens.row),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            val tokens = stringResource(R.string.log_tokens, Format.count(run.promptTokens), Format.count(run.completionTokens))
-            val total = Format.duration(run.totalMs)
-            val rate = run.decodeTokensPerSecond.takeIf { it > 0 }?.let { Format.rate(it) }
-            if (largeText()) {
-                // Too wide for columns: the model on its own line, then each figure with its unit,
-                // since [RunHeader] is not shown.
-                Text(alias, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.gap)) {
-                    Text(stringResource(R.string.run_tokens, tokens), style = MaterialTheme.typography.bodyMedium)
-                    Text(total, style = MaterialTheme.typography.bodyMedium)
-                    rate?.let { Text(stringResource(R.string.fig_rate, it), style = MaterialTheme.typography.bodyMedium) }
-                }
-            } else {
-                // Line one is what the header names: the model, then its figures in their columns.
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
-                    Text(alias, Modifier.weight(IDENTITY_WEIGHT), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Cell(tokens, TOKENS_WEIGHT)
-                    Cell(total, TIME_WEIGHT)
-                    Cell(rate.orEmpty(), RATE_WEIGHT)
-                }
-            }
-            // Line two: who asked under the model, then how it ended and when, apart from the figures.
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
-                Text(run.client, Modifier.weight(IDENTITY_WEIGHT), style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(
-                    Modifier.weight(TOKENS_WEIGHT + TIME_WEIGHT + RATE_WEIGHT),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.row, Alignment.End),
-                ) {
-                    if (checks.isNotEmpty()) Dot(tones.attention.color, 8.dp)
-                    Text(stringResource(outcome.words), style = MaterialTheme.typography.labelLarge, color = tones.of(outcome.mood).color, maxLines = 1)
-                    Text(remember(run.finishedAtMs) { Format.time(run.finishedAtMs, withSeconds = true) }, style = MaterialTheme.typography.bodySmall, color = muted, maxLines = 1)
-                    Chevron(open, 18.dp)
-                }
+                Text(alias, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Chevron(open, 18.dp)
             }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(outcome.words), style = MaterialTheme.typography.labelLarge, color = tones.of(outcome.mood).color)
+                Text(Format.duration(run.totalMs), style = MaterialTheme.typography.bodySmall, color = muted)
+                Text(remember(run.finishedAtMs) { Format.time(run.finishedAtMs, withSeconds = true) }, style = MaterialTheme.typography.bodySmall, color = muted)
+            }
+            val prefill = run.prefillTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.none_yet)
+            val decode = run.decodeTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.none_yet)
+            Text(stringResource(R.string.host_phase_rates, prefill, decode), style = MaterialTheme.typography.bodySmall, color = muted)
+            Text(run.client, style = MaterialTheme.typography.bodySmall, color = muted)
             if (open) RunDetail(run, checks)
         }
     }

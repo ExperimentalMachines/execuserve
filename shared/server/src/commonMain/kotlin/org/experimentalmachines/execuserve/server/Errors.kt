@@ -54,6 +54,7 @@ internal fun timingsOf(result: GenerationResult) = Timings(
     predictedTokens = result.completionTokens,
     predictedMs = result.timings.decodeMs,
     cachedTokens = result.cachedTokens,
+    firstTokenMs = result.timings.firstTokenMs,
 )
 
 internal fun toolCallOut(call: ToolCall) = ToolCallOut(call.id, call.name, call.argumentsJson)

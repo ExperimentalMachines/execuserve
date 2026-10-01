@@ -6,9 +6,9 @@
     <string name="app_name">ExecuServe</string>
 
     <!-- Tabs and shared actions -->
-    <string name="tab_server">Server</string>
-    <string name="tab_models">Models</string>
-    <string name="tab_runs">Runs</string>
+    <string name="tab_server">Hosting</string>
+    <string name="tab_models">Library</string>
+    <string name="tab_runs">Activity</string>
     <string name="tab_settings">Settings</string>
     <string name="action_start">Start</string>
     <string name="action_stop">Stop</string>
@@ -415,8 +415,16 @@
     <string name="qr_local">Generated on this device. Scan to transfer this exact value.</string>
     <string name="qr_secret">Anyone who scans this code can use this API key. Screenshots and screen sharing are blocked. Closes automatically after one minute.</string>
     <string name="qr_unavailable">This value is too large for a QR code. Use Copy instead.</string>
-    <string name="qr_reveal_note">This QR contains your API key. Anyone who scans it can use the server. Choose where to reveal it; it closes after one minute.</string>
+    <string name="qr_reveal_note">This QR contains your API key. Anyone who scans it can use the server. Reveal it only when you are ready to scan. It hides after one minute.</string>
     <string name="qr_on_phone">Reveal on this phone</string>
     <string name="qr_in_viewer">Reveal in remote viewer</string>
     <string name="qr_secret_remote">Visible to screen sharing and screenshots. Only reveal in a private viewer. Closes automatically after one minute.</string>
+    <string name="qr_reveal">Reveal QR code</string>
+    <string name="qr_visible_key">Anyone viewing this screen can scan and use this key. Hidden after one minute; the key itself stays valid.</string>
+    <string name="settings_hosting">Hosting capacity</string>
+    <string name="settings_resident">Models kept ready</string>
+    <string name="settings_resident_note">Keep several models loaded to switch without reloading. Requests share one compute queue; RAM usage grows with each model.</string>
+    <string name="settings_resident_threads">Multiple loaded models use automatic CPU threads. A manual thread count keeps one model loaded at a time.</string>
+    <string name="settings_startup_models">Load when hosting starts</string>
+    <string name="settings_startup_models_note">Selected models load up to the ready-model limit. Other models load when requested.</string>
 </resources>

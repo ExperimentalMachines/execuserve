@@ -19,3 +19,6 @@ __pycache__/
 
 # Browser regression tooling (not shipped with the app).
 node_modules/
+
+# Design studies and their third-party reference images: local only.
+/output/

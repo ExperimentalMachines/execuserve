@@ -232,7 +232,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     fun delete(entry: ModelEntry) = viewModelScope.launch {
         graph.host.release(entry)
         graph.models.delete(entry)
-        if (settings.value?.defaultModel == entry.id) graph.settings.update { it.copy(defaultModel = null) }
+        graph.settings.update { it.copy(defaultModel = it.defaultModel.takeUnless { id -> id == entry.id }, preloadModels = it.preloadModels - entry.id) }
     }
 
     fun load(id: String) = viewModelScope.launch { graph.host.load(id) }

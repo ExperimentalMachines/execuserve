@@ -21,7 +21,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -43,8 +42,8 @@ internal fun valueQr(value: String) = QRCodeWriter().encode(value, BarcodeFormat
 @Composable
 internal fun ValueQrDialog(value: String, label: String?, sensitive: Boolean, onClose: () -> Unit) {
     val matrix = remember(value) { runCatching { valueQr(value) }.getOrNull() }
-    // No key is drawn until the user chooses where to reveal it.
-    var protectedReveal by remember(value) { mutableStateOf<Boolean?>(if (sensitive) null else false) }
+    // Reveal is explicit, but remains visible in remote device viewers.
+    var revealed by remember(value) { mutableStateOf(!sensitive) }
     val close by rememberUpdatedState(onClose)
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
@@ -52,19 +51,16 @@ internal fun ValueQrDialog(value: String, label: String?, sensitive: Boolean, on
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(value, protectedReveal) { if (sensitive && protectedReveal != null) { delay(60_000); close() } }
+    LaunchedEffect(value, revealed) { if (sensitive && revealed) { delay(60_000); close() } }
     val description = stringResource(R.string.qr_title)
     val qrSize = (LocalConfiguration.current.screenHeightDp * .45f).coerceIn(96f, 280f).dp
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(
-        securePolicy = if (protectedReveal == true) SecureFlagPolicy.SecureOn else SecureFlagPolicy.Inherit,
-    )) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties()) {
         Surface(shape = MaterialTheme.shapes.large) {
             Column(Modifier.widthIn(max = 360.dp).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(label ?: description, style = MaterialTheme.typography.titleLarge)
-                if (sensitive && protectedReveal == null) {
+                if (!revealed) {
                     Text(stringResource(R.string.qr_reveal_note), style = MaterialTheme.typography.bodyMedium)
-                    Action(stringResource(R.string.qr_on_phone), onClick = { protectedReveal = true })
-                    Action(stringResource(R.string.qr_in_viewer), onClick = { protectedReveal = false })
+                    Action(stringResource(R.string.qr_reveal), onClick = { revealed = true })
                 } else if (matrix != null) {
                     Canvas(Modifier.size(qrSize).align(Alignment.CenterHorizontally).background(Color.White).semantics { contentDescription = description }) {
                         // Integer pixel modules preserve contrast and avoid fuzzy edges at any density.
@@ -75,7 +71,7 @@ internal fun ValueQrDialog(value: String, label: String?, sensitive: Boolean, on
                             if (matrix[x, y]) drawRect(Color.Black, Offset(x0 + x * module, y0 + y * module), Size(module, module))
                         }
                     }
-                    Text(stringResource(if (!sensitive) R.string.qr_local else if (protectedReveal == true) R.string.qr_secret else R.string.qr_secret_remote), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(if (!sensitive) R.string.qr_local else R.string.qr_visible_key), style = MaterialTheme.typography.bodySmall)
                 } else Text(stringResource(R.string.qr_unavailable))
                 Action(stringResource(R.string.qr_close), onClick = onClose)
             }

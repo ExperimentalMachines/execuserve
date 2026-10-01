@@ -45,10 +45,13 @@ data class Timings(
     val predictedTokens: Int,
     val predictedMs: Long,
     val cachedTokens: Int,
+    /** Submission through the first output token, including queue, load and prefill. */
+    val firstTokenMs: Long = 0,
 ) {
     fun toJson(): JsonObject = buildJsonObject {
         put("queue_ms", queueMs)
         put("load_ms", loadMs)
+        put("first_token_ms", firstTokenMs)
         put("cache_n", cachedTokens)
         put("prompt_n", promptTokens)
         put("prompt_ms", promptMs)

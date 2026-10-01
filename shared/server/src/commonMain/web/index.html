@@ -11,10 +11,11 @@
   <script src="/chat/assets/chat.js" defer></script>
 </head>
 <body>
+  <!-- mark:start --><svg class="sprite" aria-hidden="true" focusable="false"><symbol id="mark" viewBox="0 0 100 100"><path fill="currentColor" d="M50 6.58L96.22 32.26L50 57.93L3.78 32.26ZM2 35.23L48.27 60.94L48.27 85.62L2 59.92ZM51.73 60.94L98 35.23L98 59.92L51.73 85.62ZM9.57 64.12L17.57 68.56L17.57 80.56L9.57 76.12ZM90.43 64.12L82.43 68.56L82.43 80.56L90.43 76.12ZM21.13 70.55L29.13 74.99L29.13 86.99L21.13 82.55ZM78.87 70.55L70.87 74.99L70.87 86.99L78.87 82.55ZM32.7 76.97L40.7 81.42L40.7 93.42L32.7 88.97ZM67.3 76.97L59.3 81.42L59.3 93.42L67.3 88.97Z"/><path fill="#EE4C2C" d="M50 19.92L74 33.25L50 46.58L26 33.25Z"/></symbol><symbol id="mark-small" viewBox="0 0 100 100"><path fill="currentColor" d="M50 6.72L95.67 32.09L50 57.46L4.33 32.09ZM2 35.98L47.73 61.38L47.73 85.46L2 60.05ZM52.27 61.38L98 35.98L98 60.05L52.27 85.46ZM11.91 65.56L22.58 71.48L22.58 84.81L11.91 78.89ZM88.09 65.56L77.42 71.48L77.42 84.81L88.09 78.89ZM27.16 74.02L37.82 79.95L37.82 93.28L27.16 87.36ZM72.84 74.02L62.18 79.95L62.18 93.28L72.84 87.36Z"/><path fill="#EE4C2C" d="M50 18.45L76.88 33.38L50 48.32L23.12 33.38Z"/></symbol></svg><!-- mark:end -->
   <a class="skip" href="#prompt">Skip to message</a>
   <div class="app">
     <aside class="sidebar" id="sidebar" aria-label="Conversations">
-      <div class="brand"><img src="/chat/assets/mark.svg" width="40" height="40" alt=""><span>ExecuServe<span class="brand-sub">A MODEL OF YOUR OWN</span></span><button class="icon-button close-sidebar" id="close-sidebar" aria-label="Close conversations">×</button></div>
+      <div class="brand"><svg class="mark" width="40" height="40" aria-hidden="true"><use href="#mark"/></svg><span>ExecuServe<span class="brand-sub">LOCAL INTELLIGENCE. SHARED.</span></span><button class="icon-button close-sidebar" id="close-sidebar" aria-label="Close conversations">×</button></div>
       <button class="new-chat" id="new-chat"><span aria-hidden="true">＋</span> New conversation</button>
       <div class="history-label">IN THIS TAB</div>
       <nav class="history" id="history" aria-label="Recent conversations"><p class="history-empty">Your conversations will appear here.</p></nav>
@@ -24,13 +25,13 @@
     <main class="workspace">
       <header class="topbar">
         <button class="icon-button menu-button" id="open-sidebar" aria-label="Open conversations" aria-expanded="false" aria-controls="sidebar">☰</button>
-        <div class="mobile-brand"><img src="/chat/assets/mark.svg" width="32" height="32" alt=""><span>ExecuServe</span></div>
+        <div class="mobile-brand"><svg class="mark" width="32" height="32" aria-hidden="true"><use href="#mark-small"/></svg><span>ExecuServe</span></div>
         <div class="model-picker"><label for="model">MODEL</label><select id="model" disabled><option value="">Connect to choose a model</option></select></div>
-        <div class="topbar-actions"><button class="icon-button" id="theme" aria-label="Switch to dark theme" title="Switch theme">◐</button><button class="connection-button" id="connection"><span class="connection-dot" aria-hidden="true"></span><span id="connection-label">Connect</span></button></div>
+        <div class="topbar-actions"><button class="icon-button" id="open-settings" aria-label="Generation settings" aria-haspopup="dialog" aria-controls="settings-dialog" title="Generation settings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 7h6m4 0h6M4 17h10m4 0h2"/><circle cx="12" cy="7" r="2"/><circle cx="16" cy="17" r="2"/></svg></button><button class="icon-button" id="theme" aria-label="Switch to dark theme" title="Switch theme">◐</button><button class="connection-button" id="connection"><span class="connection-dot" aria-hidden="true"></span><span id="connection-label">Connect</span></button></div>
       </header>
       <div class="conversation-scroll" id="conversation-scroll">
         <section class="welcome" id="welcome" aria-labelledby="welcome-title">
-          <div class="welcome-mark"><img src="/chat/assets/mark.svg" width="72" height="72" alt=""></div>
+          <div class="welcome-mark"><svg class="mark" width="72" height="72" aria-hidden="true"><use href="#mark"/></svg></div>
           <div class="eyebrow">YOUR PHONE. YOUR MODEL.</div>
           <h1 id="welcome-title">A little room<br>to think.</h1>
           <p>Write, explore, and work things out.<br>Your conversation runs on your own model.</p>
@@ -55,15 +56,27 @@
   </div>
   <dialog id="connect-dialog" aria-labelledby="connect-title">
     <form id="connect-form">
-      <div class="dialog-heading"><img src="/chat/assets/mark.svg" width="40" height="40" alt=""><button type="button" class="icon-button" id="close-connect" aria-label="Close connection settings">×</button></div>
+      <div class="dialog-heading"><svg class="mark" width="40" height="40" aria-hidden="true"><use href="#mark"/></svg><button type="button" class="icon-button" id="close-connect" aria-label="Close connection settings">×</button></div>
       <h2 id="connect-title">Connect to your model</h2>
       <p>The models are served by the phone hosting this page. Use a key from <strong>ExecuServe → Settings → API keys</strong>.</p>
       <label for="api-key">API key</label><input id="api-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your key" maxlength="4096">
       <p class="field-note">Kept in memory for this tab only. Reloading or disconnecting clears it.</p>
-      <label for="reply-length">Reply length</label><select id="reply-length"><option value="128">Short</option><option value="512" selected>Balanced</option><option value="1024">Long</option></select>
       <p class="connection-error" id="connection-error" role="alert" hidden></p>
       <div class="dialog-actions"><button type="button" class="text-button" id="disconnect" hidden>Disconnect</button><button type="submit" class="primary-button" id="connect-submit">Connect</button></div>
     </form>
+  </dialog>
+  <dialog id="settings-dialog" class="generation-settings" aria-labelledby="settings-title">
+    <div class="dialog-heading"><h2 id="settings-title">Generation settings</h2><button type="button" class="icon-button" id="close-settings" aria-label="Close generation settings">×</button></div>
+    <p>Applies to your next message. Kept in this tab only.</p>
+    <div class="settings-grid">
+      <div><label for="reply-length">Output limit</label><select id="reply-length" aria-describedby="output-help"><option value="128">128 tokens</option><option value="512">512 tokens</option><option value="1024" selected>1,024 tokens</option><option value="2048">2,048 tokens</option><option value="auto">Available model context</option></select></div>
+      <div><label for="temperature">Temperature</label><input id="temperature" type="number" inputmode="decimal" min="0" max="2" step="0.1" value="0.7" aria-describedby="temperature-help"></div>
+    </div>
+    <p class="field-note" id="output-help">The output limit includes thinking tokens. Input, conversation history, thinking, and reply share the model’s context window. “Available model context” adds no extra output cap.</p>
+    <p class="field-note" id="temperature-help">Lower temperature gives more predictable replies. Higher values add variety.</p>
+    <label for="system-prompt">System prompt <span class="optional-label">Optional</span></label>
+    <textarea id="system-prompt" rows="3" maxlength="8000" placeholder="How should the model respond?" aria-describedby="system-help"></textarea>
+    <p class="field-note" id="system-help">Instructions sent before your conversation. Use “Think it through” in the composer for models that support reasoning.</p>
   </dialog>
   <noscript>This chat needs JavaScript enabled. The ExecuServe API is available at /v1.</noscript>
 </body>

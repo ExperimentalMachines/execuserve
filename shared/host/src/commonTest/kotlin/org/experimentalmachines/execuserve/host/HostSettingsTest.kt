@@ -27,6 +27,7 @@ class HostSettingsTest {
     fun everySettingReachesTheEngine() {
         val config = HostSettings(
             maxQueued = 3,
+            maxResidentModels = 2,
             maxPerClient = 2,
             queueTimeoutSeconds = 7,
             requestTimeoutSeconds = 11,
@@ -36,6 +37,7 @@ class HostSettingsTest {
             keepReasoningInHistory = true,
             minBatteryPercent = 20,
         ).engineConfig()
+        assertEquals(2, config.maxResidentModels)
         assertEquals(3, config.maxQueued)
         assertEquals(2, config.maxPerClient)
         assertEquals(7_000, config.queueTimeoutMs)
@@ -46,6 +48,30 @@ class HostSettingsTest {
         assertTrue(config.keepReasoningInHistory)
         assertEquals(20, config.minBatteryPercent)
         assertNull(HostSettings(thinking = ThinkingDefault.MODEL).engineConfig().defaultThinking)
+    }
+
+    @Test
+    fun startupSelectionKeepsLegacyOrderAndHonorsResidentCapacity() {
+        val settings = HostSettings(defaultModel = "b", preloadModels = setOf("a", "b", "c"), maxResidentModels = 2)
+        assertEquals(listOf("b", "a"), settings.startupModels())
+        assertEquals(listOf("b"), settings.copy(threads = 4).startupModels())
+        assertEquals(3, settings.copy(maxResidentModels = 99).engineConfig().maxResidentModels)
+    }
+
+    @Test
+    fun missingModelsAndAliasesDoNotConsumeStartupSlots() {
+        val settings = HostSettings(
+            defaultModel = "missing",
+            preloadModels = setOf("a-alias", "a-canonical", "b-canonical"),
+            maxResidentModels = 2,
+        )
+        fun resolve(name: String): String? = when (name) {
+            "a-alias", "a-canonical" -> "a-canonical"
+            "b-canonical" -> "b-canonical"
+            else -> null
+        }
+        assertEquals(listOf("a-canonical", "b-canonical"), settings.startupModels(::resolve))
+        assertEquals(listOf("a-canonical"), settings.copy(threads = 4).startupModels(::resolve))
     }
 
     @Test

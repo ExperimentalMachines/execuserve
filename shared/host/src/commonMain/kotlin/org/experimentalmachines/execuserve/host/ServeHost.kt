@@ -196,7 +196,7 @@ class ServeHost(
                 _threads.value = if (it.isEmpty()) null else runtime.activeThreads()
             }
         }
-        current.defaultModel?.let { model -> child.launch { runCatching { engine.load(model) } } }
+        child.launch { current.startupModels { engine.resolve(it)?.id }.forEach { model -> runCatching { engine.load(model) } } }
         _state.value = State.Running(platform.endpoints(current.port, current.bind), current, clock())
     }
 

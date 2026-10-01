@@ -67,6 +67,29 @@ class ServeHostTest {
     }
 
     @Test
+    fun startupLoadsDistinctCanonicalModelsBeforeApplyingTheCapacity() = runBlocking<Unit> {
+        val startupStore = FakeStore(HostSettings(
+            port = port,
+            defaultModel = "first",
+            preloadModels = setOf("a", "b"),
+            maxResidentModels = 2,
+        ), key)
+        val startupLibrary = FakeLibrary(listOf(
+            ModelEntry("a", ModelFiles("/m/a.pte", "/m/a.json"), "qwen3", aliases = setOf("first")),
+            ModelEntry("b", ModelFiles("/m/b.pte", "/m/b.json"), "qwen3"),
+        ))
+        val startupHost = ServeHost(FakePlatform(runtime), startupStore, startupLibrary, history, scope)
+        try {
+            startupHost.start(onWedged = {})
+            val status = withTimeout(5_000) { startupHost.engine!!.status.first { it.resident.size == 2 } }
+            assertEquals(setOf("a", "b"), status.resident.map { it.id }.toSet())
+            assertEquals(2, runtime.sessions.size)
+        } finally {
+            startupHost.stop()
+        }
+    }
+
+    @Test
     fun theConsoleTestGoesOverHttpLikeAnyClient() = runBlocking<Unit> {
         host.start(onWedged = {})
         val text = StringBuilder()

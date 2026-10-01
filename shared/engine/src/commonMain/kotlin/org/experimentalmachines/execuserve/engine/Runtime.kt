@@ -43,6 +43,9 @@ interface LlmRuntime {
     /** A stable name for logs and `/v1/models`, e.g. `executorch-xnnpack`. */
     val id: String
 
+    /** Maximum safely resident sessions under the current runtime configuration. */
+    val maxResidentModels: Int get() = Int.MAX_VALUE
+
     /**
      * Whether this runtime's tokenizer writes the model's BOS itself. The ExecuTorch 1.4.0
      * Android runner never does, so the engine writes the family's BOS into the text.

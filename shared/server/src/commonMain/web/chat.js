@@ -3,6 +3,8 @@
 (() => {
   const $ = id => document.getElementById(id);
   const ui = Object.fromEntries(["model", "prompt", "messages", "welcome", "history", "send", "thinking", "notice", "retry"].map(id => [id, $(id)]));
+  const scopePath = location.pathname.match(/^\/models\/([^/]+)\/?$/);
+  const apiBase = scopePath ? "/models/" + scopePath[1] + "/v1" : "/v1";
   const chats = [];
   let active = null, key = "", connected = false, models = [], request = null, connecting = null;
   let pendingSend = false, sequence = 0, followBottom = true;
@@ -34,6 +36,7 @@
     $("send-symbol").textContent = busy ? "■" : "↑";
     ui.model.disabled = busy || !models.length;
     ui.thinking.disabled = busy;
+    ["reply-length", "temperature", "system-prompt"].forEach(id => { $(id).disabled = busy; });
     $("thinking-control").hidden = !selectedModel()?.capabilities?.includes("reasoning");
     $("new-chat").disabled = busy;
     ui.history.querySelectorAll("button").forEach(button => { button.disabled = busy; });
@@ -171,11 +174,18 @@
     flush(); if (code !== null) flushCode();
   }
 
+  // The mark is an inline symbol (index.html), so its body follows the chat's theme toggle.
+  function markIcon(size) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"), use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    svg.setAttribute("class", "mark"); svg.setAttribute("width", size); svg.setAttribute("height", size); svg.setAttribute("aria-hidden", "true");
+    use.setAttribute("href", "#mark-small"); svg.append(use); return svg;
+  }
+
   function message(role, text, name) {
     const article = node("article", "message " + role);
     const heading = node("div", "message-heading"), avatar = node("span", "message-avatar");
     if (role === "user") avatar.textContent = "Y";
-    else { const image = node("img"); image.src = "/chat/assets/mark.svg"; image.alt = ""; avatar.append(image); }
+    else avatar.append(markIcon(28));
     heading.append(avatar, node("span", "message-name", name));
     const button = node("button", "copy-button", "Copy"); button.type = "button";
     button.setAttribute("aria-label", "Copy " + (role === "user" ? "your message" : "reply"));
@@ -194,9 +204,19 @@
     details.append(summary, reasoning);
     assistant.article.insertBefore(details, assistant.body);
     const meta = node("div", "message-meta"); assistant.article.append(meta);
-    turn.view = { ...assistant, details, summary, reasoning, meta };
+    const metrics = node("details", "generation-metrics"), measurements = node("summary"), grid = node("dl", "metric-grid");
+    metrics.append(measurements, grid); assistant.article.append(metrics);
+    measurements.addEventListener("click", () => {
+      if (followBottom) requestAnimationFrame(() => { scroll.scrollTop = scroll.scrollHeight; });
+    });
+    turn.view = { ...assistant, details, summary, reasoning, meta, metrics, measurements, grid };
     ui.messages.append(user.article, assistant.article);
     updateTurn(turn);
+  }
+
+  function prefillLabel(progress) {
+    const elapsed = (progress.time_ms / 1000).toFixed(1) + " s";
+    return "Prefill · " + progress.processed.toLocaleString() + " / " + progress.total.toLocaleString() + " characters · " + elapsed;
   }
 
   function updateTurn(turn) {
@@ -211,13 +231,54 @@
     view.summary.textContent = busy && !turn.content ? "Thinking…" : "Thinking";
     view.meta.classList.toggle("error", turn.status === "error");
     let meta = turn.error || (turn.status === "stopped" ? "Stopped" : "");
-    if (!meta && turn.finish === "length") meta = "Reply limit reached. You can ask the model to continue.";
-    if (!meta && turn.usage) {
-      meta = turn.usage.completion_tokens + " tokens";
-      if (turn.timings?.predicted_per_second) meta += " · " + Number(turn.timings.predicted_per_second).toFixed(1) + " tokens/s";
-    }
+    if (!meta && busy && !turn.content && !turn.reasoning && turn.progress) meta = prefillLabel(turn.progress);
+    if (!meta && turn.finish === "length") meta = turn.content
+      ? "Reply limit reached. You can ask the model to continue."
+      : "Output limit reached during thinking. Increase the output limit or turn off thinking, then ask again.";
     view.meta.textContent = meta;
+    view.meta.hidden = !meta;
+    renderMetrics(turn);
     if (followBottom) scroll.scrollTop = scroll.scrollHeight;
+  }
+
+  const validNumber = value => typeof value === "number" && Number.isFinite(value) && value >= 0;
+  const seconds = ms => (ms / 1000).toFixed(2) + " s";
+  function renderMetrics(turn) {
+    const view = turn.view, timing = turn.timings || {}, usage = turn.usage || {};
+    view.metrics.hidden = turn.status === "pending" || !validNumber(turn.elapsedMs);
+    if (view.metrics.hidden) return;
+    const summary = [];
+    if (timing.prompt_ms > 0 && validNumber(timing.prompt_per_second)) summary.push("Prefill " + timing.prompt_per_second.toFixed(1) + " tok/s");
+    if (timing.predicted_ms > 0 && validNumber(timing.predicted_per_second)) summary.push("Decode " + timing.predicted_per_second.toFixed(1) + " tok/s");
+    summary.push(seconds(turn.elapsedMs) + " elapsed");
+    view.measurements.textContent = summary.join(" · ");
+    view.grid.replaceChildren();
+    const metric = (label, value, format = String) => {
+      if (!validNumber(value)) return;
+      const item = node("div");
+      item.append(node("dt", "metric-label", label), node("dd", "metric-value", format(value)));
+      view.grid.append(item);
+    };
+    metric("Input tokens", usage.prompt_tokens);
+    metric("Output tokens (including thinking)", usage.completion_tokens);
+    metric("Cached input tokens", timing.cache_n ?? usage.prompt_tokens_details?.cached_tokens);
+    metric("Time to first token (server)", timing.first_token_ms > 0 ? timing.first_token_ms : undefined, seconds);
+    if (!(timing.first_token_ms > 0)) metric("Time to first output (browser)", turn.firstOutputMs, seconds);
+    metric("Queue", timing.queue_ms, seconds);
+    metric("Model loading", timing.load_ms, seconds);
+    metric("Prefill", timing.prompt_ms, seconds);
+    metric("Decode", timing.predicted_ms, seconds);
+    metric("Elapsed (including network)", turn.elapsedMs, seconds);
+    metric("Temperature", turn.settings?.temperature);
+    metric("Output limit", turn.settings?.maxTokens);
+  }
+
+  function generationSettings() {
+    const temperature = $("temperature");
+    if (!temperature.value.trim() || !temperature.checkValidity()) {
+      $("settings-dialog").showModal(); temperature.reportValidity(); return null;
+    }
+    return { temperature: Number(temperature.value), maxTokens: $("reply-length").value === "auto" ? null : Number($("reply-length").value), systemPrompt: $("system-prompt").value.trim() };
   }
 
   function renderConversation() {
@@ -275,23 +336,25 @@
 
   async function generate(turn) {
     if (request || !connected) return;
-    const operation = { controller: new AbortController(), stopped: false, timedOut: false };
+    const operation = { controller: new AbortController(), stopped: false, timedOut: false, startedAt: performance.now() };
     request = operation;
     const timeout = setTimeout(() => { operation.timedOut = true; operation.controller.abort(); }, 300000);
-    Object.assign(turn, { content: "", reasoning: "", status: "pending", error: "", usage: null, timings: null, finish: null });
-    const messages = [];
+    Object.assign(turn, { content: "", reasoning: "", status: "pending", error: "", usage: null, timings: null, progress: null, finish: null, elapsedMs: null, firstOutputMs: null });
+    const messages = turn.settings.systemPrompt ? [{ role: "system", content: turn.settings.systemPrompt }] : [];
     for (const previous of active.turns) {
       if (previous === turn) { messages.push({ role: "user", content: turn.prompt }); break; }
-      if (previous.content) messages.push({ role: "user", content: previous.prompt }, { role: "assistant", content: previous.content });
+      // A failed or reasoning-only reply must not erase the user's question.
+      messages.push({ role: "user", content: previous.prompt });
+      if (previous.content) messages.push({ role: "assistant", content: previous.content });
     }
     notice(); renderConversation(); controls();
     $("generation-status").textContent = "Reading your message…";
     let paint = null;
     try {
-      const response = await fetch("/v1/chat/completions", {
+      const response = await fetch(apiBase + "/chat/completions", {
         method: "POST", headers: { ...headers(key), "Content-Type": "application/json" }, signal: operation.controller.signal,
         body: JSON.stringify({ model: turn.model, messages, stream: true, stream_options: { include_usage: true }, return_progress: true,
-          max_tokens: Number($("reply-length").value), chat_template_kwargs: { enable_thinking: turn.thinking } }),
+          ...(turn.settings.maxTokens === null ? {} : { max_tokens: turn.settings.maxTokens }), temperature: turn.settings.temperature, chat_template_kwargs: { enable_thinking: turn.thinking } }),
       });
       if (!response.ok) {
         if (response.status === 401) { connected = false; key = ""; }
@@ -300,14 +363,18 @@
       await readStream(response, chunk => {
         for (const choice of chunk.choices || []) {
           if (choice.delta?.tool_calls?.length) throw new Error("The model requested a tool. This chat can display replies but cannot run tools.");
+          if (turn.firstOutputMs === null && (choice.delta?.content || choice.delta?.reasoning_content)) turn.firstOutputMs = performance.now() - operation.startedAt;
           turn.content += choice.delta?.content || "";
           turn.reasoning += choice.delta?.reasoning_content || "";
           if (choice.finish_reason) turn.finish = choice.finish_reason;
         }
         if (turn.content.length + turn.reasoning.length > 1024 * 1024) throw new Error("The reply is too large to display. Start a new conversation.");
+        const progress = chunk.prompt_progress;
+        if (progress?.unit === "characters" && [progress.processed, progress.total, progress.time_ms].every(Number.isFinite) &&
+            progress.total >= 0 && progress.processed >= 0 && progress.processed <= progress.total && progress.time_ms >= 0) turn.progress = progress;
         if (chunk.usage) turn.usage = chunk.usage;
         if (chunk.timings) turn.timings = chunk.timings;
-        $("generation-status").textContent = turn.content ? "Writing…" : turn.reasoning ? "Thinking…" : "Reading your message…";
+        $("generation-status").textContent = turn.content ? "Writing…" : turn.reasoning ? "Thinking…" : turn.progress ? prefillLabel(turn.progress) : "Reading your message…";
         if (paint === null) paint = requestAnimationFrame(() => { paint = null; updateTurn(turn); });
       });
       if (!turn.content && !turn.reasoning) throw new Error("The model returned an empty reply. Try again or choose another model.");
@@ -322,6 +389,7 @@
     } finally {
       clearTimeout(timeout);
       if (paint !== null) cancelAnimationFrame(paint);
+      turn.elapsedMs = performance.now() - operation.startedAt;
       operation.controller.abort(); request = null;
       $("generation-status").textContent = "";
       updateTurn(turn); controls();
@@ -335,8 +403,10 @@
     if (!connected) { pendingSend = true; openConnection(); return; }
     const model = selectedModel();
     if (!model) { notice("No chat model is available. Install one in the phone’s Models tab, then reconnect.", true); return; }
+    const settings = generationSettings();
+    if (!settings) return;
     if (!active) newChat();
-    const turn = { prompt, content: "", reasoning: "", model: model.id,
+    const turn = { prompt, settings, content: "", reasoning: "", model: model.id,
       thinking: model.capabilities.includes("reasoning") && ui.thinking.checked, status: "pending" };
     active.model = model.id; active.turns.push(turn); active.draft = "";
     ui.prompt.value = ""; resizePrompt(); followBottom = true;
@@ -358,7 +428,7 @@
     $("connect-submit").disabled = true; $("connect-submit").textContent = "Connecting…";
     $("connection-error").hidden = true;
     try {
-      const response = await fetch("/v1/models", { headers: headers(candidate), signal: operation.signal, cache: "no-store" });
+      const response = await fetch(apiBase + "/models", { headers: headers(candidate), signal: operation.signal, cache: "no-store" });
       if (!response.ok) throw await responseError(response);
       const body = await response.json();
       operation.signal.throwIfAborted();
@@ -393,6 +463,8 @@
     dialog.close(); notice("Disconnected. Your conversations remain in this tab."); controls();
   });
   dialog.addEventListener("close", () => { connecting?.abort(); $("api-key").value = ""; pendingSend = false; });
+  $("open-settings").addEventListener("click", () => $("settings-dialog").showModal());
+  $("close-settings").addEventListener("click", () => $("settings-dialog").close());
   $("close-connect").addEventListener("click", () => dialog.close());
   $("connection").addEventListener("click", openConnection);
   $("composer").addEventListener("submit", event => { event.preventDefault(); submit(); });

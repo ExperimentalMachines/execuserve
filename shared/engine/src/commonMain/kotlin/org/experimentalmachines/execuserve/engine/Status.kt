@@ -13,7 +13,16 @@ data class RunningJob(
     val cachedTokens: Int,
     /** When the first token came, zero before it: decoding speed is measured from here. */
     val firstTokenAtMs: Long = 0,
+    /** Start of prompt evaluation, excluding model loading and queue time. */
+    val prefillStartedAtMs: Long = 0,
+    /** Characters are progress units, not an unverified tokenizer count. */
+    val promptChars: Int = 0,
+    val prefilledChars: Int = 0,
 ) {
+    fun prefillElapsedMs(nowMs: Long): Long = if (prefillStartedAtMs > 0) {
+        ((firstTokenAtMs.takeIf { it > 0 } ?: nowMs) - prefillStartedAtMs).coerceAtLeast(0)
+    } else 0
+
     /** Tokens per second since the first token, or null until there is something to divide. */
     fun decodeRate(nowMs: Long): Double? {
         val elapsed = nowMs - firstTokenAtMs

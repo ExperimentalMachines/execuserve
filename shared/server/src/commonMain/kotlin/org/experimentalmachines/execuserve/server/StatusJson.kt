@@ -24,6 +24,9 @@ internal object StatusJson {
                 put("started_at_ms", running.startedAtMs)
                 put("generated_tokens", running.generatedTokens)
                 put("cached_tokens", running.cachedTokens)
+                put("prefill_started_at_ms", running.prefillStartedAtMs)
+                put("prompt_chars", running.promptChars)
+                put("prefilled_chars", running.prefilledChars)
                 if (running.firstTokenAtMs > 0) put("first_token_at_ms", running.firstTokenAtMs)
             }
         }

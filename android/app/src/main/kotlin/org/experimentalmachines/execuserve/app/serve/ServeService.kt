@@ -4,7 +4,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -280,10 +279,9 @@ class ServeService : LifecycleService() {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        // Enqueued on the lane, never a close from this thread. Only a critical warning
-        // evicts the model in use: the next request reloads it.
-        @Suppress("DEPRECATION")
-        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+        // UI_HIDDEN means the user switched to a client app, not that memory is scarce.
+        // Actual pressure is handled on the lane, never by closing a running native call.
+        if (shouldEvictModelsForTrim(level)) {
             lifecycleScope.launch { graph.host.evictAll() }
         }
     }

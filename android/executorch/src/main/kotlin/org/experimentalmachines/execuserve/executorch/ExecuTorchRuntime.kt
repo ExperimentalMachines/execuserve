@@ -18,9 +18,16 @@ import java.io.File
  * ExecuTorch 1.4.0 on XNNPACK. Everything below was measured in OpenWeights, which has run
  * these exports on phones since 2026-08; the comments say what each line works around.
  */
-class ExecuTorchRuntime : LlmRuntime {
+class ExecuTorchRuntime(
+    private val allowMultipleResidents: () -> Boolean = { true },
+) : LlmRuntime {
 
     override val id: String = "executorch-xnnpack"
+
+    override val maxResidentModels: Int
+        get() = synchronized(poolLock) {
+            if (threads == 0 && residentThreads == 0 && pinnedPoolThreads != null && allowMultipleResidents()) Int.MAX_VALUE else 1
+        }
 
     /**
      * Never: the 1.4.0 JNI layer's `num_bos_` is zero with the constructor this uses, and
@@ -35,14 +42,18 @@ class ExecuTorchRuntime : LlmRuntime {
      * milliseconds and no copy of the weights. The LLM wrapper reads the same constants
      * and offers no way to ask for them.
      */
-    override fun probe(files: ModelFiles): ModelFacts {
-        val program = Module.load(files.model, Module.LOAD_MODE_MMAP)
+    override fun probe(files: ModelFiles): ModelFacts = synchronized(poolLock) {
+        // Module.load's default is cores / 2, unlike LlmModule's performant cores - 1.
+        // A different count destroys the pool that XNNPACK residents still reference.
+        val probeThreads = if (openSessions > 0) pinnedPoolThreads
+            ?: throw RuntimeFailure("The active thread pool could not be identified safely.") else 0
+        val program = Module.load(files.model, Module.LOAD_MODE_MMAP, probeThreads)
         try {
             val methods = program.getMethods().toSet()
             fun read(name: String): Int? = name.takeIf { it in methods }?.let {
                 program.execute(it).firstOrNull()?.takeIf { v -> v.isInt }?.toInt()?.toInt()
             }?.takeIf { it > 0 }
-            return ModelFacts(
+            ModelFacts(
                 contextLength = read("get_max_context_len") ?: read("get_max_seq_len"),
                 prefillLength = read("get_max_seq_len"),
                 stateResetAtZero = read("get_state_reset_at_zero")?.let { it != 0 },
@@ -52,22 +63,31 @@ class ExecuTorchRuntime : LlmRuntime {
         }
     }
 
-    override fun open(files: ModelFiles, facts: ModelFacts): LlmSession {
+    override fun open(files: ModelFiles, facts: ModelFacts): LlmSession = synchronized(poolLock) {
         if (!File(files.model).isFile) throw RuntimeFailure("${files.model} is missing")
         if (!File(files.tokenizer).isFile) throw RuntimeFailure("${files.tokenizer} is missing")
-        return ExecuTorchSession(files, facts) { threads }
+        val selectedThreads = threads
+        if (openSessions > 0 && (selectedThreads != 0 || residentThreads != 0 || pinnedPoolThreads == null)) {
+            throw RuntimeFailure("Unload the current models before changing CPU threads or opening another model.")
+        }
+        ExecuTorchSession(files, facts, selectedThreads, poolLock) {
+            openSessions--
+            if (openSessions == 0) pinnedPoolThreads = null
+        }.also {
+            openSessions++
+            residentThreads = selectedThreads
+            pinnedPoolThreads = activeThreads()
+        }
     }
 
     /**
-     * ExecuTorch has one thread pool per process, and two calls replace it: constructing an
-     * `LlmModule` sizes it to the performance cores minus one (7 on the POCO), and
-     * `Module.load(..., numThreads)` sizes it as asked. The second is the only knob the 1.4.0
-     * AAR exposes, so a chosen count is applied by a throwaway memory-mapped load between
-     * a model's constructor and its load.
+     * ExecuTorch 1.4 has a process-wide pool. Its JNI constructors choose different
+     * defaults; resetting to a different size frees the pool bound by loaded XNNPACK
+     * models. Same-count resets are explicitly no-ops in upstream threadpool.cpp.
      *
-     * Replacing the pool frees the old one, and a model already loaded keeps pointing at it.
-     * That is why one model is kept loaded at a time ([EngineConfig.maxResidentModels]):
-     * opening a second would free the first one's threads under it.
+     * Multiple residents therefore use the LLM constructor's unchanged default. Probes
+     * preserve that count, and custom thread settings limit the engine to one resident.
+     * Never mutate the pool while a session is alive, including during reset/reopen.
      */
     @Volatile override var threads: Int = 0
 
@@ -79,6 +99,13 @@ class ExecuTorchRuntime : LlmRuntime {
     }.getOrNull()
 
     companion object {
+        // ExecuTorch's pool belongs to the process, not one Engine or runtime adapter.
+        // Synchronizing lifecycle operations also protects metadata probes in another host.
+        private val poolLock = Any()
+        private var openSessions = 0
+        private var residentThreads = 0
+        private var pinnedPoolThreads: Int? = null
+
         /** The runtime this build links, for the console and for catalog compatibility checks. */
         const val VERSION: String = BuildConfig.EXECUTORCH_VERSION
 
@@ -89,11 +116,14 @@ class ExecuTorchRuntime : LlmRuntime {
 private class ExecuTorchSession(
     private val files: ModelFiles,
     private val facts: ModelFacts,
-    private val threads: () -> Int,
+    private val threads: Int,
+    private val poolLock: Any,
+    private val onClosed: () -> Unit,
 ) : LlmSession {
 
     private var module: LlmModule = openModule()
     private var hasRun = false
+    private var closed = false
 
     /**
      * LFM2 exports made before 2026-09-17 keep their short-convolution state in a buffer the
@@ -105,19 +135,25 @@ private class ExecuTorchSession(
     private val reopenOnReset: Boolean =
         "lfm2" in File(files.model).name.lowercase().filter { it.isLetterOrDigit() } && facts.stateResetAtZero != true
 
-    private fun openModule(): LlmModule = try {
-        // Every generate passes its own temperature; the constructor wants one anyway.
-        LlmModule(LlmModule.MODEL_TYPE_TEXT, files.model, files.tokenizer, EngineConfig().defaultTemperature).also {
-            // Between the constructor, which sizes the pool its own way, and load(): XNNPACK
-            // binds the pool that exists when the model loads, and a pool replaced after that
-            // is freed under it (SIGSEGV in generate on the POCO, 2026-09-30).
-            threads().takeIf { n -> n > 0 }?.let { n -> Module.load(files.model, Module.LOAD_MODE_MMAP, n).destroy() }
-            it.load()
+    private fun openModule(): LlmModule = synchronized(poolLock) {
+        try {
+            // Each generation supplies its own temperature; the constructor needs one too.
+            val opened = LlmModule(LlmModule.MODEL_TYPE_TEXT, files.model, files.tokenizer, EngineConfig().defaultTemperature)
+            try {
+                // XNNPACK binds the existing pool at load(). A custom count is safe only
+                // while this is the process's sole model; the runtime enforces that limit.
+                threads.takeIf { it > 0 }?.let { Module.load(files.model, Module.LOAD_MODE_MMAP, it).destroy() }
+                // The Kotlin wrapper throws on the JNI error code and returns Unit.
+                opened.load()
+                opened
+            } catch (failure: Throwable) {
+                runCatching { opened.close() }
+                throw failure
+            }
+        } catch (failure: Throwable) {
+            // Link failures are Errors, not Exceptions; surface them as model load failures.
+            throw RuntimeFailure("ExecuTorch could not open ${File(files.model).name}: ${failure.message ?: failure::class.java.simpleName}", failure)
         }
-    } catch (failure: Throwable) {
-        // UnsatisfiedLinkError is an Error, not an Exception, and a .pte built for another
-        // runtime version fails inside the loader; both become one failure with a reason.
-        throw RuntimeFailure("ExecuTorch could not open ${File(files.model).name}: ${failure.message ?: failure::class.java.simpleName}", failure)
     }
 
     override fun prefill(text: String) {
@@ -177,7 +213,15 @@ private class ExecuTorchSession(
 
     override fun stop() = module.stop()
 
-    override fun close() = module.close()
+    override fun close() = synchronized(poolLock) {
+        if (closed) return@synchronized
+        closed = true
+        try {
+            module.close()
+        } finally {
+            onClosed()
+        }
+    }
 
     /** The one failure a full window produces, whichever call it lands in. */
     private fun Throwable.asOverflow(): ContextOverflow? {

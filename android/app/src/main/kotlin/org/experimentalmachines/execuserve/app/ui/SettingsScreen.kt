@@ -81,17 +81,32 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues) {
             }
         }
 
-        item(key = "keys") { KeysPanel(keys, model::addKey, model::revokeKey) }
+        item(key = "capacity") {
+            Panel(stringResource(R.string.settings_hosting)) {
+                MenuRow(
+                    stringResource(R.string.settings_resident),
+                    stringResource(R.string.settings_resident_note),
+                    options = (1..3).map { it to it.toString() },
+                    selected = current.maxResidentModels,
+                    onSelect = { count -> update { it.copy(maxResidentModels = count, threads = if (count > 1) 0 else it.threads) } },
+                )
+                Text(stringResource(R.string.settings_resident_threads), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Expandable(stringResource(R.string.settings_startup_models), stringResource(R.string.settings_startup_models_note)) {
+                    installed.forEach { entry ->
+                        SwitchRow(entry.aliases.firstOrNull() ?: entry.id, null, entry.id in current.preloadModels || entry.id == current.defaultModel) { on ->
+                            update { settings -> settings.copy(
+                                defaultModel = settings.defaultModel.takeUnless { !on && it == entry.id },
+                                preloadModels = if (on) settings.preloadModels + entry.id else settings.preloadModels - entry.id,
+                            ) }
+                        }
+                    }
+                }
+            }
+        }
+        item(key = "keys") { Panel { Expandable(stringResource(R.string.settings_keys)) { KeysPanel(keys, model::addKey, model::revokeKey) } } }
 
         item(key = "model") {
-            Panel(stringResource(R.string.settings_model)) {
-                MenuRow(
-                    stringResource(R.string.settings_load_at_start),
-                    options = listOf<Pair<String?, String>>(null to stringResource(R.string.none)) +
-                        installed.map { it.id to (it.aliases.firstOrNull() ?: it.id) },
-                    selected = current.defaultModel,
-                    onSelect = { id -> update { it.copy(defaultModel = id) } },
-                )
+            Panel { Expandable(stringResource(R.string.settings_model)) {
                 ChoiceRow(
                     stringResource(R.string.settings_reasoning),
                     stringResource(R.string.settings_when_unset),
@@ -119,17 +134,17 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues) {
                     active?.let { stringResource(R.string.settings_threads_now, it) } ?: stringResource(R.string.settings_threads_idle),
                     options = Choices.threads(model.cpuCores).map { n -> n to if (n == 0) automatic else n.toString() },
                     selected = current.threads,
-                    onSelect = { v -> update { it.copy(threads = v) } },
+                    onSelect = { v -> update { it.copy(threads = v, maxResidentModels = if (v > 0) 1 else it.maxResidentModels) } },
                 )
                 Text(stringResource(R.string.settings_threads_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Expandable(stringResource(R.string.settings_threads_why)) {
                     Text(stringResource(R.string.settings_threads_why_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            }
+            } }
         }
 
         item(key = "background") {
-            Panel(stringResource(R.string.settings_background)) {
+            Panel { Expandable(stringResource(R.string.settings_background)) {
                 val context = LocalContext.current
                 SwitchRow(stringResource(R.string.settings_boot), null, current.startAtBoot) { on -> update { it.copy(startAtBoot = on) } }
                 // HyperOS decides, with a permission no app can read, whether Android may
@@ -169,7 +184,7 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues) {
                     onSelect = { v -> update { it.copy(minBatteryPercent = v) } },
                 )
                 BatteryOptimisation()
-            }
+            } }
         }
 
         item(key = "limits") {

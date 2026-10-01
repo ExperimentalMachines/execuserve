@@ -16,9 +16,9 @@ data class EngineConfig(
     /** How long the picker may prefer an already-resident model over an older request. */
     val maxAffinityWaitMs: Long = 10_000,
     /**
-     * Models kept loaded at once. Execution is one at a time regardless. One on ExecuTorch
-     * 1.4.0: every model open replaces the process's single thread pool and frees the one a
-     * loaded model's XNNPACK runtime still points at (see `ExecuTorchRuntime.threads`).
+     * Models kept loaded at once, capped by the runtime's safe capacity. Execution remains
+     * one at a time: resident models share compute without paying a reload on every switch.
+     * ExecuTorch custom thread counts currently limit residency to one.
      */
     val maxResidentModels: Int = 1,
     /** Unload a model idle this long; zero keeps it until something else needs the room. */
