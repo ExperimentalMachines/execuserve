@@ -1,9 +1,9 @@
 # ExecuServe architecture
 
 ExecuServe turns an Android phone into an inference endpoint for compiled ExecuTorch
-models. It is a server, not a chat app: a model is loaded once, a foreground service
+models. A model is loaded once, a foreground service
 keeps it resident, and any app on the device or the network talks to it over an
-OpenAI-compatible HTTP API.
+OpenAI-compatible HTTP API. A bundled browser chat at `/` uses that same authenticated API.
 
 ```
 execuserve --model qwen3-1.7b --port 8080
@@ -29,7 +29,7 @@ Goals, in priority order:
 4. **Boundaries drawn for Kotlin Multiplatform.** Everything that is not a platform fact
    compiles for iOS today, so the iOS app is a runtime binding and a shell, not a port.
 
-Non-goals for the first release: a chat UI, server-side tools, vision input, embeddings,
+Non-goals for the first release: a native chat UI, server-side tools, vision input, embeddings,
 batching several sequences into one forward pass (the exports are batch-size one).
 
 ## Module map
@@ -695,3 +695,13 @@ their units to clipping (rows now stack, with units, and the header hides), and 
 started from `tools/execuserve` was stored by its alias, so every screen that compares ids
 showed no startup model (the service now stores the installed id, and corrects an alias
 stored earlier).
+
+## Bundled browser chat
+
+`shared/server/src/commonMain/web` contains the dependency-free HTML, CSS, JavaScript,
+and brand mark. `generateWebAssets` embeds them into common Kotlin source for every
+platform; `WebChat.kt` serves the exact asset routes and a restrictive same-origin CSP.
+The shell is public, while model discovery and generation keep the API key and Host
+checks. No key is embedded in assets. The client stores keys and conversations only
+in memory, renders model text using DOM text nodes, and aborts the HTTP stream when
+stopped. Reloading discards the session.

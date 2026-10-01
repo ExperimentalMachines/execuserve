@@ -46,6 +46,8 @@
 
     <!-- Status panel -->
     <string name="status_ready">Ready for requests</string>
+    <string name="status_ready_loaded">%1$s loaded, ready for requests</string>
+    <string name="status_ready_unloaded">Ready: %1$s loads when first asked for</string>
     <string name="status_engine_starting">Starting the engine</string>
     <string name="status_loading">Loading %1$s</string>
     <string name="status_reading">Reading the prompt from %1$s</string>
@@ -85,7 +87,14 @@
     <string name="connect_starts_network">Starts on port %1$d, for this phone and your network.</string>
     <string name="connect_no_network">No network address yet. Join Wi-Fi, turn on the hotspot or connect Tailscale, and the address appears here.</string>
     <string name="connect_key">API key: %1$s</string>
-    <string name="connect_copy_terminal">Copy for terminal</string>
+    <string name="connect_model_loaded">Model: loaded</string>
+    <string name="connect_model_unloaded">Model: loads when first asked for</string>
+    <plurals name="connect_model_others">
+        <item quantity="one">%1$s, %2$d more installed</item>
+        <item quantity="other">%1$s, %2$d more installed</item>
+    </plurals>
+    <string name="connect_copy_curl">Copy curl</string>
+    <string name="connect_copy_env">Copy env vars</string>
     <string name="connect_share_title">Share connection</string>
     <string name="connect_share_text">OpenAI base URL: %1$s\nAPI key: %2$s</string>
     <string name="connect_share_model">\nModel: %1$s</string>
@@ -106,7 +115,7 @@
     <string name="fig_speed">Speed</string>
     <string name="fig_cache">Cache</string>
     <string name="fig_device">Device</string>
-    <string name="fig_model_first_request">Loads on the first request</string>
+    <string name="fig_model_first_request">Loads when first asked for</string>
     <string name="fig_model_not_loaded">Not loaded</string>
     <string name="fig_window">%1$s window</string>
     <string name="fig_rate">%1$s tok/s</string>
@@ -397,4 +406,17 @@
     <string name="alert_wedged_title">The model stopped responding</string>
     <string name="alert_wedged_text">ExecuServe restarted itself to recover.</string>
     <string name="unknown_error">Unknown error</string>
+    <string name="connect_browser_chat">Browser chat</string>
+    <string name="action_show_qr">Show QR</string>
+    <string name="copied_on_phone">Copied on phone</string>
+    <string name="copy_failed">Copy failed</string>
+    <string name="qr_title">Scan QR code</string>
+    <string name="qr_close">Close</string>
+    <string name="qr_local">Generated on this device. Scan to transfer this exact value.</string>
+    <string name="qr_secret">Anyone who scans this code can use this API key. Screenshots and screen sharing are blocked. Closes automatically after one minute.</string>
+    <string name="qr_unavailable">This value is too large for a QR code. Use Copy instead.</string>
+    <string name="qr_reveal_note">This QR contains your API key. Anyone who scans it can use the server. Choose where to reveal it; it closes after one minute.</string>
+    <string name="qr_on_phone">Reveal on this phone</string>
+    <string name="qr_in_viewer">Reveal in remote viewer</string>
+    <string name="qr_secret_remote">Visible to screen sharing and screenshots. Only reveal in a private viewer. Closes automatically after one minute.</string>
 </resources>

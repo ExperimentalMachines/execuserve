@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Chat with the models running on your phone. Powered by ExecuServe.">
+  <title>ExecuServe — Chat</title>
+  <link rel="icon" href="/chat/assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/chat/assets/chat.css">
+  <script src="/chat/assets/chat.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#prompt">Skip to message</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Conversations">
+      <div class="brand"><img src="/chat/assets/mark.svg" width="40" height="40" alt=""><span>ExecuServe<span class="brand-sub">A MODEL OF YOUR OWN</span></span><button class="icon-button close-sidebar" id="close-sidebar" aria-label="Close conversations">×</button></div>
+      <button class="new-chat" id="new-chat"><span aria-hidden="true">＋</span> New conversation</button>
+      <div class="history-label">IN THIS TAB</div>
+      <nav class="history" id="history" aria-label="Recent conversations"><p class="history-empty">Your conversations will appear here.</p></nav>
+      <div class="sidebar-footer"><span class="local-dot" aria-hidden="true"></span><div>Powered by your phone<small>ExecuTorch · Experimental Machines</small></div></div>
+    </aside>
+    <button class="scrim" id="scrim" aria-label="Close conversations" hidden></button>
+    <main class="workspace">
+      <header class="topbar">
+        <button class="icon-button menu-button" id="open-sidebar" aria-label="Open conversations" aria-expanded="false" aria-controls="sidebar">☰</button>
+        <div class="mobile-brand"><img src="/chat/assets/mark.svg" width="32" height="32" alt=""><span>ExecuServe</span></div>
+        <div class="model-picker"><label for="model">MODEL</label><select id="model" disabled><option value="">Connect to choose a model</option></select></div>
+        <div class="topbar-actions"><button class="icon-button" id="theme" aria-label="Switch to dark theme" title="Switch theme">◐</button><button class="connection-button" id="connection"><span class="connection-dot" aria-hidden="true"></span><span id="connection-label">Connect</span></button></div>
+      </header>
+      <div class="conversation-scroll" id="conversation-scroll">
+        <section class="welcome" id="welcome" aria-labelledby="welcome-title">
+          <div class="welcome-mark"><img src="/chat/assets/mark.svg" width="72" height="72" alt=""></div>
+          <div class="eyebrow">YOUR PHONE. YOUR MODEL.</div>
+          <h1 id="welcome-title">A little room<br>to think.</h1>
+          <p>Write, explore, and work things out.<br>Your conversation runs on your own model.</p>
+          <div class="suggestions">
+            <button class="suggestion" data-prompt="Help me plan a focused and realistic week. Ask me a few questions to get started."><span class="suggestion-symbol" aria-hidden="true">↗</span><strong>Make a plan</strong><span>Find a good next step</span></button>
+            <button class="suggestion" data-prompt="Explain how a language model works using a simple everyday analogy."><span class="suggestion-symbol" aria-hidden="true">◎</span><strong>Explore an idea</strong><span>Make the complex clear</span></button>
+            <button class="suggestion" data-prompt="Help me write a thoughtful message. Ask who it is for and what I want to say."><span class="suggestion-symbol" aria-hidden="true">✎</span><strong>Find the words</strong><span>Give a thought its shape</span></button>
+          </div>
+        </section>
+        <section class="messages" id="messages" aria-label="Conversation" hidden></section>
+      </div>
+      <div class="composer-area">
+        <div class="notice" id="notice" role="status" hidden><span id="notice-text"></span><button class="text-button" id="retry" hidden>Try again</button></div>
+        <form class="composer" id="composer">
+          <label class="sr-only" for="prompt">Message your model</label>
+          <textarea id="prompt" placeholder="What’s on your mind?" rows="1" maxlength="32000"></textarea>
+          <div class="composer-toolbar"><div class="composer-options"><label class="thinking" id="thinking-control" hidden><input type="checkbox" id="thinking">Think it through</label><span class="generation-status" id="generation-status" role="status"></span></div><button class="send-button" id="send" type="submit" aria-label="Send message" disabled><span id="send-symbol" aria-hidden="true">↑</span></button></div>
+        </form>
+        <p class="composer-footnote">Chats stay in this tab. Models can make mistakes.</p>
+      </div>
+    </main>
+  </div>
+  <dialog id="connect-dialog" aria-labelledby="connect-title">
+    <form id="connect-form">
+      <div class="dialog-heading"><img src="/chat/assets/mark.svg" width="40" height="40" alt=""><button type="button" class="icon-button" id="close-connect" aria-label="Close connection settings">×</button></div>
+      <h2 id="connect-title">Connect to your model</h2>
+      <p>The models are served by the phone hosting this page. Use a key from <strong>ExecuServe → Settings → API keys</strong>.</p>
+      <label for="api-key">API key</label><input id="api-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your key" maxlength="4096">
+      <p class="field-note">Kept in memory for this tab only. Reloading or disconnecting clears it.</p>
+      <label for="reply-length">Reply length</label><select id="reply-length"><option value="128">Short</option><option value="512" selected>Balanced</option><option value="1024">Long</option></select>
+      <p class="connection-error" id="connection-error" role="alert" hidden></p>
+      <div class="dialog-actions"><button type="button" class="text-button" id="disconnect" hidden>Disconnect</button><button type="submit" class="primary-button" id="connect-submit">Connect</button></div>
+    </form>
+  </dialog>
+  <noscript>This chat needs JavaScript enabled. The ExecuServe API is available at /v1.</noscript>
+</body>
+</html>

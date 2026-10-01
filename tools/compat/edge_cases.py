@@ -151,10 +151,11 @@ def unicode_stream():
 @probe("stop string across tokens")
 def stop_string():
     r = chat([{"role": "user", "content": "Count from one to ten in words, separated by spaces."}],
-             stop=["five"], max_tokens=64, temperature=0)
+             stop=["five"], max_tokens=128, temperature=0,
+             chat_template_kwargs={"enable_thinking": False})
     body = r.json()
     content = body["choices"][0]["message"].get("content") or ""
-    return "five" not in content and body["choices"][0]["finish_reason"] == "stop", f"{content[:80]!r} finish={body['choices'][0]['finish_reason']}"
+    return bool(content.strip()) and "five" not in content and body["choices"][0]["finish_reason"] == "stop", f"{content[:80]!r} finish={body['choices'][0]['finish_reason']}"
 
 
 @probe("client leaves during a long prefill")
@@ -271,13 +272,17 @@ def previous_response():
 
 @probe("a stored response continues by id and hits the cache")
 def chained_response():
-    first = client.post(BASE + "/responses", headers=AUTH, json={"model": MODEL, "input": "Name a colour. /no_think", "max_output_tokens": 24}).json()
+    # A truncated reply deliberately cannot extend the sequence cache. Disable
+    # thinking explicitly and leave room for the model's own end marker.
+    options = {"model": MODEL, "max_output_tokens": 128, "reasoning": {"effort": "minimal"}, "temperature": 0}
+    first = client.post(BASE + "/responses", headers=AUTH, json={**options, "input": "Name a colour in one word."}).json()
     second = client.post(BASE + "/responses", headers=AUTH, json={
-        "model": MODEL, "input": "Another. /no_think", "previous_response_id": first["id"], "max_output_tokens": 24}).json()
+        **options, "input": "Another colour in one word.", "previous_response_id": first["id"]}).json()
     third = client.post(BASE + "/responses", headers=AUTH, json={
-        "model": MODEL, "input": "One more. /no_think", "previous_response_id": second["id"], "max_output_tokens": 24}).json()
+        **options, "input": "One more colour in one word.", "previous_response_id": second["id"]}).json()
     cached = third.get("usage", {}).get("input_tokens_details", {}).get("cached_tokens", 0)
-    return third.get("status") in ("completed", "incomplete") and cached > 0, f"third turn cached {cached} of {third.get('usage', {}).get('input_tokens')}"
+    completed = all(r.get("status") == "completed" for r in (first, second, third))
+    return completed and third.get("previous_response_id") == second["id"] and cached > 0, f"completed={completed}; third turn cached {cached} of {third.get('usage', {}).get('input_tokens')}"
 
 
 @probe("apply-template renders without running")

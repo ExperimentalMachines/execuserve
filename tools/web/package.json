@@ -1,0 +1,7 @@
+{
+  "name": "execuserve-browser-checks",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node browser-check.mjs" },
+  "devDependencies": { "playwright": "1.63.0" }
+}

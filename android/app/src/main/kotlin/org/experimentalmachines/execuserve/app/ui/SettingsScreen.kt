@@ -233,15 +233,14 @@ private fun KeysPanel(keys: List<ApiKey>, onAdd: (String) -> Unit, onRevoke: (St
     Panel(stringResource(R.string.settings_keys)) {
         Text(stringResource(R.string.settings_keys_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         keys.forEach { key ->
-            Row(Modifier.heightIn(min = Dimens.touch), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(key.name, style = MaterialTheme.typography.bodyLarge)
-                    Text(key.secret.take(KEY_HEAD) + "…" + key.secret.takeLast(KEY_TAIL), style = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Action(stringResource(R.string.action_copy), onClick = { copy(context, key.secret) })
-                // The last key cannot go: a keyless server would be open to anyone who can reach it.
-                if (keys.size > 1) Action(stringResource(R.string.action_revoke), onClick = { onRevoke(key.id) }, destructive = true)
-            }
+            CopyRow(
+                value = key.secret, label = key.name,
+                shown = key.secret.take(KEY_HEAD) + "…" + key.secret.takeLast(KEY_TAIL),
+                qr = true, sensitive = true,
+                extra = {
+                    if (keys.size > 1) Action(stringResource(R.string.action_revoke), onClick = { onRevoke(key.id) }, destructive = true)
+                },
+            )
         }
         var name by remember { mutableStateOf("") }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {

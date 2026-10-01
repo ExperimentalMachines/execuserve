@@ -3,6 +3,7 @@ package org.experimentalmachines.execuserve.app.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.PersistableBundle
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -194,20 +196,27 @@ fun CopyRow(
     shown: String = value,
     prominent: Boolean = false,
     extra: (@Composable () -> Unit)? = null,
+    qr: Boolean = false,
+    sensitive: Boolean = false,
 ) {
     val context = LocalContext.current
+    var copied by remember(value) { mutableStateOf<Boolean?>(null) }
+    var showQr by remember(value) { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied != null) { kotlinx.coroutines.delay(2500); copied = null } }
+    if (showQr) ValueQrDialog(value, label, sensitive) { showQr = false }
     val style = if (prominent) Mono.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize, lineHeight = MaterialTheme.typography.titleMedium.lineHeight, fontWeight = FontWeight.Medium) else Mono
     val actions: @Composable () -> Unit = {
         extra?.invoke()
-        Action(stringResource(R.string.action_copy), onClick = { copy(context, value) })
+        Action(stringResource(when (copied) { true -> R.string.copied_on_phone; false -> R.string.copy_failed; null -> R.string.action_copy }), onClick = { copied = copy(context, value, sensitive) })
+        if (qr) Action(stringResource(R.string.action_show_qr), onClick = { showQr = true })
     }
     // With large text the value keeps the full width and the actions go under it, so an
     // address never breaks before its port to make room for a button.
-    if (largeText()) {
+    if (largeText() || qr) {
         Column(Modifier.fillMaxWidth()) {
             Text(shown, style = style)
             if (label != null) Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(Modifier.offset(x = -ACTION_INSET)) { actions() }
+            FlowRow(Modifier.offset(x = -ACTION_INSET)) { actions() }
         }
     } else {
         Row(Modifier.fillMaxWidth().heightIn(min = Dimens.touch), verticalAlignment = Alignment.CenterVertically) {
@@ -423,10 +432,20 @@ fun resumeCount(): Int {
     return count
 }
 
-fun copy(context: Context, text: String) {
-    context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(context.getString(R.string.app_name), text))
-    // Android 13 and later confirm a copy themselves.
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+fun copy(context: Context, text: String, sensitive: Boolean = false): Boolean {
+    val success = runCatching {
+        val clipboard = context.getSystemService(ClipboardManager::class.java)
+        val clip = ClipData.newPlainText(context.getString(R.string.app_name), text)
+        if (sensitive) clip.description.extras = PersistableBundle().apply {
+            putBoolean("android.content.extra.IS_SENSITIVE", true)
+        }
+        clipboard.setPrimaryClip(clip)
+        clipboard.primaryClip?.getItemAt(0)?.text?.toString() == text
+    }.getOrDefault(false)
+    if (!success || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        Toast.makeText(context, if (success) R.string.copied_on_phone else R.string.copy_failed, Toast.LENGTH_SHORT).show()
+    }
+    return success
 }
 
 /** The navigation glyphs, drawn: three shapes do not justify an icon library. */

@@ -68,6 +68,14 @@ class ConsoleTestTest {
     }
 
     @Test
+    fun theModelListCurlNeedsOnlyTheKey() {
+        assertEquals(
+            "curl http://127.0.0.1:8080/v1/models \\\n  -H \"Authorization: Bearer sk-1\"",
+            ConsoleTest.curlModels("http://127.0.0.1:8080/v1", "sk-1"),
+        )
+    }
+
+    @Test
     fun errorBodiesAreReadInOpenAIShapeOrShortened() {
         assertEquals("No such model.", ConsoleTest.errorMessage("""{"error":{"message":"No such model."}}"""))
         assertEquals("plain text", ConsoleTest.errorMessage("plain text"))

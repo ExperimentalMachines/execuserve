@@ -16,3 +16,6 @@ tokenizer.json
 # Python caches from tools/.
 __pycache__/
 *.pyc
+
+# Browser regression tooling (not shipped with the app).
+node_modules/

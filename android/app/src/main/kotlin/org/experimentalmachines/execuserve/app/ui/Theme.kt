@@ -204,8 +204,11 @@ object Dimens {
     /** The smallest thing a finger is asked to hit. */
     val touch = 48.dp
 
-    /** From this width the navigation moves to a rail and the Server tab to two columns. */
+    /** From this safe window width the navigation moves to a rail. */
     val wide = 600.dp
+
+    /** Minimum width of each panel column, increased with the font scale. */
+    val minColumn = 320.dp
 
     /** The widest a single column of panels reads well at. */
     val column = 760.dp

@@ -77,8 +77,8 @@ import org.experimentalmachines.execuserve.server.BindMode
 
 /**
  * The console. On a phone one column: the state and what it is doing, anything that needs
- * fixing, how to connect, the figures, a test request, the log. From 600 dp the figures and
- * the log move to a second column.
+ * fixing, how to connect, the figures, a test request, the log. When the usable content
+ * width supports two readable columns, the figures and log move to the second.
  */
 @Composable
 fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, openModels: () -> Unit, openRuns: () -> Unit) {
@@ -92,24 +92,25 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
     val current = settings ?: return
     val key = model.shareableKey(keys)
     val running = server as? ServeHost.State.Running
+    val served = served(status, current, installed)
 
     val primary: LazyListScope.() -> Unit = {
         item(key = "status") {
             val recovery by model.recovery.collectAsState()
-            StatusPanel(server, status, recovery, model::start, model::stop, model::cancelJob)
+            StatusPanel(server, status, served, recovery, model::start, model::stop, model::cancelJob)
         }
         item(key = "attention") { Attention() }
         if (installed.isEmpty()) item(key = "empty") { EmptyModels(openModels) }
         // On a phone the figures come straight after the state: what is running and how fast
         // is what a returning person looks for first. Wide, they head the second column.
-        if (!wide) item(key = "figures") { Figures(server, status, installed, environment, memory, model) }
-        item(key = "connect") { ConnectPanel(server, current, key, installed, model) }
+        if (!wide) item(key = "figures") { Figures(server, status, served, installed, environment, memory, model) }
+        item(key = "connect") { ConnectPanel(server, current, key, served, model) }
         if (running != null && installed.isNotEmpty()) {
             item(key = "try") { TryPanel(model, running, current, key, installed, status) }
         }
     }
     val secondary: LazyListScope.() -> Unit = {
-        if (wide) item(key = "figures") { Figures(server, status, installed, environment, memory, model) }
+        if (wide) item(key = "figures") { Figures(server, status, served, installed, environment, memory, model) }
         item(key = "log") {
             val runs by model.runs.collectAsState()
             LogPanel(remember(runs) { runs.filter { it.api != Benchmark.API }.take(LATEST_RUNS) }, openRuns)
@@ -118,7 +119,7 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
 
     if (wide) {
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(Dimens.gutter)) {
-            LazyColumn(Modifier.weight(1.1f), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = primary)
+            LazyColumn(Modifier.weight(1f), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = primary)
             LazyColumn(Modifier.weight(1f), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = secondary)
         }
     } else {
@@ -127,6 +128,25 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
             secondary()
         }
     }
+}
+
+/**
+ * The model a client gets by asking for the one the console names, and whether it is in
+ * memory: the one loaded, else the one set to load at start, else the first installed. A
+ * request may name any installed model; the status line, Connect, the curl command and the
+ * Model figure all name this one, so they never disagree.
+ */
+private class Served(val entry: ModelEntry, val loaded: Boolean, val others: Int) {
+    val name: String get() = entry.aliases.firstOrNull() ?: entry.id
+}
+
+private fun served(status: EngineStatus?, settings: HostSettings, installed: List<ModelEntry>): Served? {
+    val resident = status?.resident?.firstOrNull()?.id
+    val entry = installed.firstOrNull { it.id == resident }
+        ?: installed.firstOrNull { it.id == settings.defaultModel }
+        ?: installed.firstOrNull()
+        ?: return null
+    return Served(entry, loaded = entry.id == resident, others = installed.size - 1)
 }
 
 // ---------------------------------------------------------------------------------------
@@ -141,6 +161,7 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
 private fun StatusPanel(
     server: ServeHost.State,
     status: EngineStatus?,
+    served: Served?,
     recovery: Recovery?,
     onStart: () -> Unit,
     onStop: () -> Unit,
@@ -151,10 +172,13 @@ private fun StatusPanel(
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Panel {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Dot(tone.color, 12.dp)
             Column(Modifier.weight(1f)) {
-                Text(stringResource(look.words), style = MaterialTheme.typography.titleLarge, color = tone.color)
-                Text(statusDetail(server, status, look), style = MaterialTheme.typography.bodyMedium)
+                // The light belongs to the state word, whatever the line under it wraps to.
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(STATUS_INDENT - STATUS_LIGHT)) {
+                    Dot(tone.color, STATUS_LIGHT)
+                    Text(stringResource(look.words), style = MaterialTheme.typography.titleLarge, color = tone.color)
+                }
+                Text(statusDetail(server, status, served, look), Modifier.padding(start = STATUS_INDENT), style = MaterialTheme.typography.bodyMedium)
             }
             when (server) {
                 is ServeHost.State.Running -> OutlineButton(stringResource(R.string.action_stop), onStop)
@@ -201,7 +225,7 @@ private fun StatusPanel(
 }
 
 @Composable
-private fun statusDetail(server: ServeHost.State, status: EngineStatus?, look: ServerLook): String = when (server) {
+private fun statusDetail(server: ServeHost.State, status: EngineStatus?, served: Served?, look: ServerLook): String = when (server) {
     is ServeHost.State.Running -> when {
         status == null -> stringResource(R.string.status_engine_starting)
         look == ServerLook.PAUSED_HOT -> stringResource(R.string.status_paused_hot)
@@ -210,7 +234,10 @@ private fun statusDetail(server: ServeHost.State, status: EngineStatus?, look: S
         status.lane == LaneState.LOADING -> stringResource(R.string.status_loading, status.running?.model ?: stringResource(R.string.status_a_model))
         status.lane == LaneState.PREFILLING -> stringResource(R.string.status_reading, status.running?.client.orEmpty())
         status.lane == LaneState.GENERATING -> stringResource(R.string.status_writing, status.running?.client.orEmpty())
-        else -> stringResource(R.string.status_ready)
+        // Ready: say which model, since "serving" alone does not tell what a client will get.
+        served == null -> stringResource(R.string.status_ready)
+        served.loaded -> stringResource(R.string.status_ready_loaded, served.name)
+        else -> stringResource(R.string.status_ready_unloaded, served.name)
     }
     is ServeHost.State.Stopped -> server.error ?: stringResource(R.string.status_stopped_hint)
     ServeHost.State.Starting -> stringResource(R.string.status_starting_hint)
@@ -287,13 +314,12 @@ private fun ConnectPanel(
     server: ServeHost.State,
     settings: HostSettings,
     key: ApiKey?,
-    installed: List<ModelEntry>,
+    served: Served?,
     model: MainViewModel,
 ) {
     val context = LocalContext.current
     val tones = LocalTones.current
     val running = server as? ServeHost.State.Running
-    val loaded = installed.firstOrNull { it.id == settings.defaultModel } ?: installed.firstOrNull()
     Panel(stringResource(R.string.connect_title)) {
         ChoiceRow(
             stringResource(R.string.connect_who),
@@ -315,25 +341,41 @@ private fun ConnectPanel(
             running.endpoints.forEachIndexed { index, endpoint ->
                 // Which network an address is on matters only when there is more than one.
                 val label = if (running.settings.bind == BindMode.NETWORK) stringResource(endpoint.network.words) else null
-                CopyRow(endpoint.url, label = label, prominent = index == 0)
+                CopyRow(endpoint.url, label = label, prominent = index == 0, qr = true)
+                CopyRow(endpoint.url.removeSuffix("/v1").trimEnd('/') + "/", label = stringResource(R.string.connect_browser_chat), qr = true)
             }
         }
         if (key != null) {
             var shown by rememberSaveable { mutableStateOf(false) }
             CopyRow(
                 value = key.secret,
+                qr = true, sensitive = true,
                 label = stringResource(R.string.connect_key, key.name),
                 shown = if (shown) key.secret else key.secret.take(KEY_HEAD) + "…" + key.secret.takeLast(KEY_TAIL),
                 extra = { Action(stringResource(if (shown) R.string.action_hide else R.string.action_show), onClick = { shown = !shown }) },
+            )
+        }
+        // The third thing a client needs, as the exact id to put in its requests.
+        if (served != null) {
+            val state = stringResource(if (served.loaded) R.string.connect_model_loaded else R.string.connect_model_unloaded)
+            CopyRow(
+                value = served.entry.id,
+                qr = true,
+                label = if (served.others > 0) pluralStringResource(R.plurals.connect_model_others, served.others, state, served.others) else state,
             )
         }
         if (running != null && key != null) {
             val base = running.endpoints.first().url
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.row), verticalArrangement = Arrangement.spacedBy(Dimens.row)) {
                 InkButton(stringResource(R.string.action_share), onClick = {
-                    model.shareConnection(base, key.secret, loaded?.let { it.aliases.firstOrNull() ?: it.id })
+                    model.shareConnection(base, key.secret, served?.entry?.id)
                 })
-                OutlineButton(stringResource(R.string.connect_copy_terminal), onClick = { copy(context, model.terminalExports(base, key.secret)) })
+                // A request that runs as pasted, against the model named above.
+                val prompt = stringResource(R.string.try_prompt_default)
+                OutlineButton(stringResource(R.string.connect_copy_curl), onClick = {
+                    copy(context, served?.let { ConsoleTest.curl(base, key.secret, it.entry.id, prompt, stream = false) } ?: ConsoleTest.curlModels(base, key.secret), sensitive = true)
+                })
+                OutlineButton(stringResource(R.string.connect_copy_env), onClick = { copy(context, model.terminalExports(base, key.secret), sensitive = true) })
             }
         }
         Expandable(stringResource(R.string.connect_local_title)) {
@@ -352,6 +394,7 @@ private fun ConnectPanel(
 private fun Figures(
     server: ServeHost.State,
     status: EngineStatus?,
+    served: Served?,
     installed: List<ModelEntry>,
     environment: Environment,
     freeMemory: Long,
@@ -376,21 +419,22 @@ private fun Figures(
             }
         }
     }
-    val entry = installed.firstOrNull { it.id == resident?.id }
     Panel {
         FigurePair({
             Figure(
                 stringResource(R.string.fig_model),
-                resident?.let { entry?.aliases?.firstOrNull() ?: it.id } ?: stringResource(R.string.none),
+                served?.name ?: stringResource(R.string.none),
                 when {
-                    resident != null -> listOfNotNull(
-                        resident.contextLength?.let { stringResource(R.string.fig_window, Format.window(it)) },
-                        entry?.let { Format.bytes(it.sizeBytes) },
+                    served?.loaded == true -> listOfNotNull(
+                        resident?.contextLength?.let { stringResource(R.string.fig_window, Format.window(it)) },
+                        Format.bytes(served.entry.sizeBytes),
                     )
-                    server is ServeHost.State.Running -> listOf(stringResource(R.string.fig_model_first_request))
+                    served != null && server is ServeHost.State.Running -> listOf(stringResource(R.string.fig_model_first_request))
                     else -> listOf(stringResource(R.string.fig_model_not_loaded))
                 },
                 Modifier.weight(1f),
+                // Dimmed until it is in memory: named, but not yet what a request runs on.
+                valueColor = if (served?.loaded == true) Color.Unspecified else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }, {
             val live = job?.decodeRate(now)
@@ -584,6 +628,10 @@ private const val CLEARTEXT_CONFIG = """<?xml version="1.0" encoding="utf-8"?>
 </network-security-config>"""
 
 private const val TICK_MS = 500L
+private val STATUS_LIGHT = 12.dp
+
+/** Where the status text starts: past the light and the gap after it. */
+private val STATUS_INDENT = 24.dp
 // A key shows its ends, so a person can tell keys apart without revealing one.
 private const val KEY_HEAD = 6
 private const val KEY_TAIL = 4

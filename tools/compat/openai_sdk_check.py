@@ -252,9 +252,13 @@ def responses_errors():
 
 
 def responses_chained():
-    first = client.responses.create(model=model, input="Name a fruit. /no_think", max_output_tokens=32)
-    second = client.responses.create(model=model, input="Another. /no_think", previous_response_id=first.id, max_output_tokens=32)
-    third = client.responses.create(model=model, input="One more. /no_think", previous_response_id=second.id, max_output_tokens=32)
+    # Cache reuse requires a completed reply. A tiny budget can truncate a thinking
+    # model before its end marker; /no_think in the prompt is only a model hint.
+    options = {"max_output_tokens": 128, "reasoning": MINIMAL, "temperature": 0}
+    first = client.responses.create(model=model, input="Name a fruit in one word.", **options)
+    second = client.responses.create(model=model, input="Another fruit in one word.", previous_response_id=first.id, **options)
+    third = client.responses.create(model=model, input="One more fruit in one word.", previous_response_id=second.id, **options)
+    assert all(r.status == "completed" and r.output_text for r in (first, second, third)), (first, second, third)
     cached = third.usage.input_tokens_details.cached_tokens
     assert third.previous_response_id == second.id
     assert cached > 0, f"third turn cached {cached}"

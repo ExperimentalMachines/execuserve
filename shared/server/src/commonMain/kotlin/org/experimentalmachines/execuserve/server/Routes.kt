@@ -108,9 +108,7 @@ fun Application.execuServe(ctx: ServerContext) {
     }
 
     routing {
-        get("/") {
-            call.respondText("ExecuServe ${ctx.version}\nOpenAI-compatible API at /v1\n", ContentType.Text.Plain)
-        }
+        webChat()
         get("/health") {
             val stopping = ctx.engine.status.value.admission.name == "STOPPED"
             call.respondText(

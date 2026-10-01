@@ -82,9 +82,32 @@ class ServerTest {
     private val hello = """{"model":"qwen3-1.7b","messages":[{"role":"user","content":"Hi"}]"""
 
     @Test
-    fun healthAndBannerNeedNoKey() = serve {
+    fun healthAndChatNeedNoKey() = serve {
         assertEquals(HttpStatusCode.OK, http.get("/health").status)
-        assertTrue("ExecuServe" in http.get("/").bodyAsText())
+        val page = http.get("/")
+        assertEquals(HttpStatusCode.OK, page.status)
+        assertTrue(page.contentType()!!.match(ContentType.Text.Html))
+        assertTrue("ExecuServe" in page.bodyAsText())
+        assertFalse(key.secret in page.bodyAsText())
+        assertTrue("connect-src 'self'" in page.headers["Content-Security-Policy"]!!)
+        assertEquals("DENY", page.headers["X-Frame-Options"])
+        for ((path, type) in listOf("chat.css" to "text/css", "chat.js" to "application/javascript", "mark.svg" to "image/svg+xml")) {
+            val asset = http.get("/chat/assets/$path")
+            assertEquals(HttpStatusCode.OK, asset.status)
+            assertTrue(asset.headers["Content-Type"]!!.startsWith(type))
+            assertEquals("nosniff", asset.headers["X-Content-Type-Options"])
+            assertEquals("no-cache", asset.headers["Cache-Control"])
+            assertFalse(key.secret in asset.bodyAsText())
+        }
+        assertEquals(HttpStatusCode.Unauthorized, http.get("/v1/models").status)
+    }
+
+    @Test
+    fun chatAssetsRetainHostProtection() = serve {
+        for (path in listOf("/", "/chat/assets/chat.js", "/chat/assets/chat.css", "/chat/assets/mark.svg")) {
+            assertEquals(HttpStatusCode.Forbidden, http.get(path) { header(HttpHeaders.Host, "attacker.example") }.status)
+        }
+        assertEquals(HttpStatusCode.NotFound, http.get("/chat/assets/missing.js").status)
     }
 
     @Test

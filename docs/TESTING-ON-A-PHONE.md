@@ -64,6 +64,10 @@ Expect 16 of 16, 8 of 8 and 28 of 28. Then compare the `timings` of a long promp
 (`tools/compat/bench.py`) against OpenWeights' figures for the same export: they share an
 engine, so a difference in prefill or decode speed is a finding.
 
+The cache probes explicitly disable thinking and require completed replies: a reply cut
+off by its output budget cannot safely extend the sequence cache. Pass a second installed
+model to `edge_cases.py` to exercise its interleaved-model probe; otherwise it is skipped.
+
 ## 4. From another machine
 
 With `--network`, from the computer over Wi-Fi and then over Tailscale:
@@ -112,7 +116,45 @@ reports `THERMAL_STATUS_SEVERE`: new requests should get `503` with `Retry-After
 console should say it paused because the phone is too hot, and admission should reopen
 when it cools.
 
+## Console layout
+
+The shared frame has Compose measurement tests under Robolectric:
+
+```sh
+./gradlew :android:app:testDebugUnitTest
+```
+
+They cover both landscape rotations with asymmetric side insets, gesture navigation,
+portrait and split-screen widths, enlarged text, tablets, light/dark themes, RTL, and
+scrolling to the final navigation tab in a short window. Insets are applied once around
+the whole frame; the two-column decision uses the width left after navigation and page
+gutters, with additional room for enlarged text.
+
+On a device, check every tab in both landscape rotations with gesture navigation and
+three-button navigation. Repeat with larger text, in split screen, and with the keyboard
+open in Settings or Try it. The header, cards and actions must stay inside the system bars
+and camera cutout. A narrow landscape window may show one content column beside the rail;
+scroll the rail if the final tab does not fit vertically.
+
 ## What to bring back
 
 The three suites' output, `soak.csv` for each background run, the timings of one long
 prompt, and anything the console showed that the terminal did not.
+
+## Browser chat
+
+Build `:jvm:devserver:installDist` and run its `execuserve-dev` binary with
+`--port 8082 --token-ms 40`. This uses scripted replies for deterministic UI checks.
+Then run `npm ci --prefix tools/web`, `npx --prefix tools/web playwright install chromium`,
+and `npm test --prefix tools/web`. `CHAT_ARTIFACTS` selects the screenshot directory
+(default `/tmp/execuserve-browser-checks`). The checks cover responsive layouts,
+authentication, streaming, cancellation, safe model-text rendering, interrupted-stream
+retry, and clearing credentials/history on reload. Set `CHAT_BROWSER=webkit` after
+installing Playwright WebKit to repeat functional checks in that engine. Screenshots
+are captured in Chromium because Playwright WebKit injects a screenshot stylesheet
+that the app’s CSP correctly rejects.
+
+For actual inference, install the APK, enable Your network, open the root browser-chat
+address, connect with an API key, and send a prompt to an installed model. Verify a
+follow-up and Stop on both portrait and landscape layouts. The JVM fixture does not
+validate native inference.

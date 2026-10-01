@@ -4,8 +4,8 @@
 
 ExecuServe keeps a compiled [ExecuTorch](https://pytorch.org/executorch/) model loaded on an
 Android phone and answers the OpenAI and Anthropic APIs over HTTP, in the background, for any
-app on the phone or, if you allow it, on your network. It is a server, not a chat app: there is no
-conversation screen, only a console that tells you what the server is doing.
+app on the phone or, if you allow it, on your network. The native console manages the server;
+a lightweight browser chat lets you talk to its models from a phone, tablet, or computer.
 
 <p align="center">
   <img src="docs/images/server-light.png" width="250" alt="Server tab: serving qwen3-0.6b, with its speed, cache reuse, device state and how to connect">
@@ -44,6 +44,35 @@ client = OpenAI()                     # reads the two variables above
 reply = client.chat.completions.create(model="qwen3-1.7b",
                                         messages=[{"role": "user", "content": "Hello"}])
 ```
+
+## Chat in your browser
+
+Start a model, choose **Your network** in the Server tab, and open the **Browser chat**
+address on another device on the same trusted network. On the phone itself, open
+`http://127.0.0.1:8080/`. The chat uses the root address, without `/v1`.
+
+Choose **Connect**, enter a key from Settings → API keys, then select a model. Replies
+stream as they are generated, with a stop button, optional reasoning, and conversation
+history within the tab. Layouts adapt to small screens, landscape, and desktop; light
+and dark themes follow your system until you change them.
+
+The client ships inside the server: no CDN, separate host, or browser inference runtime.
+Inference runs on the phone. Keys and chats stay in browser memory and disappear on
+reload; nothing is saved to browser storage. Network mode uses plain HTTP, so use a
+trusted LAN or an authenticated HTTPS tunnel.
+
+### Copy or scan connection details
+
+The Server tab offers **Copy** and **Show QR** for each API URL, browser URL, API key,
+and model ID. Settings → API keys offers the same actions. Copy confirms that the
+exact value reached the **phone’s** clipboard; a remote-device viewer does not
+necessarily forward that clipboard to your computer.
+
+QR codes are generated locally, without sending values to a website. API-key QR codes
+require an explicit reveal and close after one minute or when backgrounded. **Reveal
+on this phone** blocks screenshots/screen sharing; **Reveal in remote viewer** allows
+them for a private remote session such as Qualcomm Device Cloud. They contain the actual key, not an encrypted or one-time
+credential: anyone who scans one can use that key. URL QR codes never embed keys.
 
 ## Getting a model onto the phone
 
@@ -197,14 +226,16 @@ Anything that takes an OpenAI base URL and key. For example:
 
 A console, not a chat, in PyTorch's colours (paper, ink and ember) and IBM Plex.
 
-- **Server:** the state as a light and a word, with the request being answered (cancel it
-  there), the queue, totals since start, and a note when Android restarted it after a crash;
-  anything that would stop it in the background; four figures (model, decode speed measured
-  from the first token, cache reuse, heat, battery and free memory); **Connect**, with the one
-  choice that matters (this phone or your network, applied at once), the addresses, the key,
-  **Share** and **Copy for terminal**, and the config another app on the phone needs for
-  plain HTTP to loopback; **Try it**, one prompt over HTTP like any client, streamed or
-  whole, with the same request as `curl`; the latest runs.
+- **Server:** the state as a light and a word, naming the model a client gets and whether
+  it is loaded, with the request being answered (cancel it there), the queue, totals since
+  start, and a note when Android restarted it after a crash; anything that would stop it in
+  the background; four figures (model, decode speed measured from the first token, cache
+  reuse, heat, battery and free memory); **Connect**, with the one choice that matters (this
+  phone or your network, applied at once), the addresses, the key, the exact model id to put
+  in requests, **Share**, **Copy curl** (a request that runs as pasted, against that model)
+  and **Copy env vars** (`OPENAI_BASE_URL` and `OPENAI_API_KEY`), and the config another app
+  on the phone needs for plain HTTP to loopback; **Try it**, one prompt over HTTP like any
+  client, streamed or whole, with the same request as `curl`; the latest runs.
 - **Models:** what is installed, each with its lab's picture from Hugging Face and where it
   came from; downloads; the catalog.
 - **Runs:** every request across restarts, each opening to its phases, device state and any
