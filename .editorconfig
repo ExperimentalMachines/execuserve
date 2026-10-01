@@ -1,0 +1,32 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+# Wider than OpenWeights' 100: the server's routes and the console's Compose rows read
+# better on one line, and a limit nobody can meet gets switched off. Over 160 is wrapped.
+max_line_length = 160
+# The style the Kotlin and Android docs use; ktlint_official re-indents class bodies.
+ktlint_code_style = intellij_idea
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+
+# Composables are PascalCase by convention; ktlint's default naming rule disagrees.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# These fire constantly on Compose builder syntax and Gradle DSL chains without making
+# anything easier to read (the same choice as OpenWeights).
+ktlint_standard_multiline-expression-wrapping = disabled
+ktlint_standard_chain-method-continuation = disabled
+
+[*.{yml,yaml,json,xml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false

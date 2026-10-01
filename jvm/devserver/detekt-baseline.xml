@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:Main.kt$private fun parse(args: Array&lt;String&gt;): Options?</ID>
+    <ID>LongMethod:Main.kt$fun main(args: Array&lt;String&gt;): Unit</ID>
+    <ID>ReturnCount:Main.kt$private fun parse(args: Array&lt;String&gt;): Options?</ID>
+  </CurrentIssues>
+</SmellBaseline>

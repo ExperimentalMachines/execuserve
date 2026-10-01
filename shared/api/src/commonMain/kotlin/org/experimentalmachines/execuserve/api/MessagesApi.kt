@@ -4,7 +4,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -57,10 +56,7 @@ data class ToolParam(
 data class ToolChoiceParam(val type: String)
 
 @Serializable
-data class ThinkingParam(
-    val type: String,
-    @SerialName("budget_tokens") val budgetTokens: Int? = null,
-)
+data class ThinkingParam(val type: String, @SerialName("budget_tokens") val budgetTokens: Int? = null)
 
 /** One block of an assistant message, in the order the model produced them. */
 sealed interface ContentBlock {
@@ -146,14 +142,14 @@ object MessageObjects {
     }
 
     private fun errorType(status: Int): String = when (status) {
-        400 -> "invalid_request_error"
-        401 -> "authentication_error"
-        403 -> "permission_error"
-        404 -> "not_found_error"
-        408, 504 -> "timeout_error"
-        413 -> "request_too_large"
-        429 -> "rate_limit_error"
-        503 -> "overloaded_error"
+        HttpStatus.BAD_REQUEST -> "invalid_request_error"
+        HttpStatus.UNAUTHORIZED -> "authentication_error"
+        HttpStatus.FORBIDDEN -> "permission_error"
+        HttpStatus.NOT_FOUND -> "not_found_error"
+        HttpStatus.REQUEST_TIMEOUT, HttpStatus.GATEWAY_TIMEOUT -> "timeout_error"
+        HttpStatus.PAYLOAD_TOO_LARGE -> "request_too_large"
+        HttpStatus.TOO_MANY_REQUESTS -> "rate_limit_error"
+        HttpStatus.SERVICE_UNAVAILABLE -> "overloaded_error"
         else -> "api_error"
     }
 }

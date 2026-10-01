@@ -202,11 +202,17 @@ def compose():
           f"// {GENERATED}\n"
           "// Path data for ui/Mark.kt in a 100-unit square: the body and the die, full and small.\n"
           "internal object MarkPaths {\n"
-          f'    const val BODY = "{d(full_body)}"\n'
-          f'    const val DIE = "{d([full_die])}"\n'
-          f'    const val SMALL_BODY = "{d(small_body)}"\n'
-          f'    const val SMALL_DIE = "{d([small_die])}"\n'
+          f"    const val BODY ={kotlin_string(full_body)}\n"
+          f"    const val DIE ={kotlin_string([full_die])}\n"
+          f"    const val SMALL_BODY ={kotlin_string(small_body)}\n"
+          f"    const val SMALL_DIE ={kotlin_string([small_die])}\n"
           "}\n")
+
+
+def kotlin_string(polys):
+    """One polygon per line, joined with +, so no line passes ktlint's limit."""
+    parts = [f'"{d([poly])}"' for poly in polys]
+    return "\n" + " +\n".join(f"        {part}" for part in parts)
 
 
 def web():

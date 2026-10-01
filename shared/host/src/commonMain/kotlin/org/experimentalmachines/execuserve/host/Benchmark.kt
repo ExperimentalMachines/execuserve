@@ -43,7 +43,7 @@ object Benchmark {
                     api = API,
                 ),
             )
-            for (event in job.stream) Unit
+            for (ignored in job.stream) Unit
             val end = job.outcome.await()
             val record = engine.status.first { status -> status.recent.any { it.id == job.id } }.recent.first { it.id == job.id }
             records += record

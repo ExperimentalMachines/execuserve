@@ -76,8 +76,7 @@ object ExecuTorchFileName {
     }
 
     /** Where the tokenizer for [modelFileName] lives: beside it, under the same stem. */
-    fun tokenizerNameFor(modelFileName: String): String =
-        modelFileName.substringBeforeLast('.') + TOKENIZER_SUFFIX
+    fun tokenizerNameFor(modelFileName: String): String = modelFileName.substringBeforeLast('.') + TOKENIZER_SUFFIX
 
     /** True for a file in a repository that is the tokenizer we need. */
     fun isRemoteTokenizer(path: String): Boolean = path.substringAfterLast('/') in REMOTE_TOKENIZERS
@@ -95,9 +94,8 @@ object ExecuTorchFileName {
      * them safe is trimming them from the ends, so a repository called `..` reduces to
      * nothing and falls back to a name rather than reaching a parent directory.
      */
-    private fun String.sanitized(): String =
-        map { if (it.isLetterOrDigit() || it in KEPT_PUNCTUATION) it else '-' }
-            .joinToString("")
-            .trim('-', '.')
-            .ifEmpty { "model" }
+    private fun String.sanitized(): String = map { if (it.isLetterOrDigit() || it in KEPT_PUNCTUATION) it else '-' }
+        .joinToString("")
+        .trim('-', '.')
+        .ifEmpty { "model" }
 }

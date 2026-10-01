@@ -94,8 +94,8 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, sharing, 0L)
 
     private val client = LocalClient()
-    private val _try = MutableStateFlow(TryState())
-    val tryState: StateFlow<TryState> = _try.asStateFlow()
+    private val _tryState = MutableStateFlow(TryState())
+    val tryState: StateFlow<TryState> = _tryState.asStateFlow()
 
     private val _catalog = MutableStateFlow<CatalogState>(CatalogState.Idle)
     val catalog: StateFlow<CatalogState> = _catalog.asStateFlow()
@@ -148,7 +148,12 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         if (_benchmark.value is BenchmarkState.Running || server.value !is ServeHost.State.Running) return
         _benchmark.value = BenchmarkState.Running(model, 0)
         viewModelScope.launch {
-            val done = graph.host.benchmark(model) { _benchmark.update { state -> (state as? BenchmarkState.Running)?.let { it.copy(finished = it.finished + 1) } ?: state } }
+            val done = graph.host.benchmark(model) {
+                _benchmark.update { state ->
+                    (state as? BenchmarkState.Running)?.let { it.copy(finished = it.finished + 1) }
+                        ?: state
+                }
+            }
             _benchmark.value = BenchmarkState.Done(model, done)
         }
     }
@@ -176,31 +181,31 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     // Try it ------------------------------------------------------------------------------
 
-    fun setTryStream(on: Boolean) = _try.update { it.copy(stream = on) }
+    fun setTryStream(on: Boolean) = _tryState.update { it.copy(stream = on) }
 
     /**
      * Sends [prompt] to this app's own server over loopback, streamed or whole as the
      * switch says, so the console shows exactly what a client would get.
      */
     fun runTry(prompt: String, model: String) {
-        if (_try.value.running) return
+        if (_tryState.value.running) return
         val port = (server.value as? ServeHost.State.Running)?.settings?.port ?: return
-        _try.update { TryState(stream = it.stream, running = true) }
+        _tryState.update { TryState(stream = it.stream, running = true) }
         viewModelScope.launch {
             val key = graph.settings.keyFor(CONSOLE_TEST_KEY)
             var result: TestResult? = null
             var failure: TestFailure? = null
             var stopped = false
             try {
-                result = client.chat("http://127.0.0.1:$port/v1", key.secret, model, prompt, _try.value.stream) { content, reasoning ->
-                    _try.update { it.copy(content = it.content + content, reasoning = it.reasoning + reasoning) }
+                result = client.chat("http://127.0.0.1:$port/v1", key.secret, model, prompt, _tryState.value.stream) { content, reasoning ->
+                    _tryState.update { it.copy(content = it.content + content, reasoning = it.reasoning + reasoning) }
                 }
             } catch (_: StoppedByUser) {
                 stopped = true
             } catch (refused: TestFailure) {
                 failure = refused
             }
-            _try.update { it.copy(running = false, result = result, failure = failure, stopped = stopped) }
+            _tryState.update { it.copy(running = false, result = result, failure = failure, stopped = stopped) }
         }
     }
 

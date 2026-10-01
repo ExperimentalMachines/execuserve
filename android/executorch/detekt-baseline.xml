@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:ExecuTorchRuntime.kt$ExecuTorchRuntime$openSessions &gt; 0 &amp;&amp; (selectedThreads != 0 || residentThreads != 0 || pinnedPoolThreads == null)</ID>
+    <ID>ComplexCondition:ExecuTorchRuntime.kt$ExecuTorchRuntime$threads == 0 &amp;&amp; residentThreads == 0 &amp;&amp; pinnedPoolThreads != null &amp;&amp; allowMultipleResidents()</ID>
+  </CurrentIssues>
+</SmellBaseline>

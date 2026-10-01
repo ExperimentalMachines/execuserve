@@ -4,6 +4,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import org.experimentalmachines.execuserve.engine.Units
 
 /**
  * Stored responses for `previous_response_id`: each response's whole conversation as input
@@ -18,8 +19,8 @@ import kotlinx.serialization.json.JsonElement
 class Conversations(
     private val clock: () -> Long,
     private val maxEntries: Int = 64,
-    private val maxBytes: Long = 4L * 1024 * 1024,
-    private val maxAgeMs: Long = 60L * 60 * 1_000,
+    private val maxBytes: Long = DEFAULT_MAX_BYTES,
+    private val maxAgeMs: Long = DEFAULT_MAX_AGE_MS,
 ) {
     private class Stored(val owner: String, val items: List<JsonElement>, val bytes: Long, val atMs: Long, val model: String?)
 
@@ -55,3 +56,7 @@ class Conversations(
         entries.remove(id)?.let { bytes -= it.bytes }
     }
 }
+
+/** Responses kept for `previous_response_id`: a few MiB for up to an hour. */
+private const val DEFAULT_MAX_BYTES = 4 * Units.BYTES_PER_MIB
+private const val DEFAULT_MAX_AGE_MS = Units.MS_PER_HOUR

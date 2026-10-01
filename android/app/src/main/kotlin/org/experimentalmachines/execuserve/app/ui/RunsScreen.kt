@@ -117,7 +117,10 @@ fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
             LazyColumn(Modifier.weight(1f), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = side)
         }
     } else {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = { main(); side() })
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = {
+            main()
+            side()
+        })
     }
 
     if (clearing) {
@@ -172,10 +175,18 @@ fun RunRow(run: JobRecord) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(outcome.words), style = MaterialTheme.typography.labelLarge, color = tones.of(outcome.mood).color)
                 Text(Format.duration(run.totalMs), style = MaterialTheme.typography.bodySmall, color = muted)
-                Text(remember(run.finishedAtMs) { Format.time(run.finishedAtMs, withSeconds = true) }, style = MaterialTheme.typography.bodySmall, color = muted)
+                Text(
+                    remember(run.finishedAtMs) {
+                        Format.time(run.finishedAtMs, withSeconds = true)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = muted,
+                )
             }
-            val prefill = run.prefillTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.none_yet)
-            val decode = run.decodeTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.none_yet)
+            val prefill =
+                run.prefillTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.none_yet)
+            val decode =
+                run.decodeTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.none_yet)
             Text(stringResource(R.string.host_phase_rates, prefill, decode), style = MaterialTheme.typography.bodySmall, color = muted)
             Text(run.client, style = MaterialTheme.typography.bodySmall, color = muted)
             if (open) RunDetail(run, checks)
@@ -192,7 +203,12 @@ private fun RunDetail(run: JobRecord, checks: List<Discrepancy>) {
         if (run.loadMs > 0) Line(stringResource(R.string.phase_load), Format.duration(run.loadMs))
         Line(
             stringResource(R.string.phase_prompt),
-            stringResource(R.string.phase_value, Format.duration(run.prefillMs), Format.count(run.promptTokens - run.cachedTokens), Format.rate(run.prefillTokensPerSecond)),
+            stringResource(
+                R.string.phase_value,
+                Format.duration(run.prefillMs),
+                Format.count(run.promptTokens - run.cachedTokens),
+                Format.rate(run.prefillTokensPerSecond),
+            ),
         )
         if (run.firstTokenMs > 0) Line(stringResource(R.string.phase_first_token), Format.duration(run.firstTokenMs))
         if (run.decodeMs > 0) {
@@ -217,7 +233,10 @@ private fun RunDetail(run: JobRecord, checks: List<Discrepancy>) {
         Line(stringResource(R.string.detail_id), run.id, mono = true)
         // What the run's own figures say about each other.
         if (run.estimatedPromptTokens > 0) {
-            Note(stringResource(R.string.check_estimated, Format.count(run.estimatedPromptTokens), Format.count(run.promptTokens)), MaterialTheme.colorScheme.onSurfaceVariant)
+            Note(
+                stringResource(R.string.check_estimated, Format.count(run.estimatedPromptTokens), Format.count(run.promptTokens)),
+                MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         checks.forEach { check ->
             Note(
@@ -312,7 +331,12 @@ private fun SummaryBlock(model: MainViewModel, summary: ModelSummary, lab: Strin
         if (summary.promptTokens > 0) {
             Line(
                 stringResource(R.string.compare_cache),
-                pluralStringResource(R.plurals.compare_cache_value, summary.cacheHits, Format.percent(summary.cachedTokens, summary.promptTokens), Format.count(summary.cacheHits)),
+                pluralStringResource(
+                    R.plurals.compare_cache_value,
+                    summary.cacheHits,
+                    Format.percent(summary.cachedTokens, summary.promptTokens),
+                    Format.count(summary.cacheHits),
+                ),
             )
         }
         if (summary.threads.isNotEmpty()) {
@@ -341,9 +365,20 @@ private fun BenchmarkPanel(model: MainViewModel, installed: List<String>, servin
     val state by model.benchmark.collectAsState()
     var chosen by rememberSaveable { mutableStateOf(installed.firstOrNull()) }
     Panel(stringResource(R.string.bench_title)) {
-        Text(stringResource(R.string.bench_note, Benchmark.DECODE_TOKENS), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            stringResource(R.string.bench_note, Benchmark.DECODE_TOKENS),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (installed.size > 1) {
-            MenuRow(stringResource(R.string.try_model), options = installed.map { it to it }, selected = chosen ?: installed.first(), onSelect = { chosen = it })
+            MenuRow(
+                stringResource(R.string.try_model),
+                options = installed.map {
+                    it to it
+                },
+                selected = chosen ?: installed.first(),
+                onSelect = { chosen = it },
+            )
         }
         when (val current = state) {
             is BenchmarkState.Running -> {
@@ -358,7 +393,11 @@ private fun BenchmarkPanel(model: MainViewModel, installed: List<String>, servin
             else -> if (serving) {
                 InkButton(stringResource(R.string.bench_run), onClick = { chosen?.let(model::runBenchmark) }, enabled = chosen != null)
             } else {
-                Text(stringResource(R.string.bench_needs_server), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.bench_needs_server),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         // The latest benchmark of each model, from the history: survives restarts like any run.
@@ -372,8 +411,10 @@ private fun BenchmarkPanel(model: MainViewModel, installed: List<String>, servin
             Text(
                 stringResource(
                     R.string.bench_result,
-                    Format.rate(prefill.median), Format.count(last.promptTokens),
-                    Format.rate(decode.median), Format.count(last.completionTokens),
+                    Format.rate(prefill.median),
+                    Format.count(last.promptTokens),
+                    Format.rate(decode.median),
+                    Format.count(last.completionTokens),
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )

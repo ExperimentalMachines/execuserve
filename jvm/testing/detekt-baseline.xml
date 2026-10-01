@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>LoopWithTooManyJumpStatements:FakeRuntime.kt$FakeRuntime.FakeSession$for</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -49,7 +49,12 @@ class TelemetryTest {
         val runtime = FakeRuntime().apply { tokenDelayMs = 5 }
         val engine = Engine(runtime, StaticModelSource(models), lane.asCoroutineDispatcher(), scope).also { it.start() }
         val ctx = ServerContext(
-            engine, ServerSettings(), StaticKeys(listOf(alice, bob)), { emptySet() }, "test", { 1_700_000_000 },
+            engine,
+            ServerSettings(),
+            StaticKeys(listOf(alice, bob)),
+            { emptySet() },
+            "test",
+            { 1_700_000_000 },
             threads = { 7 },
             runs = { engine.status.value.recent },
         )

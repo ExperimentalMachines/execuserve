@@ -1,5 +1,10 @@
 package org.experimentalmachines.execuserve.server
 
+import org.experimentalmachines.execuserve.engine.Units
+
+/** A request body larger than this is refused before it is read: 4 MiB fits any chat. */
+const val DEFAULT_MAX_BODY_BYTES = 4 * Units.BYTES_PER_MIB
+
 /** Where the server listens. */
 enum class BindMode {
     /** `127.0.0.1` and `::1`: apps on this device only. */
@@ -20,7 +25,7 @@ data class ServerSettings(
     val extraHosts: Set<String> = emptySet(),
     /** Skip the `Host` check entirely, for a reverse proxy that rewrites it. */
     val anyHost: Boolean = false,
-    val maxBodyBytes: Long = 4L * 1024 * 1024,
+    val maxBodyBytes: Long = DEFAULT_MAX_BODY_BYTES,
     val idleTimeoutSeconds: Int = 45,
 )
 

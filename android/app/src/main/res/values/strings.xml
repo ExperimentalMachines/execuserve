@@ -15,8 +15,6 @@
     <string name="action_restart">Restart</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_copy">Copy</string>
-    <string name="action_show">Show</string>
-    <string name="action_hide">Hide</string>
     <string name="action_share">Share</string>
     <string name="action_delete">Delete</string>
     <string name="action_retry">Try again</string>
@@ -29,7 +27,6 @@
     <string name="action_exempt">Exempt</string>
     <string name="action_ok">OK</string>
     <string name="copied">Copied</string>
-    <string name="none">None</string>
     <string name="none_yet">None yet</string>
     <string name="range_hint">%1$d to %2$d</string>
 
@@ -45,19 +42,14 @@
     <string name="look_failed_to_start">Could not start</string>
 
     <!-- Status panel -->
-    <string name="status_ready">Ready for requests</string>
-    <string name="status_ready_loaded">%1$s loaded, ready for requests</string>
-    <string name="status_ready_unloaded">Ready: %1$s loads when first asked for</string>
     <string name="status_engine_starting">Starting the engine</string>
     <string name="status_loading">Loading %1$s</string>
     <string name="status_reading">Reading the prompt from %1$s</string>
-    <string name="status_writing">Writing for %1$s</string>
     <string name="status_a_model">a model</string>
     <string name="status_paused_hot">New requests are refused until the phone cools down.</string>
     <string name="status_paused_battery">New requests are refused until the phone charges.</string>
     <string name="status_recovered">Restarted by Android at %1$s after the app stopped unexpectedly.</string>
     <string name="status_recovered_wedge">Restarted itself at %1$s after the model stopped responding.</string>
-    <string name="status_stopped_hint">Other apps cannot reach the model until you start it.</string>
     <string name="status_starting_hint">Opening the port</string>
     <string name="status_stopping_hint">Finishing the current request</string>
     <plurals name="status_waiting">
@@ -68,33 +60,19 @@
         <item quantity="one">%s token</item>
         <item quantity="other">%s tokens</item>
     </plurals>
-    <string name="total_since">Since</string>
     <string name="total_served">Served</string>
     <string name="total_failed">Failed</string>
-    <string name="total_refused">Refused</string>
 
     <string name="empty_title">No model installed</string>
     <string name="empty_body">Download one from the catalog, or push a .pte from a computer.</string>
     <string name="empty_action">Get a model</string>
 
     <!-- Connect -->
-    <string name="connect_title">Connect</string>
     <string name="connect_who">Who can connect</string>
     <string name="bind_loopback">This phone</string>
     <string name="bind_network">Your network</string>
     <string name="connect_plain_http">Plain HTTP: anyone on the same Wi-Fi can read requests and the key. From outside your network, use Tailscale.</string>
-    <string name="connect_starts_loopback">Starts on port %1$d, for apps on this phone.</string>
-    <string name="connect_starts_network">Starts on port %1$d, for this phone and your network.</string>
     <string name="connect_no_network">No network address yet. Join Wi-Fi, turn on the hotspot or connect Tailscale, and the address appears here.</string>
-    <string name="connect_key">API key: %1$s</string>
-    <string name="connect_model_loaded">Model: loaded</string>
-    <string name="connect_model_unloaded">Model: loads when first asked for</string>
-    <plurals name="connect_model_others">
-        <item quantity="one">%1$s, %2$d more installed</item>
-        <item quantity="other">%1$s, %2$d more installed</item>
-    </plurals>
-    <string name="connect_copy_curl">Copy curl</string>
-    <string name="connect_copy_env">Copy env vars</string>
     <string name="connect_share_title">Share connection</string>
     <string name="connect_share_text">OpenAI base URL: %1$s\nAPI key: %2$s</string>
     <string name="connect_share_model">\nModel: %1$s</string>
@@ -111,23 +89,12 @@
     <string name="net_ethernet">Ethernet</string>
 
     <!-- Figures -->
-    <string name="fig_model">Model</string>
-    <string name="fig_speed">Speed</string>
-    <string name="fig_cache">Cache</string>
     <string name="fig_device">Device</string>
-    <string name="fig_model_first_request">Loads when first asked for</string>
-    <string name="fig_model_not_loaded">Not loaded</string>
     <string name="fig_window">%1$s window</string>
     <string name="fig_rate">%1$s tok/s</string>
     <string name="fig_speed_now">Writing now</string>
-    <string name="fig_speed_last">Last reply</string>
-    <string name="fig_speed_prompt">Prompt read at %1$s tok/s</string>
-    <string name="fig_speed_none">Tokens per second, measured on each reply</string>
-    <string name="fig_cache_detail">%1$s of %2$s prompt tokens reused</string>
-    <string name="fig_cache_none">Prompt tokens reused from earlier turns</string>
     <string name="fig_battery">Battery %1$d%%</string>
     <string name="fig_battery_charging">Battery %1$d%%, charging</string>
-    <string name="fig_memory">%1$s memory free</string>
 
     <!-- host.Heat -->
     <string name="heat_cool">Cool</string>
@@ -159,7 +126,6 @@
     <string name="fact_total">Total</string>
     <string name="fact_tokens">Tokens</string>
     <string name="fact_tokens_value">%1$s in, %2$s out</string>
-    <string name="fact_speed">Speed</string>
     <string name="fact_cached">Cached</string>
     <string name="fact_finish">Ended</string>
     <string name="try_terminal">Same request from a terminal</string>
@@ -183,8 +149,6 @@
 
     <!-- Request log -->
     <string name="log_title">Requests</string>
-    <string name="log_tokens">%1$s → %2$s</string>
-    <string name="run_tokens">%1$s tokens</string>
     <string name="detail_model">Model</string>
     <string name="detail_id">Request id</string>
 
@@ -309,7 +273,6 @@
     <string name="settings_keys_note">One per client: the log shows who asked, and each can be revoked alone.</string>
     <string name="settings_key_new">New key for…</string>
     <string name="settings_model">Model</string>
-    <string name="settings_load_at_start">Load at start</string>
     <string name="settings_reasoning">Reasoning</string>
     <string name="settings_when_unset">Used when the client does not set it</string>
     <string name="thinking_model">Default</string>
@@ -413,12 +376,8 @@
     <string name="qr_title">Scan QR code</string>
     <string name="qr_close">Close</string>
     <string name="qr_local">Generated on this device. Scan to transfer this exact value.</string>
-    <string name="qr_secret">Anyone who scans this code can use this API key. Screenshots and screen sharing are blocked. Closes automatically after one minute.</string>
     <string name="qr_unavailable">This value is too large for a QR code. Use Copy instead.</string>
     <string name="qr_reveal_note">This QR contains your API key. Anyone who scans it can use the server. Reveal it only when you are ready to scan. It hides after one minute.</string>
-    <string name="qr_on_phone">Reveal on this phone</string>
-    <string name="qr_in_viewer">Reveal in remote viewer</string>
-    <string name="qr_secret_remote">Visible to screen sharing and screenshots. Only reveal in a private viewer. Closes automatically after one minute.</string>
     <string name="qr_reveal">Reveal QR code</string>
     <string name="qr_visible_key">Anyone viewing this screen can scan and use this key. Hidden after one minute; the key itself stays valid.</string>
     <string name="settings_hosting">Hosting capacity</string>

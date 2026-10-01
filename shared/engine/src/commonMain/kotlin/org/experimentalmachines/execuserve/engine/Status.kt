@@ -21,26 +21,18 @@ data class RunningJob(
 ) {
     fun prefillElapsedMs(nowMs: Long): Long = if (prefillStartedAtMs > 0) {
         ((firstTokenAtMs.takeIf { it > 0 } ?: nowMs) - prefillStartedAtMs).coerceAtLeast(0)
-    } else 0
+    } else {
+        0
+    }
 
     /** Tokens per second since the first token, or null until there is something to divide. */
     fun decodeRate(nowMs: Long): Double? {
         val elapsed = nowMs - firstTokenAtMs
-        return if (firstTokenAtMs > 0 && generatedTokens > 1 && elapsed > 0) (generatedTokens - 1) * MS_PER_SECOND / elapsed else null
-    }
-
-    private companion object {
-        const val MS_PER_SECOND = 1_000.0
+        return if (firstTokenAtMs > 0 && generatedTokens > 1 && elapsed > 0) (generatedTokens - 1) * Units.MS_PER_SECOND.toDouble() / elapsed else null
     }
 }
 
-data class ResidentInfo(
-    val id: String,
-    val contextLength: Int?,
-    val heldTokens: Int,
-    val loadedAtMs: Long,
-    val lastUsedMs: Long,
-)
+data class ResidentInfo(val id: String, val contextLength: Int?, val heldTokens: Int, val loadedAtMs: Long, val lastUsedMs: Long)
 
 /**
  * One finished request: it either finished ([finish]) or failed ([failure]). Durations
@@ -94,15 +86,11 @@ data class JobRecord(
 
     /** Tokens after the first, per second of decoding: the first token's time belongs to the prompt. */
     val decodeTokensPerSecond: Double
-        get() = if (decodeMs > 0 && completionTokens > 1) (completionTokens - 1) * MS_PER_SECOND / decodeMs else 0.0
+        get() = if (decodeMs > 0 && completionTokens > 1) (completionTokens - 1) * Units.MS_PER_SECOND.toDouble() / decodeMs else 0.0
 
     /** Uncached prompt tokens per second of prefill. */
     val prefillTokensPerSecond: Double
-        get() = if (prefillMs > 0 && promptTokens > cachedTokens) (promptTokens - cachedTokens) * MS_PER_SECOND / prefillMs else 0.0
-
-    private companion object {
-        const val MS_PER_SECOND = 1_000.0
-    }
+        get() = if (prefillMs > 0 && promptTokens > cachedTokens) (promptTokens - cachedTokens) * Units.MS_PER_SECOND.toDouble() / prefillMs else 0.0
 }
 
 /** Running sums since the engine started, for `/metrics` and the status panel. */

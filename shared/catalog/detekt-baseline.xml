@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:Families.kt$ModelIds$it.isLetterOrDigit() || it == '.' || it == '-' || it == '_'</ID>
+    <ID>ReturnCount:HfCatalog.kt$HfCatalog$fun variants(repo: HfRepo, configPath: String, config: ExportConfig): List&lt;CatalogVariant&gt;</ID>
+    <ID>ReturnCount:Scanner.kt$ModelScanner$private fun folder(path: String, name: String, issues: MutableMap&lt;String, String&gt;): ModelEntry?</ID>
+  </CurrentIssues>
+</SmellBaseline>

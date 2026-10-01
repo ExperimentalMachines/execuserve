@@ -99,11 +99,8 @@ class SmolLm3PromptTest {
         assertThat(rendered).isEqualTo(SmolLm3PromptFixtures.TOOL_RUN)
     }
 
-    private fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition> = emptyList(),
-        thinking: Boolean = true,
-    ) = SmolLm3Prompt.render(messages, tools, thinking, date = FIXTURE_DATE)
+    private fun render(messages: List<ChatMessage>, tools: List<ToolDefinition> = emptyList(), thinking: Boolean = true) =
+        SmolLm3Prompt.render(messages, tools, thinking, date = FIXTURE_DATE)
 
     private fun system(text: String) = ChatMessage.text(ChatRole.SYSTEM, text)
     private fun user(text: String) = ChatMessage.text(ChatRole.USER, text)

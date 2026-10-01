@@ -32,14 +32,7 @@ package org.experimentalmachines.execuserve.prompt
  * @property pixels the range the encoder expects its input in.
  * @property fit how a picture that is not square is put on the square.
  */
-data class VisionSpec(
-    val side: Int,
-    val tokens: Int,
-    val before: String,
-    val after: String,
-    val pixels: PixelRange,
-    val fit: Fit,
-)
+data class VisionSpec(val side: Int, val tokens: Int, val before: String, val after: String, val pixels: PixelRange, val fit: Fit)
 
 /**
  * How a picture is placed on the encoder's square. Processors differ, and the encoder was

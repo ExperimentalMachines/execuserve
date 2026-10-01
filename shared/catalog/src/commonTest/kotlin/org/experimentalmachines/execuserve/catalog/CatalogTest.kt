@@ -125,3 +125,25 @@ class LabsTest {
         kotlin.test.assertEquals("Liquid AI", Labs.displayName("LiquidAI"))
     }
 }
+
+class HubUrlTest {
+    @Test
+    fun repositoryIdsAreCheckedBeforeTheyBecomeUrls() {
+        assertEquals(
+            "https://huggingface.co/api/models/experimentalmachines/Qwen3-1.7B-ExecuTorch",
+            HfCatalog.modelUrl("experimentalmachines/Qwen3-1.7B-ExecuTorch"),
+        )
+        // What a shell-supplied `pull` argument must never become: another path on the Hub,
+        // a second query, or a different host.
+        for (bad in listOf("../../api/whoami", "org/../x", "org/name?x=1", "org/name/extra", "@evil.example/x", "org", "")) {
+            kotlin.test.assertFalse(HfCatalog.isRepoId(bad), bad)
+            kotlin.test.assertFailsWith<IllegalArgumentException> { HfCatalog.modelUrl(bad) }
+        }
+    }
+
+    @Test
+    fun avatarsAreAskedOnlyOfTheHub() {
+        assertEquals("https://huggingface.co/api/organizations/LiquidAI/avatar", Labs.avatarApi("LiquidAI"))
+        kotlin.test.assertFailsWith<IllegalArgumentException> { Labs.avatarApi("x/../../api") }
+    }
+}

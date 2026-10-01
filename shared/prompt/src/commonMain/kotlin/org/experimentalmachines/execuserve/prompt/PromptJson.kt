@@ -111,11 +111,7 @@ internal fun reindentJson(json: String, indent: Int = LLAMA_INDENT): String {
 }
 
 /** The cursor for [reindentJson]: one character per [step], with string state carried. */
-private class JsonWalker(
-    private val json: String,
-    private val indent: Int,
-    private val out: StringBuilder,
-) {
+private class JsonWalker(private val json: String, private val indent: Int, private val out: StringBuilder) {
     var index = 0
     private var depth = 0
     private var inString = false

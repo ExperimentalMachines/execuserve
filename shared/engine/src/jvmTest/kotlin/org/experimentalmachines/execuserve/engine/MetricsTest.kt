@@ -122,7 +122,7 @@ class MetricsTest {
             val job = engine.submit(
                 GenerationRequest("m", PromptInput.Chat(listOf(ChatMessage.text(ChatRole.USER, "word ".repeat(100)))), client = ClientId("k1", "alice")),
             )
-            for (event in job.stream) Unit
+            for (ignored in job.stream) Unit
             job.outcome.await()
             val record = engine.status.first { it.recent.isNotEmpty() }.recent.single()
             assertEquals(emptyList(), Metrics.discrepancies(record), record.toString())

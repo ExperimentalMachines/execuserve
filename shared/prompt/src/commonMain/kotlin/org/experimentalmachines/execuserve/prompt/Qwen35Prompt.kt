@@ -83,10 +83,7 @@ object Qwen35Prompt {
      * message said, which is the reverse of Qwen3 and easy to transcribe from memory wrong.
      * With neither there is no system turn at all.
      */
-    private fun StringBuilder.appendSystem(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-    ) {
+    private fun StringBuilder.appendSystem(messages: List<ChatMessage>, tools: List<ToolDefinition>) {
         val leading = messages.firstOrNull()?.takeIf { it.role == ChatRole.SYSTEM }
         val system = leading?.text.orEmpty().trim()
         if (tools.isEmpty()) {

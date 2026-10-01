@@ -70,12 +70,11 @@ class ServerTest {
 
     private lateinit var http: io.ktor.client.HttpClient
 
-    private suspend fun ApplicationTestBuilder.chat(body: String, auth: Boolean = true) =
-        http.post("/v1/chat/completions") {
-            if (auth) header(HttpHeaders.Authorization, "Bearer ${key.secret}")
-            contentType(ContentType.Application.Json)
-            setBody(body)
-        }
+    private suspend fun ApplicationTestBuilder.chat(body: String, auth: Boolean = true) = http.post("/v1/chat/completions") {
+        if (auth) header(HttpHeaders.Authorization, "Bearer ${key.secret}")
+        contentType(ContentType.Application.Json)
+        setBody(body)
+    }
 
     private fun json(text: String): JsonObject = Json.parseToJsonElement(text).jsonObject
 

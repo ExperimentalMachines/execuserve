@@ -4,11 +4,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.experimentalmachines.execuserve.catalog.InstallPlan
 import org.experimentalmachines.execuserve.catalog.Manifest
@@ -22,13 +22,7 @@ import java.security.MessageDigest
 import kotlin.coroutines.coroutineContext
 
 /** One install's progress, for the Models screen and the notification. */
-data class DownloadState(
-    val id: String,
-    val bytes: Long,
-    val total: Long,
-    val phase: Phase,
-    val error: String? = null,
-) {
+data class DownloadState(val id: String, val bytes: Long, val total: Long, val phase: Phase, val error: String? = null) {
     enum class Phase { QUEUED, DOWNLOADING, VERIFYING, DONE, FAILED, CANCELLED }
 
     val active: Boolean get() = phase == Phase.QUEUED || phase == Phase.DOWNLOADING || phase == Phase.VERIFYING
@@ -44,11 +38,7 @@ data class DownloadState(
  * `DownloadManager`, which Android 16 subjects to job quotas even while a foreground service
  * runs.
  */
-class Downloader(
-    private val modelsDir: File,
-    private val scope: CoroutineScope,
-    private val onInstalled: suspend (String) -> Unit,
-) {
+class Downloader(private val modelsDir: File, private val scope: CoroutineScope, private val onInstalled: suspend (String) -> Unit) {
     private val _state = MutableStateFlow<Map<String, DownloadState>>(emptyMap())
     val state: StateFlow<Map<String, DownloadState>> = _state.asStateFlow()
 
@@ -181,12 +171,7 @@ class Downloader(
         if (!part.renameTo(destination)) throw IOException("Could not move ${destination.name} into place.")
     }
 
-    private suspend fun pump(
-        input: java.io.InputStream,
-        output: java.io.OutputStream?,
-        digest: MessageDigest,
-        onChunk: (Int) -> Unit = {},
-    ) {
+    private suspend fun pump(input: java.io.InputStream, output: java.io.OutputStream?, digest: MessageDigest, onChunk: (Int) -> Unit = {}) {
         val buffer = ByteArray(BUFFER)
         while (true) {
             coroutineContext.ensureActive()

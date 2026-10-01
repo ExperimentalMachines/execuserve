@@ -56,8 +56,7 @@ object ToolCallText {
         }
     }
 
-    private fun arguments(json: String): JsonObject =
-        runCatching { Json.parseToJsonElement(json).jsonObject }.getOrDefault(JsonObject(emptyMap()))
+    private fun arguments(json: String): JsonObject = runCatching { Json.parseToJsonElement(json).jsonObject }.getOrDefault(JsonObject(emptyMap()))
 
     /** The arguments as a JSON object, or `{}` when a client sent something that is not one. */
     private fun objectText(json: String): String = arguments(json).toString()

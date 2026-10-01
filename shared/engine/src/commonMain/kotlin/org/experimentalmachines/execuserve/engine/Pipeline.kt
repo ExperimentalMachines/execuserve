@@ -321,7 +321,15 @@ internal class ToolCallGuard(private val active: Boolean) {
         val remaining = parsed.text.trim()
         val tail = if (remaining.startsWith(sent)) remaining.substring(sent.length).trim() else ""
         released = all.length
-        return (if (tail.isEmpty()) "" else if (sent.isEmpty()) tail else "\n" + tail) to parsed.calls
+        return (
+            if (tail.isEmpty()) {
+                ""
+            } else if (sent.isEmpty()) {
+                tail
+            } else {
+                "\n" + tail
+            }
+            ) to parsed.calls
     }
 
     private fun findOpener() {

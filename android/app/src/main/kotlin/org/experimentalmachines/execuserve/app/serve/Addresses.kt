@@ -43,9 +43,8 @@ object Addresses {
         return names
     }
 
-    private fun interfaces(): List<NetworkInterface> =
-        runCatching { NetworkInterface.getNetworkInterfaces()?.toList().orEmpty() }.getOrDefault(emptyList())
-            .filter { runCatching { it.isUp }.getOrDefault(false) }
+    private fun interfaces(): List<NetworkInterface> = runCatching { NetworkInterface.getNetworkInterfaces()?.toList().orEmpty() }.getOrDefault(emptyList())
+        .filter { runCatching { it.isUp }.getOrDefault(false) }
 
     /** Cellular data is left out: carriers put phones behind NAT, so nothing can connect in. */
     private fun kindOf(nic: NetworkInterface, address: Inet4Address): NetworkKind? {
@@ -61,11 +60,15 @@ object Addresses {
         }
     }
 
-    /** Tailscale hands out 100.64.0.0/10. */
+    /** Tailscale hands out the shared address space 100.64.0.0/10 (RFC 6598). */
     private fun isTailscale(address: Inet4Address): Boolean {
         val bytes = address.address
-        val first = bytes[0].toInt() and 0xff
-        val second = bytes[1].toInt() and 0xff
-        return first == 100 && second in 64..127
+        val first = bytes[0].toInt() and BYTE_MASK
+        val second = bytes[1].toInt() and BYTE_MASK
+        return first == CGNAT_FIRST_OCTET && second in CGNAT_SECOND_OCTETS
     }
+
+    private const val BYTE_MASK = 0xff
+    private const val CGNAT_FIRST_OCTET = 100
+    private val CGNAT_SECOND_OCTETS = 64..127
 }

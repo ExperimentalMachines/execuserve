@@ -37,8 +37,7 @@ enum class ModelFormat(val suffix: String) {
 
     companion object {
         /** The format [fileName] is in, or null when it is not a model this app can run. */
-        fun of(fileName: String): ModelFormat? =
-            entries.firstOrNull { fileName.endsWith(it.suffix, ignoreCase = true) }
+        fun of(fileName: String): ModelFormat? = entries.firstOrNull { fileName.endsWith(it.suffix, ignoreCase = true) }
 
         /** Every suffix a model file can carry, for directory scans. */
         val suffixes: List<String> = entries.map { it.suffix }

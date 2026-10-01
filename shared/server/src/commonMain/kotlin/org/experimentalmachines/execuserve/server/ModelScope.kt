@@ -23,8 +23,7 @@ internal val ApplicationCall.routeParameters
         else -> error("Model routes require a routing call")
     }
 
-internal fun ApplicationCall.hostedModels(ctx: ServerContext): List<ModelEntry> =
-    hostedModel(ctx)?.let(::listOf) ?: ctx.engine.installed()
+internal fun ApplicationCall.hostedModels(ctx: ServerContext): List<ModelEntry> = hostedModel(ctx)?.let(::listOf) ?: ctx.engine.installed()
 
 /** Resolve aliases before comparing, so a scoped endpoint accepts its model's aliases. */
 internal fun ApplicationCall.resolveModel(ctx: ServerContext, name: String): ModelEntry {
@@ -55,8 +54,10 @@ internal fun ApplicationCall.visibleStatus(ctx: ServerContext, clientId: String)
 
 internal fun ApplicationCall.statusBody(ctx: ServerContext, clientId: String): JsonObject {
     val body = StatusJson.of(visibleStatus(ctx, clientId), ctx.version, ctx.threads())
-    return JsonObject(body + buildMap {
-        put("scheduler_scope", JsonPrimitive("server"))
-        hostedModel(ctx)?.let { put("model_scope", JsonPrimitive(it.id)) }
-    })
+    return JsonObject(
+        body + buildMap {
+            put("scheduler_scope", JsonPrimitive("server"))
+            hostedModel(ctx)?.let { put("model_scope", JsonPrimitive(it.id)) }
+        },
+    )
 }

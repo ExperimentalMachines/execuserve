@@ -10,6 +10,7 @@ import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.PowerManager
 import android.os.Process
 import androidx.core.app.NotificationCompat
@@ -170,8 +171,7 @@ class ServeService : LifecycleService() {
     }
 
     /** The installed model [name] means, looking again once in case the CLI has just pushed it; else [name] as given. */
-    private suspend fun installedId(name: String): String =
-        (graph.models.resolve(name) ?: graph.models.rescan().let { graph.models.resolve(name) })?.id ?: name
+    private suspend fun installedId(name: String): String = (graph.models.resolve(name) ?: graph.models.rescan().let { graph.models.resolve(name) })?.id ?: name
 
     private fun observe() {
         lifecycleScope.launch {
@@ -232,7 +232,10 @@ class ServeService : LifecycleService() {
         if (wantCpu && wakeLock?.isHeld != true) {
             wakeLock = getSystemService(PowerManager::class.java)
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ExecuServe:serve")
-                .apply { setReferenceCounted(false); acquire() }
+                .apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
         } else if (!wantCpu && wakeLock?.isHeld == true) {
             wakeLock?.release()
         }
@@ -241,7 +244,10 @@ class ServeService : LifecycleService() {
             // behaviour is the platform's to decide.
             wifiLock = getSystemService(WifiManager::class.java)
                 .createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "ExecuServe:serve")
-                .apply { setReferenceCounted(false); acquire() }
+                .apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
         } else if (!wantWifi && wifiLock?.isHeld == true) {
             wifiLock?.release()
         }
@@ -295,7 +301,13 @@ class ServeService : LifecycleService() {
     }
 
     private fun promote(notification: Notification) {
-        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        // The specialUse type exists from API 34; below it the manifest's declaration is
+        // what the two-argument call uses.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     private fun notifyThrottled(notification: Notification) {
@@ -305,14 +317,13 @@ class ServeService : LifecycleService() {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
     }
 
-    private fun buildNotification(
-        state: ServeHost.State?,
-        status: EngineStatus?,
-        download: DownloadState? = null,
-    ): Notification {
+    private fun buildNotification(state: ServeHost.State?, status: EngineStatus?, download: DownloadState? = null): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(
-            this, 1, Intent(this, ServeService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE,
+            this,
+            1,
+            Intent(this, ServeService::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_IMMUTABLE,
         )
         val (title, text) = Describe.notification(this, state, status, download)
         return NotificationCompat.Builder(this, CHANNEL_SERVER)
@@ -369,18 +380,14 @@ class ServeService : LifecycleService() {
         private const val PROGRESS_MAX = 1_000
         private const val MIN_KEY_CHARS = 16
 
-        fun start(context: Context) =
-            ContextCompat.startForegroundService(context, Intent(context, ServeService::class.java).setAction(ACTION_START))
+        fun start(context: Context) = ContextCompat.startForegroundService(context, Intent(context, ServeService::class.java).setAction(ACTION_START))
 
         /** Stops and starts again in one command, on the settings as they are now. */
-        fun restart(context: Context) =
-            ContextCompat.startForegroundService(context, Intent(context, ServeService::class.java).setAction(ACTION_RESTART))
+        fun restart(context: Context) = ContextCompat.startForegroundService(context, Intent(context, ServeService::class.java).setAction(ACTION_RESTART))
 
-        fun stop(context: Context) =
-            context.startService(Intent(context, ServeService::class.java).setAction(ACTION_STOP))
+        fun stop(context: Context) = context.startService(Intent(context, ServeService::class.java).setAction(ACTION_STOP))
 
         /** Keeps the process in the foreground while downloads run with the app off screen. */
-        fun keepAlive(context: Context) =
-            ContextCompat.startForegroundService(context, Intent(context, ServeService::class.java).setAction(ACTION_KEEP_ALIVE))
+        fun keepAlive(context: Context) = ContextCompat.startForegroundService(context, Intent(context, ServeService::class.java).setAction(ACTION_KEEP_ALIVE))
     }
 }

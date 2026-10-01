@@ -28,10 +28,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.experimentalmachines.execuserve.app.R
+import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.host.ServeHost
 import org.experimentalmachines.execuserve.host.ServerLook
 import org.experimentalmachines.execuserve.host.ThemeMode
-import org.experimentalmachines.execuserve.engine.EngineStatus
 
 class MainActivity : ComponentActivity() {
     private val model: MainViewModel by viewModels()

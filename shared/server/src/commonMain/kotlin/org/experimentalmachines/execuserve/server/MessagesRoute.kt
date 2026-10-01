@@ -20,6 +20,7 @@ import kotlinx.serialization.json.putJsonObject
 import org.experimentalmachines.execuserve.api.ApiError
 import org.experimentalmachines.execuserve.api.ApiJson
 import org.experimentalmachines.execuserve.api.ContentBlock
+import org.experimentalmachines.execuserve.api.HttpStatus
 import org.experimentalmachines.execuserve.api.InputMessage
 import org.experimentalmachines.execuserve.api.MessageObjects
 import org.experimentalmachines.execuserve.api.MessagesRequest
@@ -99,7 +100,7 @@ private fun ApplicationCall.anthropicClient(ctx: ServerContext): ClientId {
 }
 
 private fun unauthorized() = ApiError(
-    401,
+    HttpStatus.UNAUTHORIZED,
     "authentication_error",
     "Missing or invalid API key. Send it as 'x-api-key: <key>' or 'Authorization: Bearer <key>'.",
     "invalid_api_key",
@@ -302,8 +303,7 @@ internal object MessagesTranslate {
         else -> throw ApiError.badRequest("content must be a string or an array of content blocks", "messages")
     }
 
-    private fun block(element: JsonElement): JsonObject =
-        element as? JsonObject ?: throw ApiError.badRequest("Content blocks must be objects", "messages")
+    private fun block(element: JsonElement): JsonObject = element as? JsonObject ?: throw ApiError.badRequest("Content blocks must be objects", "messages")
 
     /** Images and documents are refused, not dropped, as the OpenAI routes refuse image parts. */
     private fun unsupported(type: String?, where: String) = ApiError.unsupported(
@@ -365,8 +365,13 @@ internal class MessagesStream(private val id: String, private val model: String)
     private var index = 0
     private var openType: String? = null
 
-    private fun event(type: String, fields: JsonObjectBuilder.() -> Unit = {}): String =
-        TypedSse.event(type, buildJsonObject { put("type", type); fields() })
+    private fun event(type: String, fields: JsonObjectBuilder.() -> Unit = {}): String = TypedSse.event(
+        type,
+        buildJsonObject {
+            put("type", type)
+            fields()
+        },
+    )
 
     /**
      * The prompt's size is known only when the reply ends, so `message_start` counts zero and
@@ -380,11 +385,21 @@ internal class MessagesStream(private val id: String, private val model: String)
     override fun delta(delta: JobEvent.Delta): List<String> = buildList {
         if (delta.reasoning.isNotEmpty()) {
             addAll(open(ContentBlock.Thinking("")))
-            add(blockDelta { put("type", "thinking_delta"); put("thinking", delta.reasoning) })
+            add(
+                blockDelta {
+                    put("type", "thinking_delta")
+                    put("thinking", delta.reasoning)
+                },
+            )
         }
         if (delta.content.isNotEmpty()) {
             addAll(open(ContentBlock.Text("")))
-            add(blockDelta { put("type", "text_delta"); put("text", delta.content) })
+            add(
+                blockDelta {
+                    put("type", "text_delta")
+                    put("text", delta.content)
+                },
+            )
         }
     }
 
@@ -398,7 +413,12 @@ internal class MessagesStream(private val id: String, private val model: String)
         result.toolCalls.forEach { call ->
             val block = toolUseOf(call)
             addAll(open(ContentBlock.ToolUse(block.id, block.name, JsonObject(emptyMap()))))
-            add(blockDelta { put("type", "input_json_delta"); put("partial_json", block.input.toString()) })
+            add(
+                blockDelta {
+                    put("type", "input_json_delta")
+                    put("partial_json", block.input.toString())
+                },
+            )
             addAll(close())
         }
         add(

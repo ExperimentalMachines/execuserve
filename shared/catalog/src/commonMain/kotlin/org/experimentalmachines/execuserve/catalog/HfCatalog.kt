@@ -6,11 +6,7 @@ import kotlinx.serialization.builtins.ListSerializer
 
 /** One repository in the Hugging Face listing. Only what the catalog reads. */
 @Serializable
-data class HfRepo(
-    val id: String,
-    val sha: String? = null,
-    val siblings: List<HfSibling> = emptyList(),
-)
+data class HfRepo(val id: String, val sha: String? = null, val siblings: List<HfSibling> = emptyList())
 
 @Serializable
 data class HfSibling(val rfilename: String)
@@ -69,9 +65,31 @@ data class InstallPlan(val id: String, val files: List<RemoteFile>, val manifest
 object HfCatalog {
     const val ORG = "experimentalmachines"
     const val BACKEND = "xnnpack"
-    private const val HUB = "https://huggingface.co"
 
-    fun listUrl(org: String = ORG) = "$HUB/api/models?author=$org&full=true&limit=200"
+    /** The Hub's host and base URL: the only place either is written. */
+    const val HUB_HOST = "huggingface.co"
+    const val HUB = "https://$HUB_HOST"
+
+    /** More repositories than the organisation publishes, in one page. */
+    private const val LIST_LIMIT = 200
+
+    /** `owner/name`, in the characters the Hub allows; anything else never reaches a URL. */
+    private val REPO_ID = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,95}/[A-Za-z0-9][A-Za-z0-9._-]{0,95}$")
+
+    fun isRepoId(repo: String) = REPO_ID.matches(repo) && ".." !in repo
+
+    fun listUrl(org: String = ORG) = "$HUB/api/models?author=$org&full=true&limit=$LIST_LIMIT"
+
+    fun modelUrl(repo: String): String {
+        require(isRepoId(repo)) { "Not a Hugging Face repository id: $repo" }
+        return "$HUB/api/models/$repo"
+    }
+
+    /** The Hub's answer to "what is this organisation's picture": `{"avatarUrl": ...}`. */
+    fun avatarUrl(org: String): String {
+        require(REPO_ID.matches("$org/x")) { "Not a Hugging Face organisation: $org" }
+        return "$HUB/api/organizations/$org/avatar"
+    }
 
     fun fileUrl(repo: String, revision: String, path: String) = "$HUB/$repo/resolve/$revision/$path"
 
@@ -80,8 +98,7 @@ object HfCatalog {
     fun parseConfig(json: String): ExportConfig = Manifest.JSON.decodeFromString(ExportConfig.serializer(), json)
 
     /** The `config.json` files in [repo] that describe exports for [backend]. */
-    fun configPaths(repo: HfRepo, backend: String = BACKEND): List<String> =
-        repo.siblings.map { it.rfilename }.filter { it == "$backend/config.json" }
+    fun configPaths(repo: HfRepo, backend: String = BACKEND): List<String> = repo.siblings.map { it.rfilename }.filter { it == "$backend/config.json" }
 
     /**
      * The variants [config] (found at [configPath] in [repo]) offers to this runtime.

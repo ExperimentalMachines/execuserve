@@ -16,15 +16,15 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respondBytesWriter
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
-import io.ktor.server.routing.route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.readBuffer
 import io.ktor.utils.io.writeStringUtf8
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.ChannelResult
 import kotlinx.coroutines.selects.onTimeout
 import kotlinx.coroutines.selects.select
@@ -41,20 +41,22 @@ import org.experimentalmachines.execuserve.api.ChatCompletionRequest
 import org.experimentalmachines.execuserve.api.ChatResponses
 import org.experimentalmachines.execuserve.api.CompletionRequest
 import org.experimentalmachines.execuserve.api.CompletionResponses
+import org.experimentalmachines.execuserve.api.HttpStatus
 import org.experimentalmachines.execuserve.api.ModelOut
 import org.experimentalmachines.execuserve.api.ModelResponses
 import org.experimentalmachines.execuserve.api.Sse
 import org.experimentalmachines.execuserve.engine.ClientId
 import org.experimentalmachines.execuserve.engine.Engine
-import org.experimentalmachines.execuserve.engine.JobRecord
 import org.experimentalmachines.execuserve.engine.FailureKind
 import org.experimentalmachines.execuserve.engine.GenerationRequest
 import org.experimentalmachines.execuserve.engine.GenerationResult
 import org.experimentalmachines.execuserve.engine.Job
 import org.experimentalmachines.execuserve.engine.JobEvent
+import org.experimentalmachines.execuserve.engine.JobRecord
 import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.engine.Refusal
 import org.experimentalmachines.execuserve.engine.RuntimeFailure
+import org.experimentalmachines.execuserve.engine.Units
 
 /** Everything the routes need, supplied by whichever platform hosts the server. */
 class ServerContext(
@@ -70,7 +72,7 @@ class ServerContext(
     /** The run history, newest first; empty where none is kept (the dev server). */
     val runs: () -> List<JobRecord> = { emptyList() },
     /** Responses kept for `previous_response_id`. */
-    val conversations: Conversations = Conversations(clock = { nowSeconds() * MS_PER_SECOND }),
+    val conversations: Conversations = Conversations(clock = { nowSeconds() * Units.MS_PER_SECOND }),
 )
 
 /** The whole HTTP surface. See ARCHITECTURE.md, "HTTP API". */
@@ -100,7 +102,7 @@ fun Application.execuServe(ctx: ServerContext) {
         if (!Hosts.allowed(call.request.headers[HttpHeaders.Host], ctx.deviceHosts(), ctx.settings)) {
             call.respondError(
                 ApiError(
-                    403,
+                    HttpStatus.FORBIDDEN,
                     "invalid_request_error",
                     "The Host header does not name this server. Add the name in ExecuServe's settings if it is yours.",
                     "host_not_allowed",
@@ -165,7 +167,7 @@ private fun Route.apiRoutes(ctx: ServerContext) {
             try {
                 ctx.engine.load(id)
             } catch (failure: RuntimeFailure) {
-                throw ApiError(500, "server_error", failure.message ?: "The model could not be loaded.", "model_load_failed")
+                throw ApiError(HttpStatus.INTERNAL_SERVER_ERROR, "server_error", failure.message ?: "The model could not be loaded.", "model_load_failed")
             }
             respondJson(statusBody(ctx, caller.id))
         }
@@ -244,8 +246,13 @@ private suspend fun ApplicationCall.completion(ctx: ServerContext) {
         when (val end = drain(job)) {
             is JobEvent.Finished -> respondJson(
                 CompletionResponses.completion(
-                    id, created, job.model.id, end.result.content, end.result.finishReason.wire,
-                    usageOf(end.result), timingsOf(end.result),
+                    id,
+                    created,
+                    job.model.id,
+                    end.result.content,
+                    end.result.finishReason.wire,
+                    usageOf(end.result),
+                    timingsOf(end.result),
                 ),
             )
             is JobEvent.Failed -> throw failureError(end.failure)
@@ -412,12 +419,7 @@ private abstract class DataStream : StreamFormat {
     override fun done() = listOf(Sse.DONE)
 }
 
-private class ChatStream(
-    private val id: String,
-    private val created: Long,
-    private val model: String,
-    private val includeUsage: Boolean,
-) : DataStream() {
+private class ChatStream(private val id: String, private val created: Long, private val model: String, private val includeUsage: Boolean) : DataStream() {
     override fun progress(progress: JobEvent.Progress) = listOf(
         Sse.data(
             ChatResponses.progressChunk(id, created, model, progress.processedChars, progress.totalChars, progress.cachedTokens, progress.elapsedMs),
@@ -440,12 +442,8 @@ private class ChatStream(
     }
 }
 
-private class CompletionStream(
-    private val id: String,
-    private val created: Long,
-    private val model: String,
-    private val includeUsage: Boolean,
-) : DataStream() {
+private class CompletionStream(private val id: String, private val created: Long, private val model: String, private val includeUsage: Boolean) :
+    DataStream() {
     override fun openingChunks() = emptyList<JsonObject>()
 
     override fun deltaChunks(delta: JobEvent.Delta): List<JsonObject> =
@@ -541,7 +539,7 @@ private fun modelOut(ctx: ServerContext, entry: ModelEntry): ModelOut {
     val template = ctx.engine.templateFor(entry)
     return ModelOut(
         id = entry.id,
-        created = entry.installedAtMs / MS_PER_SECOND,
+        created = entry.installedAtMs / Units.MS_PER_SECOND,
         contextLength = entry.contextLength ?: resident?.contextLength,
         loaded = resident != null,
         family = entry.family,
@@ -563,4 +561,3 @@ private fun modelOut(ctx: ServerContext, entry: ModelEntry): ModelOut {
 private const val BEARER = "Bearer "
 private const val COMMIT_AFTER_MS = 15_000L
 private const val HEARTBEAT_MS = 5_000L
-private const val MS_PER_SECOND = 1_000L

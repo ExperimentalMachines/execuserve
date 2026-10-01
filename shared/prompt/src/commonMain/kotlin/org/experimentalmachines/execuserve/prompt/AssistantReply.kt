@@ -25,11 +25,7 @@ package org.experimentalmachines.execuserve.prompt
  * @param isReasoningInProgress true while a reasoning block has opened but not closed, so
  *   the UI can say "thinking" rather than showing an empty answer.
  */
-data class AssistantReply(
-    val reasoning: String?,
-    val answer: String,
-    val isReasoningInProgress: Boolean,
-)
+data class AssistantReply(val reasoning: String?, val answer: String, val isReasoningInProgress: Boolean)
 
 /**
  * Splits raw model output into reasoning and answer.
@@ -155,13 +151,12 @@ private const val CLOSE_TAG = "</think>"
  * neither parser recognised the call: a name no tool has cannot be salvaged into anything, so
  * the invocation itself was what reached the screen.
  */
-fun String.withoutToolMarkup(): String =
-    TOOL_MARKUP.fold(this) { text, pattern -> pattern.replace(text, "") }
-        // The closed ones first, so a finished call followed by prose keeps the prose. What
-        // is left with an opener and no closer is a call that was cut off, which is what
-        // Stop makes of one, and there is nothing after it to keep.
-        .let { closed -> UNCLOSED_TOOL_MARKUP.fold(closed) { text, p -> p.replace(text, "") } }
-        .trim()
+fun String.withoutToolMarkup(): String = TOOL_MARKUP.fold(this) { text, pattern -> pattern.replace(text, "") }
+    // The closed ones first, so a finished call followed by prose keeps the prose. What
+    // is left with an opener and no closer is a call that was cut off, which is what
+    // Stop makes of one, and there is nothing after it to keep.
+    .let { closed -> UNCLOSED_TOOL_MARKUP.fold(closed) { text, p -> p.replace(text, "") } }
+    .trim()
 
 /**
  * True when the text carries a tool invocation, whether or not anything could read it.

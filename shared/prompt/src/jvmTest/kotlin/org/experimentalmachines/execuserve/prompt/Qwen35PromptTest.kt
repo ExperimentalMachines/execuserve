@@ -209,8 +209,7 @@ class Qwen35PromptTest {
         assertThat(two.text).isEqualTo("Let me check.")
     }
 
-    private fun render(messages: List<ChatMessage>, thinking: Boolean = false) =
-        Qwen35Prompt.render(messages, listOf(SEARCH), thinking, verbatimHistory = true)
+    private fun render(messages: List<ChatMessage>, thinking: Boolean = false) = Qwen35Prompt.render(messages, listOf(SEARCH), thinking, verbatimHistory = true)
 
     private fun system(text: String) = ChatMessage.text(ChatRole.SYSTEM, text)
     private fun user(text: String) = ChatMessage.text(ChatRole.USER, text)

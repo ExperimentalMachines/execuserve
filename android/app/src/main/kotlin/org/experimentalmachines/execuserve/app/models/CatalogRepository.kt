@@ -41,7 +41,7 @@ class CatalogRepository {
      * what `tools/execuserve pull` asks for, read the same way the catalog screen reads it.
      */
     suspend fun variant(repo: String, file: String): CatalogVariant = withContext(Dispatchers.IO) {
-        val info = HfCatalog.parseRepos("[" + get("https://huggingface.co/api/models/$repo") + "]").single()
+        val info = HfCatalog.parseRepos("[" + get(HfCatalog.modelUrl(repo)) + "]").single()
         val revision = info.sha ?: error("$repo has no commit")
         HfCatalog.configPaths(info).flatMap { path ->
             HfCatalog.variants(info, path, HfCatalog.parseConfig(get(HfCatalog.fileUrl(repo, revision, path))))

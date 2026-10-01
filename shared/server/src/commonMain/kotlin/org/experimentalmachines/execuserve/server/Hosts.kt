@@ -12,6 +12,11 @@ package org.experimentalmachines.execuserve.server
 internal object Hosts {
     private val LOOPBACK = setOf("localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1")
 
+    /** An IPv6 address is eight groups of up to four hex digits. */
+    private const val IPV6_GROUPS = 8
+    private const val GROUP_DIGITS = 4
+    private const val HEX = 16
+
     /**
      * The host part of a `Host` header in one canonical spelling: lowercased, without port,
      * brackets or a trailing root dot, and IPv6 literals compressed the way the device's own
@@ -50,7 +55,7 @@ internal object Hosts {
                 i++
             }
         }
-        val hex = groups.map { it.toString(16) }
+        val hex = groups.map { it.toString(HEX) }
         if (bestStart < 0) return hex.joinToString(":")
         val head = hex.subList(0, bestStart).joinToString(":")
         val tail = hex.subList(bestStart + bestLength, hex.size).joinToString(":")
@@ -60,13 +65,17 @@ internal object Hosts {
     private fun expand(address: String): List<Int>? {
         val halves = address.split("::")
         if (halves.size > 2) return null
-        fun parse(part: String): List<Int>? = if (part.isEmpty()) emptyList() else part.split(':').map { group ->
-            if (group.length > 4) return null
-            group.toIntOrNull(16) ?: return null
+        fun parse(part: String): List<Int>? = if (part.isEmpty()) {
+            emptyList()
+        } else {
+            part.split(':').map { group ->
+                if (group.length > GROUP_DIGITS) return null
+                group.toIntOrNull(HEX) ?: return null
+            }
         }
         val head = parse(halves[0]) ?: return null
         val tail = if (halves.size == 2) parse(halves[1]) ?: return null else emptyList()
-        val missing = 8 - head.size - tail.size
+        val missing = IPV6_GROUPS - head.size - tail.size
         if (halves.size == 1 && missing != 0) return null
         if (missing < 0) return null
         return head + List(if (halves.size == 2) missing else 0) { 0 } + tail

@@ -14,7 +14,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.application.call
 import io.ktor.server.routing.post
-import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.CoroutineScope
@@ -57,11 +56,7 @@ class MessagesTest {
         laneExecutor.shutdownNow()
     }
 
-    private fun serve(
-        runtime: FakeRuntime = FakeRuntime(),
-        window: Int = 4096,
-        block: suspend ApplicationTestBuilder.() -> Unit,
-    ) = testApplication {
+    private fun serve(runtime: FakeRuntime = FakeRuntime(), window: Int = 4096, block: suspend ApplicationTestBuilder.() -> Unit) = testApplication {
         val models = listOf(
             ModelEntry("qwen3-1.7b-8da4w-gptq-2k", ModelFiles("/m/q.pte", "/m/q.json"), "qwen3", 1, window, setOf("qwen3-1.7b")),
         )
@@ -77,13 +72,12 @@ class MessagesTest {
         block()
     }
 
-    private suspend fun messages(body: String, auth: Auth? = apiKey): HttpResponse =
-        http.post("/v1/messages") {
-            auth?.invoke(this)
-            header("anthropic-version", "2023-06-01")
-            contentType(ContentType.Application.Json)
-            setBody(body)
-        }
+    private suspend fun messages(body: String, auth: Auth? = apiKey): HttpResponse = http.post("/v1/messages") {
+        auth?.invoke(this)
+        header("anthropic-version", "2023-06-01")
+        contentType(ContentType.Application.Json)
+        setBody(body)
+    }
 
     private val apiKey: Auth = { header("x-api-key", key.secret) }
 
@@ -163,7 +157,8 @@ class MessagesTest {
             "/v1/messages" to """{"model":"qwen3-1.7b","max_tokens":64,"system":"Be brief.","messages":[{"role":"user","content":"Hi"}]}""",
             "/v1/messages" to """{"model":"qwen3-1.7b","max_tokens":64,"system":[{"type":"text","text":"Be brief.","cache_control":{"type":"ephemeral"}}],
                 "messages":[{"role":"user","content":[{"type":"text","text":"Hi"}]}]}""",
-            "/v1/chat/completions" to """{"model":"qwen3-1.7b","max_tokens":64,"messages":[{"role":"system","content":"Be brief."},{"role":"user","content":"Hi"}]}""",
+            "/v1/chat/completions" to
+                """{"model":"qwen3-1.7b","max_tokens":64,"messages":[{"role":"system","content":"Be brief."},{"role":"user","content":"Hi"}]}""",
         ).map { (path, body) -> promptFor(path, body) }
         assertTrue("<|im_start|>system\nBe brief.<|im_end|>" in prompts[0], prompts[0])
         assertEquals(prompts[2], prompts[0])
@@ -339,12 +334,20 @@ class MessagesTest {
     @Test
     fun forcedToolChoiceImagesAndAMissingMaxTokensAre400s() = serve {
         val refusals = mapOf(
-            """{"model":"qwen3-1.7b","max_tokens":64,"tools":[$weatherTool],"tool_choice":{"type":"any"},"messages":[{"role":"user","content":"Hi"}]}""" to "cannot force",
-            """{"model":"qwen3-1.7b","max_tokens":64,"tools":[$weatherTool],"tool_choice":{"type":"tool","name":"get_weather"},"messages":[{"role":"user","content":"Hi"}]}""" to "cannot force",
-            """{"model":"qwen3-1.7b","max_tokens":64,"messages":[{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAAA"}}]}]}""" to "'image'",
-            """{"model":"qwen3-1.7b","max_tokens":64,"messages":[{"role":"user","content":[{"type":"document","source":{"type":"text","media_type":"text/plain","data":"x"}}]}]}""" to "'document'",
+            """{"model":"qwen3-1.7b","max_tokens":64,"tools":[$weatherTool],"tool_choice":{"type":"any"},"messages":[{"role":"user","content":"Hi"}]}""" to
+                "cannot force",
+            """{"model":"qwen3-1.7b","max_tokens":64,"tools":[$weatherTool],"tool_choice":{"type":"tool","name":"get_weather"},""" +
+                """"messages":[{"role":"user","content":"Hi"}]}""" to
+                "cannot force",
+            """{"model":"qwen3-1.7b","max_tokens":64,"messages":[{"role":"user","content":""" +
+                """[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAAA"}}]}]}""" to
+                "'image'",
+            """{"model":"qwen3-1.7b","max_tokens":64,"messages":[{"role":"user","content":""" +
+                """[{"type":"document","source":{"type":"text","media_type":"text/plain","data":"x"}}]}]}""" to
+                "'document'",
             """{"model":"qwen3-1.7b","messages":[{"role":"user","content":"Hi"}]}""" to "max_tokens: Field required",
-            """{"model":"qwen3-1.7b","max_tokens":64,"messages":[{"role":"user","content":"Hi"},{"role":"assistant","content":"The answer is"}]}""" to "Prefilling",
+            """{"model":"qwen3-1.7b","max_tokens":64,"messages":[{"role":"user","content":"Hi"},{"role":"assistant","content":"The answer is"}]}""" to
+                "Prefilling",
         )
         for ((body, words) in refusals) {
             val response = messages(body)
@@ -376,7 +379,7 @@ class MessagesTest {
         // The first fragment streams, then the runtime throws, as a native generate can.
         val failing = object : AbstractList<String>() {
             override val size = 3
-            override fun get(index: Int): String = if (index == 0) "Hello" else throw IllegalStateException("runtime fell over")
+            override fun get(index: Int): String = if (index == 0) "Hello" else error("runtime fell over")
         }
         serve(runtime = FakeRuntime(reply = { failing })) {
             val response = messages("""$hello,"stream":true}""")

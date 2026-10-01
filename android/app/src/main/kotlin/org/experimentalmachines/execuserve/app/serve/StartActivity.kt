@@ -26,6 +26,9 @@ import org.experimentalmachines.execuserve.server.BindMode
 class StartActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Another app's overlay could cover this dialog and steer a tap onto Start; while it
+        // is showing, Android hides every non-system overlay (API 31+, this app's minimum).
+        window.setHideOverlayWindows(true)
         if (graph.host.state.value is ServeHost.State.Running) {
             setResult(Activity.RESULT_OK)
             finish()

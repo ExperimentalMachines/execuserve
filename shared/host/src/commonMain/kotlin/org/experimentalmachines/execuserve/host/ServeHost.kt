@@ -12,9 +12,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -27,6 +27,7 @@ import org.experimentalmachines.execuserve.engine.Environment
 import org.experimentalmachines.execuserve.engine.LlmRuntime
 import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.engine.ModelSource
+import org.experimentalmachines.execuserve.engine.Units
 import org.experimentalmachines.execuserve.server.ApiKey
 import org.experimentalmachines.execuserve.server.BindMode
 import org.experimentalmachines.execuserve.server.ExecuServer
@@ -116,10 +117,10 @@ class ServeHost(
     private var lane: CloseableCoroutineDispatcher? = null
     private var runtime: LlmRuntime? = null
 
-    private val _threads = MutableStateFlow<Int?>(null)
+    private val _activeThreads = MutableStateFlow<Int?>(null)
 
     /** The threads the runtime computes with, read after each model load; null until one loads. */
-    val activeThreads: StateFlow<Int?> = _threads.asStateFlow()
+    val activeThreads: StateFlow<Int?> = _activeThreads.asStateFlow()
 
     /** The keys as they are now: a key added or revoked applies to the next request. */
     @Volatile private var keys: List<ApiKey> = emptyList()
@@ -157,10 +158,10 @@ class ServeHost(
                 settings = current.serverSettings(),
                 keys = liveKeys,
                 deviceHosts = ::deviceHosts,
-                threads = { _threads.value },
+                threads = { _activeThreads.value },
                 runs = { history.runs.value },
                 version = platform.version,
-                nowSeconds = { clock() / MS_PER_SECOND },
+                nowSeconds = { clock() / Units.MS_PER_SECOND },
             ),
         )
         try {
@@ -193,7 +194,7 @@ class ServeHost(
         // Which models are open changes only on a load or an unload: read the pool size then.
         child.launch {
             engine.status.map { status -> status.resident.map { it.id } }.distinctUntilChanged().collect {
-                _threads.value = if (it.isEmpty()) null else runtime.activeThreads()
+                _activeThreads.value = if (it.isEmpty()) null else runtime.activeThreads()
             }
         }
         child.launch { current.startupModels { engine.resolve(it)?.id }.forEach { model -> runCatching { engine.load(model) } } }
@@ -211,7 +212,7 @@ class ServeHost(
         engineScope = null
         lane = null
         runtime = null
-        _threads.value = null
+        _activeThreads.value = null
         _engine.value = null
         _state.value = State.Stopped()
     }
@@ -261,7 +262,6 @@ class ServeHost(
 
     private companion object {
         const val STOP_GRACE_MS = 3_000L
-        const val MS_PER_SECOND = 1_000L
 
         /** Addresses are read for every request's `Host` check; five seconds is fresh enough. */
         const val HOST_CACHE_MS = 5_000L

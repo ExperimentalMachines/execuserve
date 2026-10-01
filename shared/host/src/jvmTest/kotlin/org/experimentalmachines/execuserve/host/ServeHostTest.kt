@@ -41,6 +41,7 @@ class ServeHostTest {
     private val library = FakeLibrary(
         listOf(ModelEntry("qwen3-1.7b-8da4w-gptq-2k", ModelFiles("/m/q.pte", "/m/q.json"), "qwen3", 1, 2048, setOf("qwen3-1.7b"))),
     )
+
     // Small prefill calls, so a prompt is read a chunk at a time the way the phone reads it.
     private val runtime = FakeRuntime(prefillLength = 64)
     private val runStore = MemoryRunStore()
@@ -68,16 +69,21 @@ class ServeHostTest {
 
     @Test
     fun startupLoadsDistinctCanonicalModelsBeforeApplyingTheCapacity() = runBlocking<Unit> {
-        val startupStore = FakeStore(HostSettings(
-            port = port,
-            defaultModel = "first",
-            preloadModels = setOf("a", "b"),
-            maxResidentModels = 2,
-        ), key)
-        val startupLibrary = FakeLibrary(listOf(
-            ModelEntry("a", ModelFiles("/m/a.pte", "/m/a.json"), "qwen3", aliases = setOf("first")),
-            ModelEntry("b", ModelFiles("/m/b.pte", "/m/b.json"), "qwen3"),
-        ))
+        val startupStore = FakeStore(
+            HostSettings(
+                port = port,
+                defaultModel = "first",
+                preloadModels = setOf("a", "b"),
+                maxResidentModels = 2,
+            ),
+            key,
+        )
+        val startupLibrary = FakeLibrary(
+            listOf(
+                ModelEntry("a", ModelFiles("/m/a.pte", "/m/a.json"), "qwen3", aliases = setOf("first")),
+                ModelEntry("b", ModelFiles("/m/b.pte", "/m/b.json"), "qwen3"),
+            ),
+        )
         val startupHost = ServeHost(FakePlatform(runtime), startupStore, startupLibrary, history, scope)
         try {
             startupHost.start(onWedged = {})
@@ -120,10 +126,18 @@ class ServeHostTest {
         val body = ConsoleTest.body("qwen3-1.7b", "word ".repeat(360), stream = false).toByteArray()
         java.net.Socket("127.0.0.1", port).use { socket ->
             socket.getOutputStream().write(
-                ("POST /v1/chat/completions HTTP/1.1\r\nHost: 127.0.0.1:$port\r\nAuthorization: Bearer ${key.secret}\r\n" +
-                    "Content-Type: application/json\r\nContent-Length: ${body.size}\r\n\r\n").toByteArray() + body,
+                (
+                    "POST /v1/chat/completions HTTP/1.1\r\nHost: 127.0.0.1:$port\r\nAuthorization: Bearer ${key.secret}\r\n" +
+                        "Content-Type: application/json\r\nContent-Length: ${body.size}\r\n\r\n"
+                    ).toByteArray() + body,
             )
-            withTimeout(5_000) { while (host.status.first()?.lane != org.experimentalmachines.execuserve.engine.LaneState.PREFILLING) kotlinx.coroutines.delay(20) }
+            withTimeout(5_000) {
+                while (host.status.first()?.lane !=
+                    org.experimentalmachines.execuserve.engine.LaneState.PREFILLING
+                ) {
+                    kotlinx.coroutines.delay(20)
+                }
+            }
         }
         val left = System.currentTimeMillis()
         withTimeout(5_000) {

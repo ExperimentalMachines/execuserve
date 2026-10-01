@@ -107,11 +107,16 @@ private fun prometheus(ctx: ServerContext): String = buildString {
         appendLine("# TYPE execuserve_$name $type")
         samples.forEach { (labels, value) -> appendLine("execuserve_$name$labels $value") }
     }
-    metric("requests_total", "counter", "Requests finished, by outcome.", listOf(
-        "{outcome=\"completed\"}" to totals.completed,
-        "{outcome=\"failed\"}" to totals.failed,
-        "{outcome=\"refused\"}" to totals.refused,
-    ))
+    metric(
+        "requests_total",
+        "counter",
+        "Requests finished, by outcome.",
+        listOf(
+            "{outcome=\"completed\"}" to totals.completed,
+            "{outcome=\"failed\"}" to totals.failed,
+            "{outcome=\"refused\"}" to totals.refused,
+        ),
+    )
     metric("prompt_tokens_total", "counter", "Prompt tokens, cached ones included.", listOf("" to totals.promptTokens))
     metric("prompt_tokens_cached_total", "counter", "Prompt tokens reused from the KV cache.", listOf("" to totals.cachedTokens))
     metric("prompt_seconds_total", "counter", "Time spent reading prompts.", listOf("" to totals.prefillMs / MS))
@@ -127,11 +132,16 @@ private fun prometheus(ctx: ServerContext): String = buildString {
     fun quantiles(name: String, help: String, values: List<Double>) {
         val spread = Spread.of(values) ?: return
         // A summary's count is its own series, execuserve_<name>_count, hence the bare suffix.
-        metric(name, "summary", "$help Over the last $QUANTILE_RUNS runs.", listOf(
-            "{quantile=\"0.5\"}" to spread.median,
-            "{quantile=\"0.9\"}" to spread.p90,
-            "_count" to spread.count,
-        ))
+        metric(
+            name,
+            "summary",
+            "$help Over the last $QUANTILE_RUNS runs.",
+            listOf(
+                "{quantile=\"0.5\"}" to spread.median,
+                "{quantile=\"0.9\"}" to spread.p90,
+                "_count" to spread.count,
+            ),
+        )
     }
     quantiles("time_to_first_token_seconds", "Submission to first token.", recent.filter { it.firstTokenMs > 0 }.map { it.firstTokenMs / MS })
     quantiles("request_seconds", "Submission to last token.", recent.map { it.totalMs / MS })

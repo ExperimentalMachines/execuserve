@@ -41,12 +41,9 @@ class EngineTest {
     private fun model(id: String, family: String = "lfm2.5", window: Int? = 4096) =
         ModelEntry(id, ModelFiles("/models/$id.pte", "/models/$id.json"), family = family, contextLength = window)
 
-    private fun engine(
-        runtime: LlmRuntime,
-        models: List<ModelEntry> = listOf(model("lfm")),
-        config: EngineConfig = EngineConfig(),
-    ) = Engine(runtime, StaticModelSource(models), lane, scope, config, env, onWedged = { wedgedCalls++ })
-        .also { it.start() }
+    private fun engine(runtime: LlmRuntime, models: List<ModelEntry> = listOf(model("lfm")), config: EngineConfig = EngineConfig()) =
+        Engine(runtime, StaticModelSource(models), lane, scope, config, env, onWedged = { wedgedCalls++ })
+            .also { it.start() }
 
     private fun user(text: String) = ChatMessage.text(ChatRole.USER, text)
 
@@ -166,7 +163,11 @@ class EngineTest {
         val runtime = FakeRuntime(
             reply = {
                 listOf(
-                    "Sure. ", "<tool_call>", "\n{\"name\": \"search\", ", "\"arguments\": {\"q\": \"tides\"}}\n", "</tool_call>",
+                    "Sure. ",
+                    "<tool_call>",
+                    "\n{\"name\": \"search\", ",
+                    "\"arguments\": {\"q\": \"tides\"}}\n",
+                    "</tool_call>",
                     "<|im_end|>",
                 )
             },
@@ -387,22 +388,25 @@ class EngineTest {
     @Test
     fun finalRuntimePromptEvaluationStaysPrefillingUntilTheFirstToken() = test {
         val gate = CountDownLatch(1)
-        val runtime = FakeRuntime().apply { hang = gate; tokenDelayMs = 100 }
+        val runtime = FakeRuntime().apply {
+            hang = gate
+            tokenDelayMs = 100
+        }
         val engine = engine(runtime)
         val job = engine.submit(chat(user("Read this prompt")))
         try {
             val prefill = engine.status.first { it.lane == LaneState.PREFILLING }
             assertTrue(prefill.running!!.prefillStartedAtMs > 0)
-            assertTrue(prefill.running!!.promptChars > 0)
-            assertEquals(0, prefill.running!!.firstTokenAtMs)
+            assertTrue(prefill.running.promptChars > 0)
+            assertEquals(0, prefill.running.firstTokenAtMs)
             // The fake enters generate(), then waits before emitting its first token.
             while (runtime.log.none { it.startsWith("generate ") }) delay(5)
             assertEquals(LaneState.PREFILLING, engine.status.value.lane)
             gate.countDown()
             val decoding = engine.status.first { it.lane == LaneState.GENERATING }
             assertTrue(decoding.running!!.firstTokenAtMs > 0)
-            assertEquals(decoding.running!!.promptChars, decoding.running!!.prefilledChars)
-            assertTrue(decoding.running!!.prefillElapsedMs(Long.MAX_VALUE) < Long.MAX_VALUE / 2)
+            assertEquals(decoding.running.promptChars, decoding.running.prefilledChars)
+            assertTrue(decoding.running.prefillElapsedMs(Long.MAX_VALUE) < Long.MAX_VALUE / 2)
             assertIs<JobEvent.Finished>(job.collect().end)
         } finally {
             gate.countDown()
@@ -452,9 +456,7 @@ class EngineTest {
         val runtime = FakeRuntime(reply = { List(1_000) { " t$it" } })
         runtime.tokenDelayMs = 10
         val engine = engine(runtime, config = EngineConfig(requestTimeoutMs = 300))
-        val t0 = System.currentTimeMillis()
         val run = engine.submit(chat(user("go"))).collect()
-        if (run.end is JobEvent.Finished) println("DEBUG finished after ${System.currentTimeMillis() - t0} ms: ${run.result.finishReason} tokens=${run.result.completionTokens} content=${run.content.take(80)}")
         assertEquals(FailureKind.DEADLINE, run.failure.kind)
     }
 
@@ -565,8 +567,12 @@ class EngineTest {
         val history = org.experimentalmachines.execuserve.prompt.HistoryText.of("", listOf(made), template)
         val answer = engine.submit(
             chat(
-                user("Tides?"), assistant(history), ChatMessage.toolResult(made.id, "High tide 06:12"),
-                model = "qwen", tools = listOf(tool), thinking = true,
+                user("Tides?"),
+                assistant(history),
+                ChatMessage.toolResult(made.id, "High tide 06:12"),
+                model = "qwen",
+                tools = listOf(tool),
+                thinking = true,
             ),
         ).collect()
         assertEquals("High tide at six.", answer.content)

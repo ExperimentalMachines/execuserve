@@ -15,19 +15,10 @@ data class ModelFiles(val model: String, val tokenizer: String)
  * many fails on the 1.4.0 runtime, so the engine stays under it.
  * @property stateResetAtZero whether the graph clears its recurrent state at position zero.
  */
-data class ModelFacts(
-    val contextLength: Int?,
-    val prefillLength: Int? = null,
-    val stateResetAtZero: Boolean? = null,
-)
+data class ModelFacts(val contextLength: Int?, val prefillLength: Int? = null, val stateResetAtZero: Boolean? = null)
 
 /** What one `generate` call measured. Zero means the runtime did not say. */
-data class RuntimeOutcome(
-    val promptTokens: Int = 0,
-    val generatedTokens: Int = 0,
-    val prefillMs: Long = 0,
-    val decodeMs: Long = 0,
-)
+data class RuntimeOutcome(val promptTokens: Int = 0, val generatedTokens: Int = 0, val prefillMs: Long = 0, val decodeMs: Long = 0)
 
 /** A failure the runtime reported, as text a person can act on. */
 open class RuntimeFailure(message: String, cause: Throwable? = null) : Exception(message, cause)

@@ -13,10 +13,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -32,8 +32,8 @@ import java.util.concurrent.Executors
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class ProgressTest {
     private val lane = Executors.newSingleThreadExecutor()
@@ -105,8 +105,13 @@ class ProgressTest {
                     socket.setSoLinger(true, 0)
                     val body = """{"model":"lfm","stream":true,"max_tokens":1000,"messages":[{"role":"user","content":"Hi"}]}"""
                     val bytes = body.toByteArray()
-                    val headers = "POST /v1/chat/completions HTTP/1.1\r\nHost: localhost:$port\r\nAuthorization: Bearer ${key.secret}\r\nContent-Type: application/json\r\nContent-Length: ${bytes.size}\r\n\r\n"
-                    socket.getOutputStream().apply { write(headers.toByteArray()); write(bytes); flush() }
+                    val headers = "POST /v1/chat/completions HTTP/1.1\r\nHost: localhost:$port\r\n" +
+                        "Authorization: Bearer ${key.secret}\r\nContent-Type: application/json\r\nContent-Length: ${bytes.size}\r\n\r\n"
+                    socket.getOutputStream().apply {
+                        write(headers.toByteArray())
+                        write(bytes)
+                        flush()
+                    }
                     val response = socket.getInputStream().bufferedReader()
                     var started = false
                     while (!started) {

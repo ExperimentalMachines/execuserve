@@ -130,10 +130,9 @@ class ModelScanner(private val fs: FileSystemView, private val root: String) : M
         )
     }
 
-    private fun tokenizerBeside(directory: String, pte: String): String? =
-        listOf(stem(pte) + TOKENIZER_SUFFIX, "tokenizer.json")
-            .map { join(directory, it) }
-            .firstOrNull { fs.isFile(it) }
+    private fun tokenizerBeside(directory: String, pte: String): String? = listOf(stem(pte) + TOKENIZER_SUFFIX, "tokenizer.json")
+        .map { join(directory, it) }
+        .firstOrNull { fs.isFile(it) }
 
     private companion object {
         const val PTE = ".pte"
@@ -148,6 +147,9 @@ class ModelScanner(private val fs: FileSystemView, private val root: String) : M
          * `...-2k.pte` is a 2048-token export in the exporter's naming. Only a hint for the
          * admission check before the file is opened; the file's own metadata wins after.
          */
-        fun windowFromName(file: String): Int? = WINDOW.find(file)?.groupValues?.get(1)?.toIntOrNull()?.let { it * 1024 }
+        fun windowFromName(file: String): Int? = WINDOW.find(file)?.groupValues?.get(1)?.toIntOrNull()?.let { it * TOKENS_PER_K }
+
+        /** The exporter's "k" is binary: a `-2k` export holds 2048 tokens. */
+        private const val TOKENS_PER_K = 1024
     }
 }

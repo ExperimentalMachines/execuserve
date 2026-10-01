@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Each ignore is a decision about what this app is, not a finding left for later. -->
+<lint>
+    <!-- A model server must keep the CPU awake while a request runs; the lock is taken only
+         while serving or busy and released when the lane goes idle (ServeService.applyLocks). -->
+    <issue id="Wakelock" severity="ignore" />
+    <issue id="WakelockTimeout" severity="ignore" />
+    <!-- The exemption is asked for by the person, from a button in Settings, because Doze
+         otherwise stops the server answering other apps: Play's "core function" case. -->
+    <issue id="BatteryLife" severity="ignore" />
+</lint>

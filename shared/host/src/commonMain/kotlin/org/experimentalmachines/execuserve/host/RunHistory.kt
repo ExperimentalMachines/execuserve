@@ -15,6 +15,7 @@ import org.experimentalmachines.execuserve.engine.FailureKind
 import org.experimentalmachines.execuserve.engine.FinishReason
 import org.experimentalmachines.execuserve.engine.JobRecord
 import org.experimentalmachines.execuserve.engine.ThermalLevel
+import org.experimentalmachines.execuserve.engine.Units
 
 /** Lines of text kept somewhere that survives the process: a file on Android. */
 interface RunStore {
@@ -28,7 +29,12 @@ interface RunStore {
 }
 
 /** How much history is kept: whichever limit is reached first. */
-data class Retention(val maxRuns: Int = 10_000, val maxAgeMs: Long = 30L * 24 * 60 * 60 * 1_000)
+data class Retention(val maxRuns: Int = DEFAULT_MAX_RUNS, val maxAgeMs: Long = DEFAULT_MAX_AGE_MS) {
+    companion object {
+        const val DEFAULT_MAX_RUNS = 10_000
+        const val DEFAULT_MAX_AGE_MS = 30 * Units.MS_PER_DAY
+    }
+}
 
 /**
  * Every request the server finished, across restarts: the figures (which model, how long each
@@ -99,7 +105,6 @@ object RunCodec {
     fun encode(run: JobRecord): String = JSON.encodeToString(StoredRun.serializer(), StoredRun.of(run))
 
     fun decode(line: String): JobRecord? = runCatching { JSON.decodeFromString(StoredRun.serializer(), line).record() }.getOrNull()
-
 }
 
 @Serializable

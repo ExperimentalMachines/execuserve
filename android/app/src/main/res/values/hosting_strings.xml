@@ -23,13 +23,9 @@
     <string name="host_decode_hint">Reply generation</string>
     <string name="host_load">Load into memory</string>
     <string name="host_unload">Free memory</string>
-    <string name="host_connect_model">Connect to this model</string>
-    <string name="host_connect_hint">API endpoint, browser chat and QR codes</string>
     <string name="host_model_api">API base URL</string>
     <string name="host_model_id">Model ID</string>
     <string name="host_shared_key">Use the shared key in Connection access.</string>
-    <string name="host_last_request">Last request details</string>
-    <string name="host_last_at">Finished at %1$s</string>
     <string name="host_connection">Connection access</string>
     <string name="host_access_key">API key</string>
     <string name="host_access_key_hint">One key works with all hosted models</string>

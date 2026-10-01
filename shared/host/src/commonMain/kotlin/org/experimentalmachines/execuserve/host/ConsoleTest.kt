@@ -61,12 +61,10 @@ object ConsoleTest {
     }
 
     /** A first request for a server with no model installed yet: the model list. */
-    fun curlModels(baseUrl: String, key: String): String =
-        "curl $baseUrl/models \\\n  -H \"Authorization: Bearer $key\""
+    fun curlModels(baseUrl: String, key: String): String = "curl $baseUrl/models \\\n  -H \"Authorization: Bearer $key\""
 
     /** What most OpenAI SDKs and tools read from the environment. */
-    fun exports(baseUrl: String, key: String): String =
-        "export OPENAI_BASE_URL=$baseUrl\nexport OPENAI_API_KEY=$key\n"
+    fun exports(baseUrl: String, key: String): String = "export OPENAI_BASE_URL=$baseUrl\nexport OPENAI_API_KEY=$key\n"
 
     /** The error message from an OpenAI-shaped error body, or the body itself, shortened. */
     fun errorMessage(body: String?): String = runCatching {

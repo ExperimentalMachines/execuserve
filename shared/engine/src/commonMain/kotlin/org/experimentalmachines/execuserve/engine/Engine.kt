@@ -10,8 +10,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -24,8 +24,8 @@ import org.experimentalmachines.execuserve.prompt.ChatRole
 import org.experimentalmachines.execuserve.prompt.HistoryText
 import org.experimentalmachines.execuserve.prompt.MessagePart
 import org.experimentalmachines.execuserve.prompt.PromptTemplate
-import org.experimentalmachines.execuserve.prompt.ToolCall
 import org.experimentalmachines.execuserve.prompt.PromptTemplates
+import org.experimentalmachines.execuserve.prompt.ToolCall
 import kotlin.concurrent.Volatile
 import kotlin.random.Random
 import kotlin.time.Clock
@@ -205,8 +205,7 @@ class Engine(
     fun resolve(name: String): ModelEntry? = models.resolve(name)
 
     /** The chat template [entry] is rendered with, or null for raw prompts only. */
-    fun templateFor(entry: ModelEntry): PromptTemplate? =
-        PromptTemplates.forModel(entry.family ?: entry.files.model.substringAfterLast('/'))
+    fun templateFor(entry: ModelEntry): PromptTemplate? = PromptTemplates.forModel(entry.family ?: entry.files.model.substringAfterLast('/'))
 
     /** Makes [modelName] resident, waiting for the lane like any request. */
     suspend fun load(modelName: String) {
@@ -470,8 +469,9 @@ class Engine(
             val waited = now - job.submittedAtMs
             val reason = when {
                 job.cancelled != null -> job.cancelled!! to "Cancelled while queued."
-                waited >= cfg.queueTimeoutMs -> FailureKind.QUEUE_TIMEOUT to
-                    "Waited ${waited / MS_PER_SECOND} s for the model without reaching it."
+                waited >= cfg.queueTimeoutMs ->
+                    FailureKind.QUEUE_TIMEOUT to
+                        "Waited ${waited / Units.MS_PER_SECOND} s for the model without reaching it."
                 else -> null
             } ?: continue
             iterator.remove()
@@ -553,12 +553,11 @@ class Engine(
         var fedMs = 0L
         var prefillStarted = 0L
         val totalChars = fresh.length
-        fun currentProgress(tokens: Int = 0, firstToken: Long = 0) =
-            running(job, tokens, reused, firstToken).copy(
-                prefillStartedAtMs = prefillStarted,
-                promptChars = totalChars,
-                prefilledChars = if (firstToken > 0) totalChars else fedChars,
-            )
+        fun currentProgress(tokens: Int = 0, firstToken: Long = 0) = running(job, tokens, reused, firstToken).copy(
+            prefillStartedAtMs = prefillStarted,
+            promptChars = totalChars,
+            prefilledChars = if (firstToken > 0) totalChars else fedChars,
+        )
         try {
             if (!extending) {
                 if (resident.dirty) session.reset()
@@ -705,7 +704,9 @@ class Engine(
         }
         job.complete(JobEvent.Finished(result))
         record(
-            job, finish, null,
+            job,
+            finish,
+            null,
             Measured(
                 prompt = result.promptTokens,
                 completion = completionTokens,
@@ -729,9 +730,10 @@ class Engine(
                 } catch (loadFailure: RuntimeFailure) {
                     failure = loadFailure
                 }
-                is Action.Unload -> residents.values
-                    .filter { action.id == null || it.entry.id == action.id }
-                    .forEach(::evict)
+                is Action.Unload ->
+                    residents.values
+                        .filter { action.id == null || it.entry.id == action.id }
+                        .forEach(::evict)
                 is Action.EvictIdle -> {
                     val now = clock()
                     val idleFor = config.idleUnloadMs
@@ -767,8 +769,9 @@ class Engine(
         val facts = runCatching { runtime.probe(entry.files) }.getOrElse { ModelFacts(entry.contextLength) }
         val session = try {
             runtime.open(entry.files, facts)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (failure: Throwable) {
-            if (failure is CancellationException) throw failure
             val reason = failure.message ?: failure::class.simpleName ?: "unknown error"
             broken[entry.id] = reason
             _status.update { it.copy(broken = broken.toMap()) }
@@ -865,7 +868,7 @@ class Engine(
             "The phone is too hot to take more work (thermal ${env.thermal.name.lowercase()}).",
             THERMAL_RETRY_MS,
         )
-        cfg.minBatteryPercent > 0 && !env.charging && (env.batteryPercent ?: 100) < cfg.minBatteryPercent ->
+        cfg.minBatteryPercent > 0 && !env.charging && (env.batteryPercent ?: FULL_BATTERY_PERCENT) < cfg.minBatteryPercent ->
             Refusal.Paused("The battery is below ${cfg.minBatteryPercent}% and not charging.", BATTERY_RETRY_MS)
         else -> null
     }
@@ -970,8 +973,7 @@ class Engine(
         _status.update { it.copy(resident = snapshot) }
     }
 
-    private fun retryAfterMs(waiting: Int): Long =
-        (meanJobMs * (waiting + 1)).toLong().coerceIn(MIN_RETRY_MS, MAX_RETRY_MS)
+    private fun retryAfterMs(waiting: Int): Long = (meanJobMs * (waiting + 1)).toLong().coerceIn(MIN_RETRY_MS, MAX_RETRY_MS)
 
     private fun cancelMessage(kind: FailureKind): String = when (kind) {
         FailureKind.DEADLINE -> "The request ran past its deadline."
@@ -1020,8 +1022,10 @@ class Engine(
         const val THERMAL_RETRY_MS = 60_000L
         const val BATTERY_RETRY_MS = 300_000L
         const val MIN_RETRY_MS = 1_000L
+
+        /** What an unknown battery level counts as: never the reason to refuse work. */
+        const val FULL_BATTERY_PERCENT = 100
         const val MAX_RETRY_MS = 120_000L
-        const val MS_PER_SECOND = 1_000L
         const val RECORD_BUFFER = 64
 
         /** A client id no key has, so a rendering never picks up anyone's ledger. */

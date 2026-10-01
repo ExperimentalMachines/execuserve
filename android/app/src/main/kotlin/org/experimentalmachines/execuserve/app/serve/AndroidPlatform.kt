@@ -6,8 +6,8 @@ import android.app.ActivityManager
 import android.content.Context
 import kotlinx.coroutines.CloseableCoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.flow.StateFlow
 import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.engine.Environment
 import org.experimentalmachines.execuserve.engine.LlmRuntime

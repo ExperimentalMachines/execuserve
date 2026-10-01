@@ -39,7 +39,7 @@ android {
 }
 
 dependencies {
-    implementation("com.google.zxing:core:3.5.4")
+    implementation(libs.zxing.core)
     implementation(project(":shared:host"))
     implementation(project(":shared:catalog"))
     implementation(project(":android:executorch"))
@@ -59,7 +59,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
-    testImplementation("org.robolectric:robolectric:4.16")
+    testImplementation(libs.robolectric)
     testImplementation(platform(libs.androidx.compose.bom))
-    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation(libs.androidx.compose.ui.test.junit4)
 }

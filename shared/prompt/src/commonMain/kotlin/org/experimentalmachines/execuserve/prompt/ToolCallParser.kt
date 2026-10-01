@@ -319,8 +319,7 @@ object ToolCallParser {
     }
 
     /** Finds only root members, and rejects a second object or trailing prose. */
-    private fun String.jsonFieldValueStart(field: String): Int? =
-        if (startsWith("{") && endsWith("}")) rootJsonFieldValueStart(field) else null
+    private fun String.jsonFieldValueStart(field: String): Int? = if (startsWith("{") && endsWith("}")) rootJsonFieldValueStart(field) else null
 
     private fun String.rootJsonFieldValueStart(field: String): Int? {
         var depth = 0

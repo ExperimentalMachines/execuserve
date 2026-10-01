@@ -27,11 +27,7 @@ package org.experimentalmachines.execuserve.prompt
  */
 object Phi4Prompt {
 
-    fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition> = emptyList(),
-        addGenerationPrompt: Boolean = true,
-    ): String = buildString {
+    fun render(messages: List<ChatMessage>, tools: List<ToolDefinition> = emptyList(), addGenerationPrompt: Boolean = true): String = buildString {
         val leadingSystem = messages.firstOrNull()?.takeIf { it.role == ChatRole.SYSTEM }
         if (tools.isNotEmpty()) {
             append("<|system|>").append(leadingSystem?.text.orEmpty())

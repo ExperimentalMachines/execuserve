@@ -77,12 +77,14 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
                             entry = entry,
                             isDefault = settings?.let { entry.id == it.defaultModel || entry.id in it.preloadModels } == true,
                             status = status,
-                            onDefault = { on -> model.update { current ->
-                                current.copy(
-                                    defaultModel = current.defaultModel.takeUnless { !on && it == entry.id },
-                                    preloadModels = if (on) current.preloadModels + entry.id else current.preloadModels - entry.id,
-                                )
-                            } },
+                            onDefault = { on ->
+                                model.update { current ->
+                                    current.copy(
+                                        defaultModel = current.defaultModel.takeUnless { !on && it == entry.id },
+                                        preloadModels = if (on) current.preloadModels + entry.id else current.preloadModels - entry.id,
+                                    )
+                                }
+                            },
                             onLoad = { model.load(entry.id) },
                             onUnload = { model.unload(entry.id) },
                             onDelete = { deleting = entry },
@@ -125,7 +127,11 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
         when (val state = catalog) {
             CatalogState.Idle -> item(key = "browse") {
                 Panel(stringResource(R.string.catalog_title)) {
-                    Text(stringResource(R.string.catalog_source), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.catalog_source),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     InkButton(stringResource(R.string.catalog_browse), onClick = { model.loadCatalog() })
                 }
             }
@@ -140,7 +146,11 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
                 item(key = "catalog-title") {
                     Column(Modifier.padding(top = Dimens.row, start = 4.dp, end = 4.dp)) {
                         PanelTitle(stringResource(R.string.catalog_title))
-                        Text(stringResource(R.string.catalog_source), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.catalog_source),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
                 items(state.repos, key = { "r-" + it.repo }) { repo ->
@@ -197,18 +207,22 @@ private fun InstalledRow(
             }
             Text(Format.bytes(entry.sizeBytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Expandable(stringResource(R.string.host_model_details)) {
-            Text(entry.id, style = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.gutter), modifier = Modifier.padding(top = 4.dp)) {
-                entry.contextLength?.let { Fact(stringResource(R.string.fact_window), Format.window(it)) }
-                Fact(stringResource(R.string.fact_size), Format.bytes(entry.sizeBytes))
-                // The template is named only when there is none: that is a limit a client meets.
-                if (entry.family == null) Fact(stringResource(R.string.fact_template), stringResource(R.string.model_raw), valueColor = tones.attention.color)
-            }
-            Text(
-                entry.source?.let { stringResource(R.string.model_from, it) } ?: stringResource(R.string.model_from_computer),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                Text(entry.id, style = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.gutter), modifier = Modifier.padding(top = 4.dp)) {
+                    entry.contextLength?.let { Fact(stringResource(R.string.fact_window), Format.window(it)) }
+                    Fact(stringResource(R.string.fact_size), Format.bytes(entry.sizeBytes))
+                    // The template is named only when there is none: that is a limit a client meets.
+                    if (entry.family ==
+                        null
+                    ) {
+                        Fact(stringResource(R.string.fact_template), stringResource(R.string.model_raw), valueColor = tones.attention.color)
+                    }
+                }
+                Text(
+                    entry.source?.let { stringResource(R.string.model_from, it) } ?: stringResource(R.string.model_from_computer),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             if (broken != null) {
                 Text(stringResource(R.string.model_did_not_load, broken), color = tones.failed.color, style = MaterialTheme.typography.bodySmall)
@@ -253,7 +267,9 @@ private fun DownloadRow(download: DownloadState, onCancel: () -> Unit) {
         }
         if (!failed) {
             val fraction = if (download.total > 0) (download.bytes.toFloat() / download.total).coerceIn(0f, 1f) else 0f
-            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth(), color = tones.working.color, trackColor = tones.working.container)
+            LinearProgressIndicator(progress = {
+                fraction
+            }, modifier = Modifier.fillMaxWidth(), color = tones.working.color, trackColor = tones.working.container)
         }
     }
 }
@@ -293,7 +309,12 @@ private fun VariantRow(variant: CatalogVariant, installed: Boolean, download: Do
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
         Column(Modifier.weight(1f)) {
             Text(
-                listOfNotNull(variant.context?.let { stringResource(R.string.fig_window, Format.window(it)) }, Format.bytes(variant.sizeBytes)).joinToString(", "),
+                listOfNotNull(
+                    variant.context?.let {
+                        stringResource(R.string.fig_window, Format.window(it))
+                    },
+                    Format.bytes(variant.sizeBytes),
+                ).joinToString(", "),
                 style = MaterialTheme.typography.bodyLarge,
             )
             variant.quantization?.substringBefore(',')?.let {
@@ -304,7 +325,11 @@ private fun VariantRow(variant: CatalogVariant, installed: Boolean, download: Do
             }
             // An export for another runtime may load and misbehave; say so before the download.
             variant.runtimeVersion?.takeIf { it != ExecuTorchRuntime.VERSION }?.let {
-                Text(stringResource(R.string.catalog_runtime, it, ExecuTorchRuntime.VERSION), style = MaterialTheme.typography.bodySmall, color = tones.attention.color)
+                Text(
+                    stringResource(R.string.catalog_runtime, it, ExecuTorchRuntime.VERSION),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = tones.attention.color,
+                )
             }
         }
         when {
@@ -314,4 +339,3 @@ private fun VariantRow(variant: CatalogVariant, installed: Boolean, download: Do
         }
     }
 }
-

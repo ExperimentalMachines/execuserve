@@ -18,9 +18,7 @@ import java.io.File
  * ExecuTorch 1.4.0 on XNNPACK. Everything below was measured in OpenWeights, which has run
  * these exports on phones since 2026-08; the comments say what each line works around.
  */
-class ExecuTorchRuntime(
-    private val allowMultipleResidents: () -> Boolean = { true },
-) : LlmRuntime {
+class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { true }) : LlmRuntime {
 
     override val id: String = "executorch-xnnpack"
 
@@ -45,8 +43,12 @@ class ExecuTorchRuntime(
     override fun probe(files: ModelFiles): ModelFacts = synchronized(poolLock) {
         // Module.load's default is cores / 2, unlike LlmModule's performant cores - 1.
         // A different count destroys the pool that XNNPACK residents still reference.
-        val probeThreads = if (openSessions > 0) pinnedPoolThreads
-            ?: throw RuntimeFailure("The active thread pool could not be identified safely.") else 0
+        val probeThreads = if (openSessions > 0) {
+            pinnedPoolThreads
+                ?: throw RuntimeFailure("The active thread pool could not be identified safely.")
+        } else {
+            0
+        }
         val program = Module.load(files.model, Module.LOAD_MODE_MMAP, probeThreads)
         try {
             val methods = program.getMethods().toSet()
@@ -249,6 +251,5 @@ private class ExecuTorchSession(
         )
     }
 
-    private fun String.longField(name: String): Long =
-        Regex("\"$name\"\\s*:\\s*(\\d+)").find(this)?.groupValues?.get(1)?.toLongOrNull() ?: 0
+    private fun String.longField(name: String): Long = Regex("\"$name\"\\s*:\\s*(\\d+)").find(this)?.groupValues?.get(1)?.toLongOrNull() ?: 0
 }

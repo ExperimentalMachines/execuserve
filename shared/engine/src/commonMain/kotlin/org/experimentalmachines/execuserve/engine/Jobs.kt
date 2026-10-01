@@ -18,11 +18,7 @@ data class ClientId(val id: String, val label: String)
 
 sealed interface PromptInput {
     /** Rendered through the model family's chat template. */
-    data class Chat(
-        val messages: List<ChatMessage>,
-        val tools: List<ToolDefinition> = emptyList(),
-        val thinking: Boolean? = null,
-    ) : PromptInput
+    data class Chat(val messages: List<ChatMessage>, val tools: List<ToolDefinition> = emptyList(), val thinking: Boolean? = null) : PromptInput
 
     /** Fed as written. Never extends the sequence cache (see ARCHITECTURE.md). */
     data class Raw(val text: String) : PromptInput
@@ -45,13 +41,7 @@ data class GenerationRequest(
 
 enum class FinishReason(val wire: String) { STOP("stop"), LENGTH("length"), TOOL_CALLS("tool_calls") }
 
-data class JobTimings(
-    val queueMs: Long,
-    val loadMs: Long,
-    val prefillMs: Long,
-    val decodeMs: Long,
-    val firstTokenMs: Long,
-)
+data class JobTimings(val queueMs: Long, val loadMs: Long, val prefillMs: Long, val decodeMs: Long, val firstTokenMs: Long)
 
 data class GenerationResult(
     val model: String,
@@ -107,8 +97,7 @@ sealed interface JobEvent {
 sealed class Refusal(message: String) : Exception(message) {
     class QueueFull(message: String, val retryAfterMs: Long) : Refusal(message)
     class ClientLimit(message: String, val retryAfterMs: Long) : Refusal(message)
-    class UnknownModel(val requested: String, val installed: List<String>) :
-        Refusal("Model '$requested' is not installed")
+    class UnknownModel(val requested: String, val installed: List<String>) : Refusal("Model '$requested' is not installed")
     class Unsupported(message: String, val param: String) : Refusal(message)
     class Invalid(message: String, val param: String? = null) : Refusal(message)
     class TooLong(message: String) : Refusal(message)

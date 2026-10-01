@@ -111,8 +111,7 @@ class Llama32PromptTest {
         assertThat(rendered).contains("""say \"hi\", then: go""")
     }
 
-    private fun render(messages: List<ChatMessage>, tools: List<ToolDefinition> = emptyList()) =
-        Llama32Prompt.render(messages, tools, date = FIXTURE_DATE)
+    private fun render(messages: List<ChatMessage>, tools: List<ToolDefinition> = emptyList()) = Llama32Prompt.render(messages, tools, date = FIXTURE_DATE)
 
     private fun system(text: String) = ChatMessage.text(ChatRole.SYSTEM, text)
     private fun user(text: String) = ChatMessage.text(ChatRole.USER, text)

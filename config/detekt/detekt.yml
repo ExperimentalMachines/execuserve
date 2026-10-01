@@ -1,0 +1,76 @@
+# Project overrides on top of detekt's default config (buildUponDefaultConfig), following
+# OpenWeights'. Everything switched off below is off because the rule is wrong for this
+# codebase, not because the code needs fixing.
+
+naming:
+  FunctionNaming:
+    # Composables are PascalCase by convention, and Android Studio tooling depends on it.
+    ignoreAnnotated: ['Composable']
+    # Detekt's default test exclusions predate multiplatform source sets; overriding
+    # `excludes` replaces the list, so the defaults are repeated and the KMP ones appended.
+    excludes: &testSourceSets
+      - '**/test/**'
+      - '**/androidTest/**'
+      - '**/commonTest/**'
+      - '**/jvmTest/**'
+      - '**/androidUnitTest/**'
+      - '**/androidInstrumentedTest/**'
+      - '**/iosTest/**'
+      - '**/androidHostTest/**'
+
+  MatchingDeclarationName:
+    # Files such as Theme.kt or Routes.kt hold a family of declarations by design.
+    active: false
+
+style:
+  ThrowsCount:
+    # Request validation throws one typed ApiError per thing it checks; folding them into
+    # one throw would hide which field was wrong.
+    active: false
+  MagicNumber:
+    excludes: *testSourceSets
+    # Colour literals, dp sizes and durations in Compose are the numbers; naming each one
+    # produces a wall of constants that says less than the call site did.
+    ignoreAnnotated: ['Composable', 'Preview']
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreNamedArgument: true
+    ignoreEnums: true
+  UnusedPrivateMember:
+    ignoreAnnotated: ['Preview', 'Composable']
+  ReturnCount:
+    max: 4
+  MaxLineLength:
+    # Matches .editorconfig; ktlint enforces it, detekt need not count twice.
+    active: false
+
+complexity:
+  LongParameterList:
+    functionThreshold: 12
+    constructorThreshold: 10
+    ignoreAnnotated: ['Composable']
+  LongMethod:
+    ignoreAnnotated: ['Composable']
+  TooManyFunctions:
+    ignoreAnnotated: ['Composable']
+    thresholdInClasses: 18
+    thresholdInFiles: 40
+    ignorePrivate: true
+
+exceptions:
+  TooGenericExceptionCaught:
+    # The engine's boundary catches what a runtime throws and turns it into a job failure;
+    # a narrower catch there would let a native exception take the server down.
+    active: false
+  SwallowedException:
+    # The HTTP boundary turns parse and runtime failures into the wire's own errors on
+    # purpose: the client gets a clear message, never a stack trace or an internal type.
+    ignoredExceptionTypes:
+      - InterruptedException
+      - MalformedURLException
+      - NumberFormatException
+      - ParseException
+      - SerializationException
+      - IllegalArgumentException
+      - RuntimeFailure
+      - ApiError

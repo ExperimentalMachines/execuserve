@@ -30,11 +30,7 @@ package org.experimentalmachines.execuserve.prompt
  */
 object Qwen25Prompt {
 
-    fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition> = emptyList(),
-        addGenerationPrompt: Boolean = true,
-    ): String = buildString {
+    fun render(messages: List<ChatMessage>, tools: List<ToolDefinition> = emptyList(), addGenerationPrompt: Boolean = true): String = buildString {
         appendSystem(messages, tools)
 
         messages.forEachIndexed { index, message ->
@@ -67,10 +63,7 @@ object Qwen25Prompt {
      * The system turn, which always exists: unlike Qwen3, Qwen2.5 falls back to its own
      * default identity when the conversation offers no system message.
      */
-    private fun StringBuilder.appendSystem(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-    ) {
+    private fun StringBuilder.appendSystem(messages: List<ChatMessage>, tools: List<ToolDefinition>) {
         val leading = messages.firstOrNull()?.takeIf { it.role == ChatRole.SYSTEM }?.text
         val system = leading ?: DEFAULT_SYSTEM
         if (tools.isEmpty()) {

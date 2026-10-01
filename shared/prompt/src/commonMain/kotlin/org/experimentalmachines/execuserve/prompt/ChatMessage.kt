@@ -32,8 +32,7 @@ enum class ChatRole(val wireName: String) {
     ;
 
     companion object {
-        fun of(wireName: String): ChatRole =
-            entries.firstOrNull { it.wireName == wireName } ?: ASSISTANT
+        fun of(wireName: String): ChatRole = entries.firstOrNull { it.wireName == wireName } ?: ASSISTANT
     }
 }
 
@@ -62,8 +61,7 @@ sealed interface MessagePart {
      * @param mediaType an IANA media type, for example `image/jpeg` or `audio/wav`.
      * @param name what to show the user. Falls back to the media type when absent.
      */
-    data class File(val path: String, val mediaType: String, val name: String? = null) :
-        MessagePart {
+    data class File(val path: String, val mediaType: String, val name: String? = null) : MessagePart {
         val kind: MediaKind get() = MediaKind.of(mediaType)
     }
 }
@@ -132,8 +130,7 @@ data class ChatMessage(
     }
 
     companion object {
-        fun text(role: ChatRole, text: String): ChatMessage =
-            ChatMessage(role, listOf(MessagePart.Text(text)))
+        fun text(role: ChatRole, text: String): ChatMessage = ChatMessage(role, listOf(MessagePart.Text(text)))
 
         /** The result of a tool run, paired with the call that asked for it. */
         fun toolResult(callId: String, content: String): ChatMessage = ChatMessage(

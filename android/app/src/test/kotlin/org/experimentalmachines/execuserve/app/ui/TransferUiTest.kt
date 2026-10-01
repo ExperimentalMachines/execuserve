@@ -1,8 +1,8 @@
 package org.experimentalmachines.execuserve.app.ui
 
 import android.app.Application
-import android.content.ClipboardManager
 import android.content.ClipData
+import android.content.ClipboardManager
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,7 +10,9 @@ import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.experimentalmachines.execuserve.host.ThemeMode
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -18,8 +20,8 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import org.robolectric.annotation.Implements
 import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
 import org.robolectric.shadows.ShadowDialog
 
 @RunWith(RobolectricTestRunner::class)
@@ -49,13 +51,17 @@ class TransferUiTest {
             compose.onNodeWithText("Close").performClick()
             compose.waitForIdle()
             assertFalse(dialog.isShowing)
-        } finally { activity.pause().stop().destroy() }
+        } finally {
+            activity.pause().stop().destroy()
+        }
     }
 
     @Implements(ClipboardManager::class)
     class DeniedClipboard {
         @Implementation
-        fun setPrimaryClip(clip: ClipData) { throw SecurityException("Clipboard unavailable") }
+        // The parameter is the signature Robolectric matches the shadow on.
+        @Suppress("UnusedParameter", "UNUSED_PARAMETER")
+        fun setPrimaryClip(clip: ClipData): Unit = throw SecurityException("Clipboard unavailable")
     }
 
     @Test fun buttonsCopyUnderlyingSecretAndRevealWithoutBlankingRemoteViewer() {
@@ -80,7 +86,8 @@ class TransferUiTest {
             compose.onNodeWithText("Close").performClick()
             compose.waitForIdle()
             assertFalse(dialog.isShowing)
-
-        } finally { activity.pause().stop().destroy() }
+        } finally {
+            activity.pause().stop().destroy()
+        }
     }
 }

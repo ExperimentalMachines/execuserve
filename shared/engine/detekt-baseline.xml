@@ -1,0 +1,18 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:Engine.kt$Engine$private fun generate(job: Job, resident: Resident, queueMs: Long, loadMs: Long)</ID>
+    <ID>CyclomaticComplexMethod:Engine.kt$Engine$private fun prepare(entry: ModelEntry, request: GenerationRequest): PreparedPrompt</ID>
+    <ID>CyclomaticComplexMethod:Engine.kt$Engine$private suspend fun reaperLoop()</ID>
+    <ID>CyclomaticComplexMethod:Pipeline.kt$ReasoningSplitter$fun accept(text: String): Pair&lt;String, String&gt;</ID>
+    <ID>LargeClass:Engine.kt$Engine</ID>
+    <ID>LongMethod:Engine.kt$Engine$private fun generate(job: Job, resident: Resident, queueMs: Long, loadMs: Long)</ID>
+    <ID>LongMethod:Pipeline.kt$ReasoningSplitter$fun accept(text: String): Pair&lt;String, String&gt;</ID>
+    <ID>LongParameterList:MetricsTest.kt$MetricsTest$( model: String = "m", prompt: Int = 100, cached: Int = 0, completion: Int = 11, prefillMs: Long = 1_000, decodeMs: Long = 1_000, decodeWallMs: Long = decodeMs, firstTokenMs: Long = 1_200, totalMs: Long = 2_300, queueMs: Long = 100, finish: FinishReason? = FinishReason.STOP, threads: Int? = 7, )</ID>
+    <ID>LoopWithTooManyJumpStatements:Engine.kt$Engine$while</ID>
+    <ID>NestedBlockDepth:Pipeline.kt$ReasoningSplitter$fun accept(text: String): Pair&lt;String, String&gt;</ID>
+    <ID>ReturnCount:Engine.kt$Engine$private fun generate(job: Job, resident: Resident, queueMs: Long, loadMs: Long)</ID>
+    <ID>ReturnCount:Engine.kt$Engine$private fun pickLocked(now: Long): Item?</ID>
+  </CurrentIssues>
+</SmellBaseline>

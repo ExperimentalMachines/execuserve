@@ -2,19 +2,32 @@ package org.experimentalmachines.execuserve.app.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -33,11 +46,18 @@ import org.experimentalmachines.execuserve.app.R
 import kotlin.math.floor
 
 /** Exact payload, four-module quiet zone, no networking, files or credentials in URLs. */
-internal fun valueQr(value: String) = QRCodeWriter().encode(value, BarcodeFormat.QR_CODE, 0, 0, mapOf(
-    EncodeHintType.CHARACTER_SET to "UTF-8",
-    EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
-    EncodeHintType.MARGIN to 4,
-))
+internal fun valueQr(value: String) = QRCodeWriter().encode(
+    value,
+    BarcodeFormat.QR_CODE,
+    0,
+    0,
+    mapOf(
+        EncodeHintType.CHARACTER_SET to "UTF-8",
+        EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
+        // The QR specification's quiet zone: four modules of blank on every side.
+        EncodeHintType.MARGIN to QUIET_ZONE_MODULES,
+    ),
+)
 
 @Composable
 internal fun ValueQrDialog(value: String, label: String?, sensitive: Boolean, onClose: () -> Unit) {
@@ -51,7 +71,12 @@ internal fun ValueQrDialog(value: String, label: String?, sensitive: Boolean, on
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(value, revealed) { if (sensitive && revealed) { delay(60_000); close() } }
+    LaunchedEffect(value, revealed) {
+        if (sensitive && revealed) {
+            delay(60_000)
+            close()
+        }
+    }
     val description = stringResource(R.string.qr_title)
     val qrSize = (LocalConfiguration.current.screenHeightDp * .45f).coerceIn(96f, 280f).dp
     Dialog(onDismissRequest = onClose, properties = DialogProperties()) {
@@ -67,14 +92,20 @@ internal fun ValueQrDialog(value: String, label: String?, sensitive: Boolean, on
                         val module = floor(size.minDimension / matrix.width).coerceAtLeast(1f)
                         val x0 = (size.width - module * matrix.width) / 2
                         val y0 = (size.height - module * matrix.height) / 2
-                        for (y in 0 until matrix.height) for (x in 0 until matrix.width) {
-                            if (matrix[x, y]) drawRect(Color.Black, Offset(x0 + x * module, y0 + y * module), Size(module, module))
+                        for (y in 0 until matrix.height) {
+                            for (x in 0 until matrix.width) {
+                                if (matrix[x, y]) drawRect(Color.Black, Offset(x0 + x * module, y0 + y * module), Size(module, module))
+                            }
                         }
                     }
                     Text(stringResource(if (!sensitive) R.string.qr_local else R.string.qr_visible_key), style = MaterialTheme.typography.bodySmall)
-                } else Text(stringResource(R.string.qr_unavailable))
+                } else {
+                    Text(stringResource(R.string.qr_unavailable))
+                }
                 Action(stringResource(R.string.qr_close), onClick = onClose)
             }
         }
     }
 }
+
+private const val QUIET_ZONE_MODULES = 4

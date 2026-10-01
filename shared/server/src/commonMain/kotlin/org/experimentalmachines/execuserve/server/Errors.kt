@@ -1,6 +1,7 @@
 package org.experimentalmachines.execuserve.server
 
 import org.experimentalmachines.execuserve.api.ApiError
+import org.experimentalmachines.execuserve.api.HttpStatus
 import org.experimentalmachines.execuserve.api.Timings
 import org.experimentalmachines.execuserve.api.ToolCallOut
 import org.experimentalmachines.execuserve.api.Usage
@@ -8,6 +9,7 @@ import org.experimentalmachines.execuserve.engine.Failure
 import org.experimentalmachines.execuserve.engine.FailureKind
 import org.experimentalmachines.execuserve.engine.GenerationResult
 import org.experimentalmachines.execuserve.engine.Refusal
+import org.experimentalmachines.execuserve.engine.Units
 import org.experimentalmachines.execuserve.prompt.ToolCall
 
 /**
@@ -34,17 +36,16 @@ internal fun refusalError(refusal: Refusal): ApiError {
 internal fun failureError(failure: Failure): ApiError = when (failure.kind) {
     FailureKind.CONTEXT_OVERFLOW -> ApiError.contextLength(failure.message)
     FailureKind.QUEUE_TIMEOUT -> ApiError.overloaded(failure.message, QUEUE_RETRY_SECONDS)
-    FailureKind.DEADLINE -> ApiError(504, "timeout_error", failure.message, "timeout")
-    FailureKind.MODEL_UNAVAILABLE -> ApiError(500, "server_error", failure.message, "model_load_failed")
+    FailureKind.DEADLINE -> ApiError(HttpStatus.GATEWAY_TIMEOUT, "timeout_error", failure.message, "timeout")
+    FailureKind.MODEL_UNAVAILABLE -> ApiError(HttpStatus.INTERNAL_SERVER_ERROR, "server_error", failure.message, "model_load_failed")
     FailureKind.OVERHEATED -> ApiError.overloaded(failure.message, THERMAL_RETRY_SECONDS)
     FailureKind.SHUTTING_DOWN -> ApiError.overloaded(failure.message)
-    FailureKind.CANCELLED -> ApiError(503, "server_error", failure.message, "cancelled")
-    FailureKind.CLIENT_GONE, FailureKind.SLOW_CLIENT -> ApiError(408, "timeout_error", failure.message, "client_disconnected")
+    FailureKind.CANCELLED -> ApiError(HttpStatus.SERVICE_UNAVAILABLE, "server_error", failure.message, "cancelled")
+    FailureKind.CLIENT_GONE, FailureKind.SLOW_CLIENT -> ApiError(HttpStatus.REQUEST_TIMEOUT, "timeout_error", failure.message, "client_disconnected")
     FailureKind.RUNTIME -> ApiError.internal(failure.message)
 }
 
-internal fun usageOf(result: GenerationResult) =
-    Usage(result.promptTokens, result.completionTokens, result.cachedTokens)
+internal fun usageOf(result: GenerationResult) = Usage(result.promptTokens, result.completionTokens, result.cachedTokens)
 
 internal fun timingsOf(result: GenerationResult) = Timings(
     queueMs = result.timings.queueMs,
@@ -59,7 +60,8 @@ internal fun timingsOf(result: GenerationResult) = Timings(
 
 internal fun toolCallOut(call: ToolCall) = ToolCallOut(call.id, call.name, call.argumentsJson)
 
-private fun seconds(ms: Long): Int = ((ms + 999) / 1000).toInt().coerceAtLeast(1)
+/** Whole seconds, rounded up: a Retry-After of 0 would invite an immediate retry. */
+private fun seconds(ms: Long): Int = ((ms + Units.MS_PER_SECOND - 1) / Units.MS_PER_SECOND).toInt().coerceAtLeast(1)
 
 private const val QUEUE_RETRY_SECONDS = 5
 private const val THERMAL_RETRY_SECONDS = 60

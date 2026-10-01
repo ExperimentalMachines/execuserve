@@ -33,23 +33,21 @@ class ApiError(
 
     companion object {
         fun badRequest(message: String, param: String? = null, code: String? = null) =
-            ApiError(400, "invalid_request_error", message, code, param)
+            ApiError(HttpStatus.BAD_REQUEST, "invalid_request_error", message, code, param)
 
-        fun unsupported(param: String, message: String) =
-            ApiError(400, "invalid_request_error", message, "unsupported_parameter", param)
+        fun unsupported(param: String, message: String) = ApiError(HttpStatus.BAD_REQUEST, "invalid_request_error", message, "unsupported_parameter", param)
 
-        fun contextLength(message: String) =
-            ApiError(400, "invalid_request_error", message, "context_length_exceeded", "messages")
+        fun contextLength(message: String) = ApiError(HttpStatus.BAD_REQUEST, "invalid_request_error", message, "context_length_exceeded", "messages")
 
         fun unauthorized() = ApiError(
-            401,
+            HttpStatus.UNAUTHORIZED,
             "authentication_error",
             "Missing or invalid API key. Send it as 'Authorization: Bearer <key>'.",
             "invalid_api_key",
         )
 
         fun modelNotFound(model: String, known: List<String>) = ApiError(
-            404,
+            HttpStatus.NOT_FOUND,
             "invalid_request_error",
             "The model '$model' is not installed on this server." +
                 if (known.isEmpty()) " No models are installed." else " Installed: ${known.joinToString(", ")}.",
@@ -57,23 +55,23 @@ class ApiError(
             "model",
         )
 
-        fun notFound(path: String) = ApiError(404, "invalid_request_error", "No route for $path", "not_found")
+        fun notFound(path: String) = ApiError(HttpStatus.NOT_FOUND, "invalid_request_error", "No route for $path", "not_found")
 
         fun tooLarge(limitBytes: Long) = ApiError(
-            413,
+            HttpStatus.PAYLOAD_TOO_LARGE,
             "invalid_request_error",
             "Request body is larger than this server accepts ($limitBytes bytes).",
             "request_too_large",
         )
 
         fun rateLimited(message: String, retryAfterSeconds: Int) =
-            ApiError(429, "rate_limit_error", message, "rate_limit_exceeded", retryAfterSeconds = retryAfterSeconds)
+            ApiError(HttpStatus.TOO_MANY_REQUESTS, "rate_limit_error", message, "rate_limit_exceeded", retryAfterSeconds = retryAfterSeconds)
 
         fun overloaded(message: String, retryAfterSeconds: Int? = null) =
-            ApiError(503, "server_error", message, "server_overloaded", retryAfterSeconds = retryAfterSeconds)
+            ApiError(HttpStatus.SERVICE_UNAVAILABLE, "server_error", message, "server_overloaded", retryAfterSeconds = retryAfterSeconds)
 
-        fun timeout(message: String) = ApiError(408, "timeout_error", message, "timeout")
+        fun timeout(message: String) = ApiError(HttpStatus.REQUEST_TIMEOUT, "timeout_error", message, "timeout")
 
-        fun internal(message: String) = ApiError(500, "server_error", message, "internal_error")
+        fun internal(message: String) = ApiError(HttpStatus.INTERNAL_SERVER_ERROR, "server_error", message, "internal_error")
     }
 }

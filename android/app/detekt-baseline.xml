@@ -1,0 +1,21 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:Components.kt$(!success &amp;&amp; notifyFailure) || (success &amp;&amp; Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.TIRAMISU)</ID>
+    <ID>ComplexCondition:ServeService.kt$ServeService$graph.host.state.value is ServeHost.State.Running &amp;&amp; (model != null || port &gt; 0 || bind != null)</ID>
+    <ID>CyclomaticComplexMethod:Downloader.kt$Downloader$private suspend fun fetch(remote: RemoteFile, destination: File, id: String, progress: Progress)</ID>
+    <ID>CyclomaticComplexMethod:LocalClient.kt$LocalClient$suspend fun chat( baseUrl: String, key: String, model: String, prompt: String, stream: Boolean, onText: (content: String, reasoning: String) -&gt; Unit, ): TestResult</ID>
+    <ID>CyclomaticComplexMethod:ModelsScreen.kt$@Composable fun ModelsScreen(model: MainViewModel, padding: PaddingValues)</ID>
+    <ID>CyclomaticComplexMethod:RunsScreen.kt$@Composable private fun RunDetail(run: JobRecord, checks: List&lt;Discrepancy&gt;)</ID>
+    <ID>CyclomaticComplexMethod:ServeService.kt$ServeService$private fun applyLocks(state: ServeHost.State, status: EngineStatus?, wake: WakePolicy)</ID>
+    <ID>CyclomaticComplexMethod:ServerScreen.kt$@Composable private fun StatusPanel( server: ServeHost.State, status: EngineStatus?, installedCount: Int, capacity: Int, recovery: Recovery?, onStart: () -&gt; Unit, onStop: () -&gt; Unit, openSettings: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:ServerScreen.kt$@OptIn(ExperimentalLayoutApi::class) @Composable private fun HostedModel(entry: ModelEntry, status: EngineStatus?, running: ServeHost.State.Running?, last: JobRecord?, model: MainViewModel)</ID>
+    <ID>CyclomaticComplexMethod:ServerScreen.kt$@OptIn(ExperimentalLayoutApi::class) @Composable private fun TryPanel( model: MainViewModel, running: ServeHost.State.Running, settings: HostSettings, key: ApiKey?, installed: List&lt;ModelEntry&gt;, status: EngineStatus?, )</ID>
+    <ID>CyclomaticComplexMethod:SettingsScreen.kt$@Composable fun SettingsScreen(model: MainViewModel, padding: PaddingValues)</ID>
+    <ID>LongMethod:Downloader.kt$Downloader$private suspend fun fetch(remote: RemoteFile, destination: File, id: String, progress: Progress)</ID>
+    <ID>LoopWithTooManyJumpStatements:LocalClient.kt$LocalClient$while</ID>
+    <ID>NestedBlockDepth:Downloader.kt$Downloader$private suspend fun fetch(remote: RemoteFile, destination: File, id: String, progress: Progress)</ID>
+    <ID>TooManyFunctions:MainViewModel.kt$MainViewModel : AndroidViewModel</ID>
+  </CurrentIssues>
+</SmellBaseline>

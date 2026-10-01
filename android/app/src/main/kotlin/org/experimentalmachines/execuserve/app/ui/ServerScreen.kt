@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.ActivityManager
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -41,12 +40,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import org.experimentalmachines.execuserve.app.R
@@ -82,7 +82,22 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
     val primary: LazyListScope.() -> Unit = {
         item(key = "status") {
             val recovery by model.recovery.collectAsState()
-            StatusPanel(server, status, installed.size, if (current.threads == 0) current.maxResidentModels else 1, recovery, model::start, model::stop, openSettings)
+            StatusPanel(
+                server,
+                status,
+                installed.size,
+                if (current.threads ==
+                    0
+                ) {
+                    current.maxResidentModels
+                } else {
+                    1
+                },
+                recovery,
+                model::start,
+                model::stop,
+                openSettings,
+            )
         }
         item(key = "models-heading") {
             PanelTitle(stringResource(R.string.host_models), trailing = { Action(stringResource(R.string.host_library), openModels) })
@@ -136,15 +151,18 @@ private fun StatusPanel(
                     Dot(tone.color, 10.dp)
                     Text(stringResource(look.words), style = MaterialTheme.typography.titleLarge, color = tone.color)
                 }
-                Text(when {
-                    server is ServeHost.State.Stopped -> server.error ?: stringResource(R.string.host_stopped)
-                    server == ServeHost.State.Starting -> stringResource(R.string.status_starting_hint)
-                    server == ServeHost.State.Stopping -> stringResource(R.string.status_stopping_hint)
-                    look == ServerLook.PAUSED_HOT -> stringResource(R.string.status_paused_hot)
-                    look == ServerLook.PAUSED_BATTERY -> stringResource(R.string.status_paused_battery)
-                    look == ServerLook.NOT_RESPONDING -> stringResource(R.string.alert_wedged_text)
-                    else -> stringResource(R.string.host_summary, installedCount, status?.resident?.size ?: 0, capacity)
-                }, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    when {
+                        server is ServeHost.State.Stopped -> server.error ?: stringResource(R.string.host_stopped)
+                        server == ServeHost.State.Starting -> stringResource(R.string.status_starting_hint)
+                        server == ServeHost.State.Stopping -> stringResource(R.string.status_stopping_hint)
+                        look == ServerLook.PAUSED_HOT -> stringResource(R.string.status_paused_hot)
+                        look == ServerLook.PAUSED_BATTERY -> stringResource(R.string.status_paused_battery)
+                        look == ServerLook.NOT_RESPONDING -> stringResource(R.string.alert_wedged_text)
+                        else -> stringResource(R.string.host_summary, installedCount, status?.resident?.size ?: 0, capacity)
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
             when (server) {
                 is ServeHost.State.Running -> OutlineButton(stringResource(R.string.action_stop), onStop)
@@ -152,10 +170,20 @@ private fun StatusPanel(
                 else -> Unit
             }
         }
-        if ((status?.queued ?: 0) > 0) Text(pluralStringResource(R.plurals.status_waiting, status!!.queued, status.queued), style = MaterialTheme.typography.bodySmall)
+        if ((status?.queued ?: 0) >
+            0
+        ) {
+            Text(pluralStringResource(R.plurals.status_waiting, status!!.queued, status.queued), style = MaterialTheme.typography.bodySmall)
+        }
         if (server is ServeHost.State.Running && recovery != null) {
-            Text(stringResource(if (recovery.afterWedge) R.string.status_recovered_wedge else R.string.status_recovered,
-                remember(recovery.atMs) { Format.time(recovery.atMs) }), style = MaterialTheme.typography.bodySmall, color = LocalTones.current.attention.color)
+            Text(
+                stringResource(
+                    if (recovery.afterWedge) R.string.status_recovered_wedge else R.string.status_recovered,
+                    remember(recovery.atMs) { Format.time(recovery.atMs) },
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = LocalTones.current.attention.color,
+            )
         }
         Text(stringResource(R.string.host_compute_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (installedCount > 1) Action(stringResource(R.string.host_memory_settings), openSettings)
@@ -174,9 +202,9 @@ private fun HostedModel(entry: ModelEntry, status: EngineStatus?, running: Serve
     val state = when {
         broken != null -> R.string.host_model_failed
         running == null -> R.string.host_offline
-        job != null && status?.lane == LaneState.LOADING -> R.string.host_loading
-        job != null && status?.lane == LaneState.PREFILLING -> R.string.host_prefilling
-        job != null && status?.lane == LaneState.GENERATING -> R.string.host_generating
+        job != null && status.lane == LaneState.LOADING -> R.string.host_loading
+        job != null && status.lane == LaneState.PREFILLING -> R.string.host_prefilling
+        job != null && status.lane == LaneState.GENERATING -> R.string.host_generating
         loaded -> R.string.host_ready
         else -> R.string.host_on_demand
     }
@@ -191,7 +219,10 @@ private fun HostedModel(entry: ModelEntry, status: EngineStatus?, running: Serve
         val lifecycle = LocalLifecycleOwner.current.lifecycle
         LaunchedEffect(job.id) {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) { now = System.currentTimeMillis(); delay(TICK_MS) }
+                while (true) {
+                    now = System.currentTimeMillis()
+                    delay(TICK_MS)
+                }
             }
         }
     }
@@ -203,32 +234,85 @@ private fun HostedModel(entry: ModelEntry, status: EngineStatus?, running: Serve
                 Text(stringResource(state), style = MaterialTheme.typography.labelLarge, color = tone.color)
             }
         }
-        Text(listOfNotNull(stringResource(R.string.host_model_file_size, Format.bytes(entry.sizeBytes)), entry.contextLength?.let { stringResource(R.string.host_model_context, Format.window(it)) }).joinToString(" · "),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            listOfNotNull(
+                stringResource(R.string.host_model_file_size, Format.bytes(entry.sizeBytes)),
+                entry.contextLength?.let {
+                    stringResource(R.string.host_model_context, Format.window(it))
+                },
+            ).joinToString(" · "),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (broken != null) Text(broken, style = MaterialTheme.typography.bodySmall, color = tones.failed.color)
         if (job != null) {
-            Text(stringResource(R.string.host_request, job.client, Format.duration((now - job.startedAtMs).coerceAtLeast(0))), style = MaterialTheme.typography.bodySmall)
-            if (status?.lane == LaneState.PREFILLING && job.promptChars > 0) {
-                LinearProgressIndicator(progress = { (job.prefilledChars.toFloat() / job.promptChars).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth(), color = tone.color)
-                Text(stringResource(R.string.host_prompt_progress, Format.count(job.prefilledChars), Format.count(job.promptChars)), style = MaterialTheme.typography.bodySmall)
-            } else LinearProgressIndicator(Modifier.fillMaxWidth(), color = tone.color)
+            Text(
+                stringResource(R.string.host_request, job.client, Format.duration((now - job.startedAtMs).coerceAtLeast(0))),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (status.lane == LaneState.PREFILLING && job.promptChars > 0) {
+                LinearProgressIndicator(progress = {
+                    (job.prefilledChars.toFloat() / job.promptChars).coerceIn(0f, 1f)
+                }, modifier = Modifier.fillMaxWidth(), color = tone.color)
+                Text(
+                    stringResource(R.string.host_prompt_progress, Format.count(job.prefilledChars), Format.count(job.promptChars)),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            } else {
+                LinearProgressIndicator(Modifier.fillMaxWidth(), color = tone.color)
+            }
         }
         FigurePair({
-            Figure(stringResource(R.string.host_prefill),
-                if (job != null && status?.lane == LaneState.PREFILLING) Format.duration(job.prefillElapsedMs(now))
-                    else last?.prefillTokensPerSecond?.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.none_yet),
-                listOf(if (job != null && status?.lane == LaneState.PREFILLING) stringResource(R.string.host_reading_now)
-                    else last?.let { stringResource(R.string.host_prefill_detail, Format.duration(it.prefillMs)) } ?: stringResource(R.string.host_prefill_hint)), Modifier.weight(1f))
+            Figure(
+                stringResource(R.string.host_prefill),
+                if (job != null && status.lane == LaneState.PREFILLING) {
+                    Format.duration(job.prefillElapsedMs(now))
+                } else {
+                    last?.prefillTokensPerSecond?.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) }
+                        ?: stringResource(R.string.none_yet)
+                },
+                listOf(
+                    if (job != null && status.lane == LaneState.PREFILLING) {
+                        stringResource(R.string.host_reading_now)
+                    } else {
+                        last?.let { stringResource(R.string.host_prefill_detail, Format.duration(it.prefillMs)) } ?: stringResource(R.string.host_prefill_hint)
+                    },
+                ),
+                Modifier.weight(1f),
+            )
         }, {
             val live = job?.decodeRate(now)
-            Figure(stringResource(R.string.host_decode),
-                (live ?: last?.decodeTokensPerSecond?.takeIf { it > 0 })?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.none_yet),
-                listOf(if (live != null) stringResource(R.string.fig_speed_now) else last?.let { stringResource(R.string.host_decode_detail, Format.duration(it.decodeMs)) } ?: stringResource(R.string.host_decode_hint)), Modifier.weight(1f))
+            Figure(
+                stringResource(R.string.host_decode),
+                (live ?: last?.decodeTokensPerSecond?.takeIf { it > 0 })?.let { stringResource(R.string.fig_rate, Format.rate(it)) }
+                    ?: stringResource(R.string.none_yet),
+                listOf(
+                    if (live !=
+                        null
+                    ) {
+                        stringResource(R.string.fig_speed_now)
+                    } else {
+                        last?.let { stringResource(R.string.host_decode_detail, Format.duration(it.decodeMs)) }
+                            ?: stringResource(R.string.host_decode_hint)
+                    },
+                ),
+                Modifier.weight(1f),
+            )
         })
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (running != null) {
-                if (job != null) Action(stringResource(R.string.action_cancel), { model.cancelJob(job.id) })
-                else Action(stringResource(if (loaded) R.string.host_unload else R.string.host_load), { if (loaded) model.unload(entry.id) else model.load(entry.id) }, enabled = status?.lane != LaneState.LOADING)
+                if (job != null) {
+                    Action(stringResource(R.string.action_cancel), { model.cancelJob(job.id) })
+                } else {
+                    Action(
+                        stringResource(if (loaded) R.string.host_unload else R.string.host_load),
+                        {
+                            if (loaded) model.unload(entry.id) else model.load(entry.id)
+                        },
+                        enabled =
+                        status?.lane != LaneState.LOADING,
+                    )
+                }
                 Action(stringResource(if (connecting) R.string.host_close_connection else R.string.host_connect), { connecting = !connecting })
             }
         }
@@ -243,7 +327,6 @@ private fun HostedModel(entry: ModelEntry, status: EngineStatus?, running: Serve
             CopyRow(entry.id, label = stringResource(R.string.host_model_id), qr = true)
             Text(stringResource(R.string.host_shared_key), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-
     }
 }
 
@@ -269,12 +352,12 @@ private fun Attention() {
     Panel(stringResource(R.string.attention_title), tone = if (restricted) tones.failed else tones.attention) {
         if (restricted) {
             Check(stringResource(R.string.attention_restricted), stringResource(R.string.action_fix)) {
-                context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+                context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri()))
             }
         }
         if (needsNotifications) {
             Check(stringResource(R.string.attention_notifications), stringResource(R.string.action_allow)) {
-                notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
     }
@@ -316,24 +399,39 @@ private fun EmptyModels(openModels: () -> Unit) {
 private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: ApiKey?, model: MainViewModel) {
     val running = server as? ServeHost.State.Running
     Panel(stringResource(R.string.host_connection)) {
-        ChoiceRow(stringResource(R.string.connect_who), options = BindMode.entries.map { it to stringResource(it.words) }, selected = settings.bind, onSelect = model::setBind)
-        if (settings.bind == BindMode.NETWORK) Text(stringResource(R.string.connect_plain_http), style = MaterialTheme.typography.bodySmall, color = LocalTones.current.attention.color)
+        ChoiceRow(
+            stringResource(R.string.connect_who),
+            options = BindMode.entries.map {
+                it to stringResource(it.words)
+            },
+            selected = settings.bind,
+            onSelect = model::setBind,
+        )
+        if (settings.bind ==
+            BindMode.NETWORK
+        ) {
+            Text(stringResource(R.string.connect_plain_http), style = MaterialTheme.typography.bodySmall, color = LocalTones.current.attention.color)
+        }
         if (running != null && running.settings.bind == BindMode.NETWORK && running.endpoints.none { it.network != NetworkKind.THIS_DEVICE }) {
             Text(stringResource(R.string.connect_no_network), style = MaterialTheme.typography.bodySmall, color = LocalTones.current.attention.color)
         }
         Expandable(stringResource(R.string.host_access_key), stringResource(R.string.host_access_key_hint)) {
             if (key != null) {
                 CopyRow(key.secret, label = key.name, shown = key.secret.take(KEY_HEAD) + "…" + key.secret.takeLast(KEY_TAIL), qr = true, sensitive = true)
-            } else Text(stringResource(R.string.host_no_key), style = MaterialTheme.typography.bodySmall)
-        }
-        if (running != null) Expandable(stringResource(R.string.host_all_models_endpoint), stringResource(R.string.host_all_models_hint)) {
-            running.endpoints.forEach { endpoint ->
-                CopyRow(endpoint.url, label = stringResource(endpoint.network.words), qr = true)
-                CopyRow(endpoint.url.removeSuffix("/v1").trimEnd('/') + "/", label = stringResource(R.string.connect_browser_chat), qr = true)
+            } else {
+                Text(stringResource(R.string.host_no_key), style = MaterialTheme.typography.bodySmall)
             }
-            if (key != null) {
-                val base = running.endpoints.first().url
-                Action(stringResource(R.string.action_share), { model.shareConnection(base, key.secret, null) })
+        }
+        if (running != null) {
+            Expandable(stringResource(R.string.host_all_models_endpoint), stringResource(R.string.host_all_models_hint)) {
+                running.endpoints.forEach { endpoint ->
+                    CopyRow(endpoint.url, label = stringResource(endpoint.network.words), qr = true)
+                    CopyRow(endpoint.url.removeSuffix("/v1").trimEnd('/') + "/", label = stringResource(R.string.connect_browser_chat), qr = true)
+                }
+                if (key != null) {
+                    val base = running.endpoints.first().url
+                    Action(stringResource(R.string.action_share), { model.shareConnection(base, key.secret, null) })
+                }
             }
         }
         Expandable(stringResource(R.string.connect_local_title)) {
@@ -476,8 +574,15 @@ private fun TryPanel(
                     // A whole reply arrives at once, so its first-token time would repeat the total.
                     if (state.stream) Fact(stringResource(R.string.fact_first_token), Format.duration(result.firstTokenMs))
                     Fact(stringResource(R.string.fact_total), Format.duration(result.totalMs))
-                    Fact(stringResource(R.string.fact_tokens), stringResource(R.string.fact_tokens_value, Format.count(result.promptTokens), Format.count(result.completionTokens)))
-                    if (result.decodeTokensPerSecond > 0) Fact(stringResource(R.string.host_decode), stringResource(R.string.fig_rate, Format.rate(result.decodeTokensPerSecond)))
+                    Fact(
+                        stringResource(R.string.fact_tokens),
+                        stringResource(R.string.fact_tokens_value, Format.count(result.promptTokens), Format.count(result.completionTokens)),
+                    )
+                    if (result.decodeTokensPerSecond >
+                        0
+                    ) {
+                        Fact(stringResource(R.string.host_decode), stringResource(R.string.fig_rate, Format.rate(result.decodeTokensPerSecond)))
+                    }
                     if (result.cachedTokens > 0) Fact(stringResource(R.string.fact_cached), Format.count(result.cachedTokens))
                     result.finish?.let { finish ->
                         val outcome = Outcome.of(finish)
@@ -506,6 +611,7 @@ private const val CLEARTEXT_CONFIG = """<?xml version="1.0" encoding="utf-8"?>
 </network-security-config>"""
 
 private const val TICK_MS = 500L
+
 // A key shows its ends, so a person can tell keys apart without revealing one.
 private const val KEY_HEAD = 6
 private const val KEY_TAIL = 4

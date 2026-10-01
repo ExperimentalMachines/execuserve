@@ -18,11 +18,7 @@ import kotlinx.serialization.json.putJsonObject
  * `tool_calls`, and never sends a null `tool_calls`. One `explicitNulls` switch cannot say
  * all three, and a client that checks `"content" in delta` sees the difference.
  */
-data class Usage(
-    val promptTokens: Int,
-    val completionTokens: Int,
-    val cachedTokens: Int = 0,
-) {
+data class Usage(val promptTokens: Int, val completionTokens: Int, val cachedTokens: Int = 0) {
     fun toJson(): JsonObject = buildJsonObject {
         put("prompt_tokens", promptTokens)
         put("completion_tokens", completionTokens)
@@ -61,8 +57,13 @@ data class Timings(
         put("predicted_per_second", perSecond(predictedTokens, predictedMs))
     }
 
-    private fun perSecond(tokens: Int, ms: Long): Double =
-        if (ms <= 0 || tokens <= 0) 0.0 else (tokens * 1000.0 / ms * 100).toLong() / 100.0
+    /** Tokens per second, to two decimals as llama.cpp's server reports it. */
+    private fun perSecond(tokens: Int, ms: Long): Double = if (ms <= 0 || tokens <= 0) 0.0 else (tokens * MS_PER_SECOND / ms * HUNDREDTHS).toLong() / HUNDREDTHS
+
+    private companion object {
+        const val MS_PER_SECOND = 1_000.0
+        const val HUNDREDTHS = 100.0
+    }
 }
 
 object ChatResponses {
@@ -106,29 +107,22 @@ object ChatResponses {
      * read: llama.cpp's `prompt_progress`, counted in characters, which this server knows
      * exactly, rather than tokens, which it would have to estimate.
      */
-    fun progressChunk(id: String, created: Long, model: String, processed: Int, total: Int, cachedTokens: Int, timeMs: Long): JsonObject =
-        buildJsonObject {
-            put("id", id)
-            put("object", "chat.completion.chunk")
-            put("created", created)
-            put("model", model)
-            putJsonArray("choices") { }
-            putJsonObject("prompt_progress") {
-                put("unit", "characters")
-                put("total", total)
-                put("processed", processed)
-                put("cache_tokens", cachedTokens)
-                put("time_ms", timeMs)
-            }
+    fun progressChunk(id: String, created: Long, model: String, processed: Int, total: Int, cachedTokens: Int, timeMs: Long): JsonObject = buildJsonObject {
+        put("id", id)
+        put("object", "chat.completion.chunk")
+        put("created", created)
+        put("model", model)
+        putJsonArray("choices") { }
+        putJsonObject("prompt_progress") {
+            put("unit", "characters")
+            put("total", total)
+            put("processed", processed)
+            put("cache_tokens", cachedTokens)
+            put("time_ms", timeMs)
         }
+    }
 
-    fun chunk(
-        id: String,
-        created: Long,
-        model: String,
-        delta: JsonObject,
-        finishReason: String? = null,
-    ): JsonObject = buildJsonObject {
+    fun chunk(id: String, created: Long, model: String, delta: JsonObject, finishReason: String? = null): JsonObject = buildJsonObject {
         put("id", id)
         put("object", "chat.completion.chunk")
         put("created", created)
@@ -147,16 +141,15 @@ object ChatResponses {
      * The trailing usage chunk that `stream_options.include_usage` asks for: an empty
      * choices array and the usage, sent after the finish chunk and before `[DONE]`.
      */
-    fun usageChunk(id: String, created: Long, model: String, usage: Usage, timings: Timings?): JsonObject =
-        buildJsonObject {
-            put("id", id)
-            put("object", "chat.completion.chunk")
-            put("created", created)
-            put("model", model)
-            put("choices", JsonArray(emptyList()))
-            put("usage", usage.toJson())
-            timings?.let { put("timings", it.toJson()) }
-        }
+    fun usageChunk(id: String, created: Long, model: String, usage: Usage, timings: Timings?): JsonObject = buildJsonObject {
+        put("id", id)
+        put("object", "chat.completion.chunk")
+        put("created", created)
+        put("model", model)
+        put("choices", JsonArray(emptyList()))
+        put("usage", usage.toJson())
+        timings?.let { put("timings", it.toJson()) }
+    }
 
     fun roleDelta(): JsonObject = buildJsonObject {
         put("role", "assistant")
@@ -195,32 +188,24 @@ object ChatResponses {
 
 object CompletionResponses {
 
-    fun completion(
-        id: String,
-        created: Long,
-        model: String,
-        text: String,
-        finishReason: String,
-        usage: Usage,
-        timings: Timings?,
-    ): JsonObject = buildJsonObject {
-        put("id", id)
-        put("object", "text_completion")
-        put("created", created)
-        put("model", model)
-        putJsonArray("choices") { addJsonObject { choice(text, finishReason) } }
-        put("usage", usage.toJson())
-        timings?.let { put("timings", it.toJson()) }
-    }
-
-    fun chunk(id: String, created: Long, model: String, text: String, finishReason: String?): JsonObject =
+    fun completion(id: String, created: Long, model: String, text: String, finishReason: String, usage: Usage, timings: Timings?): JsonObject =
         buildJsonObject {
             put("id", id)
             put("object", "text_completion")
             put("created", created)
             put("model", model)
             putJsonArray("choices") { addJsonObject { choice(text, finishReason) } }
+            put("usage", usage.toJson())
+            timings?.let { put("timings", it.toJson()) }
         }
+
+    fun chunk(id: String, created: Long, model: String, text: String, finishReason: String?): JsonObject = buildJsonObject {
+        put("id", id)
+        put("object", "text_completion")
+        put("created", created)
+        put("model", model)
+        putJsonArray("choices") { addJsonObject { choice(text, finishReason) } }
+    }
 
     fun usageChunk(id: String, created: Long, model: String, usage: Usage): JsonObject = buildJsonObject {
         put("id", id)

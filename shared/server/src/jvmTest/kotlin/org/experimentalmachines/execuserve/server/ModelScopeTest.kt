@@ -39,30 +39,27 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ModelScopeTest {
-    private fun serve(
-        runtime: FakeRuntime = FakeRuntime(),
-        config: EngineConfig = EngineConfig(),
-        block: suspend (HttpClient, Engine) -> Unit,
-    ) = testApplication {
-        val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        val models = listOf(
-            ModelEntry("alpha", ModelFiles("/alpha.pte", "/alpha.json"), "qwen3", 1, 4096, setOf("first")),
-            ModelEntry("vendor/beta", ModelFiles("/beta.pte", "/beta.json"), "qwen3", 1, 4096, setOf("second")),
-        )
-        val engine = Engine(runtime, StaticModelSource(models), dispatcher, scope, config)
-        engine.start()
-        val ctx = ServerContext(engine, ServerSettings(), StaticKeys(listOf(ApiKey("one", "One", "sk-one"))), { emptySet() }, "test", { 1_700_000_000 })
-        application { execuServe(ctx) }
-        val http = createClient { defaultRequest { if (HttpHeaders.Host !in headers) header(HttpHeaders.Host, "localhost:8080") } }
-        try {
-            block(http, engine)
-        } finally {
-            engine.stop(0)
-            scope.cancel()
-            dispatcher.close()
+    private fun serve(runtime: FakeRuntime = FakeRuntime(), config: EngineConfig = EngineConfig(), block: suspend (HttpClient, Engine) -> Unit) =
+        testApplication {
+            val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            val models = listOf(
+                ModelEntry("alpha", ModelFiles("/alpha.pte", "/alpha.json"), "qwen3", 1, 4096, setOf("first")),
+                ModelEntry("vendor/beta", ModelFiles("/beta.pte", "/beta.json"), "qwen3", 1, 4096, setOf("second")),
+            )
+            val engine = Engine(runtime, StaticModelSource(models), dispatcher, scope, config)
+            engine.start()
+            val ctx = ServerContext(engine, ServerSettings(), StaticKeys(listOf(ApiKey("one", "One", "sk-one"))), { emptySet() }, "test", { 1_700_000_000 })
+            application { execuServe(ctx) }
+            val http = createClient { defaultRequest { if (HttpHeaders.Host !in headers) header(HttpHeaders.Host, "localhost:8080") } }
+            try {
+                block(http, engine)
+            } finally {
+                engine.stop(0)
+                scope.cancel()
+                dispatcher.close()
+            }
         }
-    }
 
     private suspend fun HttpClient.getKey(path: String) = get(path) { header(HttpHeaders.Authorization, "Bearer sk-one") }
     private suspend fun HttpClient.send(path: String, body: String, anthropic: Boolean = false) = post(path) {
@@ -90,10 +87,13 @@ class ModelScopeTest {
         assertEquals(HttpStatusCode.NotFound, http.getKey("/models/missing/v1/models").status)
         assertEquals(HttpStatusCode.NotFound, http.get("/models/missing/").status)
         assertEquals(HttpStatusCode.BadRequest, http.getKey("/models/alpha/v1/models/second").status)
-        assertEquals(HttpStatusCode.Forbidden, http.get("/models/alpha/") {
-            headers.remove(HttpHeaders.Host)
-            header(HttpHeaders.Host, "attacker.example")
-        }.status)
+        assertEquals(
+            HttpStatusCode.Forbidden,
+            http.get("/models/alpha/") {
+                headers.remove(HttpHeaders.Host)
+                header(HttpHeaders.Host, "attacker.example")
+            }.status,
+        )
     }
 
     @Test
@@ -105,18 +105,24 @@ class ModelScopeTest {
             "messages" to body("first"),
         )
         for ((route, body) in protocols) {
-            assertEquals(HttpStatusCode.Unauthorized, http.post("/models/alpha/v1/$route") {
-                contentType(ContentType.Application.Json)
-                setBody(body)
-            }.status)
+            assertEquals(
+                HttpStatusCode.Unauthorized,
+                http.post("/models/alpha/v1/$route") {
+                    contentType(ContentType.Application.Json)
+                    setBody(body)
+                }.status,
+            )
             val response = http.send("/models/alpha/v1/$route", body, route == "messages")
             assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
             assertEquals("alpha", json(response.bodyAsText())["model"]!!.jsonPrimitive.content)
             val before = engine.status.value.totals.completed
             val mismatch = http.send("/models/alpha/v1/$route", body.replace("first", "second"), route == "messages")
             assertEquals(HttpStatusCode.BadRequest, mismatch.status, mismatch.bodyAsText())
-            if (route == "messages") assertEquals("error", json(mismatch.bodyAsText())["type"]!!.jsonPrimitive.content)
-            else assertEquals("model_endpoint_mismatch", json(mismatch.bodyAsText())["error"]!!.jsonObject["code"]!!.jsonPrimitive.content)
+            if (route == "messages") {
+                assertEquals("error", json(mismatch.bodyAsText())["type"]!!.jsonPrimitive.content)
+            } else {
+                assertEquals("model_endpoint_mismatch", json(mismatch.bodyAsText())["error"]!!.jsonObject["code"]!!.jsonPrimitive.content)
+            }
             assertEquals(before, engine.status.value.totals.completed)
         }
         assertEquals(HttpStatusCode.BadRequest, http.send("/models/alpha/apply-template", body("second")).status)

@@ -46,7 +46,14 @@ sealed interface OutputItem {
             put("type", "reasoning")
             put("summary", JsonArray(emptyList()))
             putJsonArray("content") {
-                if (text.isNotEmpty()) add(buildJsonObject { put("type", "reasoning_text"); put("text", text) })
+                if (text.isNotEmpty()) {
+                    add(
+                        buildJsonObject {
+                            put("type", "reasoning_text")
+                            put("text", text)
+                        },
+                    )
+                }
             }
             put("status", status)
         }
@@ -89,46 +96,39 @@ object ResponseObjects {
      * A whole response object. [status] is `in_progress` for the opening stream events,
      * `completed`, or `incomplete` when the output budget ran out.
      */
-    fun response(
-        id: String,
-        createdAt: Long,
-        model: String,
-        status: String,
-        output: List<OutputItem>,
-        usage: Usage?,
-        request: ResponsesRequest,
-    ): JsonObject = buildJsonObject {
-        put("id", id)
-        put("object", "response")
-        put("created_at", createdAt)
-        put("status", status)
-        put("model", model)
-        put("output", JsonArray(output.map { it.toJson() }))
-        put("output_text", output.filterIsInstance<OutputItem.Message>().joinToString("") { it.text })
-        put("error", JsonNull)
-        if (status == "incomplete") {
-            putJsonObject("incomplete_details") { put("reason", "max_output_tokens") }
-        } else {
-            put("incomplete_details", JsonNull)
+    fun response(id: String, createdAt: Long, model: String, status: String, output: List<OutputItem>, usage: Usage?, request: ResponsesRequest): JsonObject =
+        buildJsonObject {
+            put("id", id)
+            put("object", "response")
+            put("created_at", createdAt)
+            put("status", status)
+            put("model", model)
+            put("output", JsonArray(output.map { it.toJson() }))
+            put("output_text", output.filterIsInstance<OutputItem.Message>().joinToString("") { it.text })
+            put("error", JsonNull)
+            if (status == "incomplete") {
+                putJsonObject("incomplete_details") { put("reason", "max_output_tokens") }
+            } else {
+                put("incomplete_details", JsonNull)
+            }
+            put("instructions", request.instructions?.let(::JsonPrimitive) ?: JsonNull)
+            put("max_output_tokens", request.maxOutputTokens?.let(::JsonPrimitive) ?: JsonNull)
+            put("parallel_tool_calls", true)
+            put("previous_response_id", request.previousResponseId?.let(::JsonPrimitive) ?: JsonNull)
+            putJsonObject("reasoning") {
+                put("effort", request.reasoning?.get("effort") ?: JsonNull)
+                put("summary", JsonNull)
+            }
+            put("store", request.store)
+            put("temperature", request.temperature?.let(::JsonPrimitive) ?: JsonNull)
+            putJsonObject("text") { putJsonObject("format") { put("type", "text") } }
+            put("tool_choice", request.toolChoice ?: JsonPrimitive("auto"))
+            put("tools", JsonArray(request.tools.orEmpty()))
+            put("top_p", JsonNull)
+            put("truncation", "disabled")
+            put("metadata", JsonObject(emptyMap()))
+            put("usage", usage?.let(::usageJson) ?: JsonNull)
         }
-        put("instructions", request.instructions?.let(::JsonPrimitive) ?: JsonNull)
-        put("max_output_tokens", request.maxOutputTokens?.let(::JsonPrimitive) ?: JsonNull)
-        put("parallel_tool_calls", true)
-        put("previous_response_id", request.previousResponseId?.let(::JsonPrimitive) ?: JsonNull)
-        putJsonObject("reasoning") {
-            put("effort", request.reasoning?.get("effort") ?: JsonNull)
-            put("summary", JsonNull)
-        }
-        put("store", request.store)
-        put("temperature", request.temperature?.let(::JsonPrimitive) ?: JsonNull)
-        putJsonObject("text") { putJsonObject("format") { put("type", "text") } }
-        put("tool_choice", request.toolChoice ?: JsonPrimitive("auto"))
-        put("tools", JsonArray(request.tools.orEmpty()))
-        put("top_p", JsonNull)
-        put("truncation", "disabled")
-        put("metadata", JsonObject(emptyMap()))
-        put("usage", usage?.let(::usageJson) ?: JsonNull)
-    }
 
     private fun usageJson(usage: Usage): JsonObject = buildJsonObject {
         put("input_tokens", usage.promptTokens)

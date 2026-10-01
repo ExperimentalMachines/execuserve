@@ -59,8 +59,11 @@ fun main(args: Array<String>): Unit = runBlocking {
         else -> StaticModelSource(
             listOf(
                 ModelEntry(
-                    "qwen3-1.7b-scripted", ModelFiles("scripted.pte", "scripted.json"), "qwen3",
-                    contextLength = options.window, aliases = setOf("qwen3-1.7b"),
+                    "qwen3-1.7b-scripted",
+                    ModelFiles("scripted.pte", "scripted.json"),
+                    "qwen3",
+                    contextLength = options.window,
+                    aliases = setOf("qwen3-1.7b"),
                 ),
             ),
         )
@@ -92,7 +95,14 @@ fun main(args: Array<String>): Unit = runBlocking {
     println("ExecuServe (scripted runtime) listening on ${server.endpoints.joinToString(", ")}")
     println("Models: ${models.all().joinToString(", ") { it.id + if (it.aliases.isEmpty()) "" else " (" + it.aliases.joinToString() + ")" }}")
     println("Key: ${options.key}")
-    Runtime.getRuntime().addShutdownHook(Thread { runBlocking { server.stop(); engine.stop(500) } })
+    Runtime.getRuntime().addShutdownHook(
+        Thread {
+            runBlocking {
+                server.stop()
+                engine.stop(STOP_GRACE_MS)
+            }
+        },
+    )
     awaitCancellation()
 }
 
@@ -150,3 +160,6 @@ private fun scriptedReply(prompt: String): List<String> {
     val words = "You said: ${lastUser.trim().ifEmpty { "(nothing)" }}".split(" ")
     return words.mapIndexed { index, word -> if (index == 0) word else " $word" } + marker
 }
+
+/** How long a running request may finish when the dev server is stopped. */
+private const val STOP_GRACE_MS = 500L

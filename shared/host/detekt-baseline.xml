@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:ModelEndpoints.kt$ModelEndpoints$c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' || c in "-._~"</ID>
+    <ID>LongMethod:ServeHost.kt$ServeHost$suspend fun start(onWedged: () -&gt; Unit)</ID>
+    <ID>ReturnCount:ConsoleTest.kt$ReplyReader$fun line(line: String): Boolean</ID>
+  </CurrentIssues>
+</SmellBaseline>

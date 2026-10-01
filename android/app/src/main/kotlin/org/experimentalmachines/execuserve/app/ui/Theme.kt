@@ -152,8 +152,7 @@ val LocalTones = staticCompositionLocalOf { tonesOf(dark = false) }
  * falls back to the system's fonts glyph by glyph. Nothing is smaller than 12 sp.
  */
 @OptIn(ExperimentalTextApi::class)
-private fun plexSans(weight: Int) =
-    Font(R.font.ibm_plex_sans, FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
+private fun plexSans(weight: Int) = Font(R.font.ibm_plex_sans, FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
 
 private val PlexSans = FontFamily(plexSans(REGULAR), plexSans(MEDIUM), plexSans(SEMIBOLD))
 

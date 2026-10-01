@@ -9,7 +9,6 @@ import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.experimentalmachines.execuserve.api.ApiError
@@ -69,8 +68,13 @@ internal suspend fun ApplicationCall.responses(ctx: ServerContext) {
                 keep(end.result)
                 respondJson(
                     ResponseObjects.response(
-                        id, created, end.result.model, statusOf(end.result), outputOf(job.id, end.result),
-                        usageOf(end.result), request,
+                        id,
+                        created,
+                        end.result.model,
+                        statusOf(end.result),
+                        outputOf(job.id, end.result),
+                        usageOf(end.result),
+                        request,
                     ),
                 )
             }
@@ -265,12 +269,11 @@ internal object ResponsesTranslate {
         .filter { it.string("type") != "function" }
         .map { tool -> "tools[" + listOfNotNull(tool.string("type"), tool.string("name")).joinToString(":") + "]" }
 
-    private fun thinking(request: ResponsesRequest): Boolean? =
-        when (request.reasoning?.get("effort")?.jsonPrimitive?.contentOrNull) {
-            null -> null
-            "none", "minimal" -> false
-            else -> true
-        }
+    private fun thinking(request: ResponsesRequest): Boolean? = when (request.reasoning?.get("effort")?.jsonPrimitive?.contentOrNull) {
+        null -> null
+        "none", "minimal" -> false
+        else -> true
+    }
 
     private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 }
@@ -313,37 +316,45 @@ internal class ResponsesStream(
         if (delta.reasoning.isNotEmpty()) {
             if (reasoning == null) {
                 reasoning = StringBuilder()
-                add(event("response.output_item.added") {
-                    put("output_index", done.size)
-                    put("item", OutputItem.Reasoning(reasoningId, "").toJson("in_progress"))
-                })
+                add(
+                    event("response.output_item.added") {
+                        put("output_index", done.size)
+                        put("item", OutputItem.Reasoning(reasoningId, "").toJson("in_progress"))
+                    },
+                )
                 // Each content part opens and closes around its deltas, reasoning included.
-                add(event("response.content_part.added") {
+                add(
+                    event("response.content_part.added") {
+                        put("item_id", reasoningId)
+                        put("output_index", done.size)
+                        put("content_index", 0)
+                        put("part", reasoningPart(""))
+                    },
+                )
+            }
+            reasoning!!.append(delta.reasoning)
+            add(
+                event("response.reasoning_text.delta") {
                     put("item_id", reasoningId)
                     put("output_index", done.size)
                     put("content_index", 0)
-                    put("part", reasoningPart(""))
-                })
-            }
-            reasoning!!.append(delta.reasoning)
-            add(event("response.reasoning_text.delta") {
-                put("item_id", reasoningId)
-                put("output_index", done.size)
-                put("content_index", 0)
-                put("delta", delta.reasoning)
-            })
+                    put("delta", delta.reasoning)
+                },
+            )
         }
         if (delta.content.isNotEmpty()) {
             addAll(closeReasoning())
             if (message == null) addAll(openMessage())
             message!!.append(delta.content)
-            add(event("response.output_text.delta") {
-                put("item_id", messageId)
-                put("output_index", done.size)
-                put("content_index", 0)
-                put("delta", delta.content)
-                put("logprobs", JsonArray(emptyList()))
-            })
+            add(
+                event("response.output_text.delta") {
+                    put("item_id", messageId)
+                    put("output_index", done.size)
+                    put("content_index", 0)
+                    put("delta", delta.content)
+                    put("logprobs", JsonArray(emptyList()))
+                },
+            )
         }
     }
 
@@ -354,31 +365,41 @@ internal class ResponsesStream(
         result.toolCalls.forEachIndexed { index, call ->
             val item = OutputItem.FunctionCall("fc_${jobId}_$index", call.id, call.name, call.argumentsJson)
             val at = done.size
-            add(event("response.output_item.added") {
-                put("output_index", at)
-                put("item", item.toJson("in_progress"))
-            })
-            add(event("response.function_call_arguments.delta") {
-                put("item_id", item.id)
-                put("output_index", at)
-                put("delta", call.argumentsJson)
-            })
-            add(event("response.function_call_arguments.done") {
-                put("item_id", item.id)
-                put("output_index", at)
-                put("name", call.name)
-                put("arguments", call.argumentsJson)
-            })
+            add(
+                event("response.output_item.added") {
+                    put("output_index", at)
+                    put("item", item.toJson("in_progress"))
+                },
+            )
+            add(
+                event("response.function_call_arguments.delta") {
+                    put("item_id", item.id)
+                    put("output_index", at)
+                    put("delta", call.argumentsJson)
+                },
+            )
+            add(
+                event("response.function_call_arguments.done") {
+                    put("item_id", item.id)
+                    put("output_index", at)
+                    put("name", call.name)
+                    put("arguments", call.argumentsJson)
+                },
+            )
             done += item
-            add(event("response.output_item.done") {
-                put("output_index", at)
-                put("item", item.toJson())
-            })
+            add(
+                event("response.output_item.done") {
+                    put("output_index", at)
+                    put("item", item.toJson())
+                },
+            )
         }
         val status = statusOf(result)
-        add(event(if (status == "incomplete") "response.incomplete" else "response.completed") {
-            put("response", snapshot(status, usageOf(result)))
-        })
+        add(
+            event(if (status == "incomplete") "response.incomplete" else "response.completed") {
+                put("response", snapshot(status, usageOf(result)))
+            },
+        )
     }
 
     override fun failure(error: ApiError): List<String> = listOf(

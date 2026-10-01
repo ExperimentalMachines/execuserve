@@ -102,10 +102,7 @@ object Qwen3Prompt {
      * rule (`messages[0].role == 'system'`). One that arrives later is an ordinary turn and
      * is rendered in place by the loop above.
      */
-    private fun StringBuilder.appendSystem(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-    ) {
+    private fun StringBuilder.appendSystem(messages: List<ChatMessage>, tools: List<ToolDefinition>) {
         val leading = messages.firstOrNull()?.takeIf { it.role == ChatRole.SYSTEM }?.text.orEmpty()
         if (tools.isEmpty()) {
             if (leading.isNotEmpty()) appendBlock("system", leading)
@@ -131,12 +128,7 @@ object Qwen3Prompt {
      *
      * So the rule is per turn rather than global, and [lastQuery] is what separates the two.
      */
-    private fun StringBuilder.appendAssistant(
-        message: ChatMessage,
-        index: Int,
-        lastQuery: Int,
-        isLast: Boolean,
-    ) {
+    private fun StringBuilder.appendAssistant(message: ChatMessage, index: Int, lastQuery: Int, isLast: Boolean) {
         val raw = message.text
         // Reasoning ends at the first close tag, the answer begins after the last one, and
         // those are deliberately not the same tag. That is the template's own arithmetic,
@@ -191,9 +183,8 @@ object Qwen3Prompt {
      * verbatim: re-encoding it would reorder keys, and the schema is the model's only
      * description of what the arguments mean.
      */
-    private fun ToolDefinition.asJson(): String =
-        """{"type": "function", "function": {"name": ${name.quoted()}, """ +
-            """"description": ${description.quoted()}, "parameters": $parametersJson}}"""
+    private fun ToolDefinition.asJson(): String = """{"type": "function", "function": {"name": ${name.quoted()}, """ +
+        """"description": ${description.quoted()}, "parameters": $parametersJson}}"""
 
     private fun String.quoted(): String = buildString {
         append('"')

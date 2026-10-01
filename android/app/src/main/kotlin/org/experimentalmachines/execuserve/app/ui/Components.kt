@@ -3,8 +3,8 @@ package org.experimentalmachines.execuserve.app.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.os.PersistableBundle
 import android.os.Build
+import android.os.PersistableBundle
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
@@ -15,9 +15,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,7 +34,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -46,6 +45,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -202,9 +202,22 @@ fun CopyRow(
     val context = LocalContext.current
     var copied by remember(value) { mutableStateOf<Boolean?>(null) }
     var showQr by remember(value) { mutableStateOf(false) }
-    LaunchedEffect(copied) { if (copied != null) { kotlinx.coroutines.delay(2500); copied = null } }
+    LaunchedEffect(copied) {
+        if (copied != null) {
+            kotlinx.coroutines.delay(2500)
+            copied = null
+        }
+    }
     if (showQr) ValueQrDialog(value, label, sensitive) { showQr = false }
-    val style = if (prominent) Mono.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize, lineHeight = MaterialTheme.typography.titleMedium.lineHeight, fontWeight = FontWeight.Medium) else Mono
+    val style = if (prominent) {
+        Mono.copy(
+            fontSize = MaterialTheme.typography.titleMedium.fontSize,
+            lineHeight = MaterialTheme.typography.titleMedium.lineHeight,
+            fontWeight = FontWeight.Medium,
+        )
+    } else {
+        Mono
+    }
     val actions: @Composable () -> Unit = {
         extra?.invoke()
         Action(stringResource(if (copied == true) R.string.copied else R.string.action_copy), onClick = {
@@ -246,12 +259,7 @@ val ACTION_INSET = 12.dp
 
 /** A row that opens to show detail; technical content lives here rather than on top. */
 @Composable
-fun Expandable(
-    title: String,
-    subtitle: String? = null,
-    leading: (@Composable () -> Unit)? = null,
-    content: @Composable ColumnScope.() -> Unit,
-) {
+fun Expandable(title: String, subtitle: String? = null, leading: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     var open by rememberSaveable(title) { mutableStateOf(false) }
     Column {
         Row(
@@ -439,8 +447,10 @@ fun copy(context: Context, text: String, sensitive: Boolean = false, notifyFailu
     val success = runCatching {
         val clipboard = context.getSystemService(ClipboardManager::class.java)
         val clip = ClipData.newPlainText(context.getString(R.string.app_name), text)
-        if (sensitive) clip.description.extras = PersistableBundle().apply {
-            putBoolean("android.content.extra.IS_SENSITIVE", true)
+        if (sensitive) {
+            clip.description.extras = PersistableBundle().apply {
+                putBoolean("android.content.extra.IS_SENSITIVE", true)
+            }
         }
         clipboard.setPrimaryClip(clip)
         clipboard.primaryClip?.getItemAt(0)?.text?.toString() == text

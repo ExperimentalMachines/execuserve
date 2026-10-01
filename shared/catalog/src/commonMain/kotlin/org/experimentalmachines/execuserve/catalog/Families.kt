@@ -32,12 +32,11 @@ object Families {
 object ModelIds {
     private val QUANT_START = Regex("-(8da4w|4w|8w|a16w\\d+|fp32|fp16|bf16|q4|int4|int8)(-|$)")
 
-    fun idFor(fileStem: String): String =
-        fileStem.lowercase()
-            .map { if (it.isLetterOrDigit() || it == '.' || it == '-' || it == '_') it else '-' }
-            .joinToString("")
-            .trim('-', '.')
-            .ifEmpty { "model" }
+    fun idFor(fileStem: String): String = fileStem.lowercase()
+        .map { if (it.isLetterOrDigit() || it == '.' || it == '-' || it == '_') it else '-' }
+        .joinToString("")
+        .trim('-', '.')
+        .ifEmpty { "model" }
 
     fun aliasesFor(id: String): Set<String> {
         val base = QUANT_START.find(id)?.let { id.substring(0, it.range.first) }
@@ -82,5 +81,5 @@ object Labs {
     fun displayName(lab: String): String = NAMES[lab] ?: lab
 
     /** The Hub's answer to "what is this organisation's picture": `{"avatarUrl": ...}`. */
-    fun avatarApi(lab: String) = "https://huggingface.co/api/organizations/$lab/avatar"
+    fun avatarApi(lab: String) = HfCatalog.avatarUrl(lab)
 }

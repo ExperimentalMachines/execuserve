@@ -110,8 +110,7 @@ class HostSettingsTest {
 
     @Test
     fun everyEndingHasAnOutcome() {
-        fun record(finish: FinishReason?, failure: FailureKind?) =
-            JobRecord("j", "m", "c", 0, finish, failure, 0, 0, 0, 0, 0)
+        fun record(finish: FinishReason?, failure: FailureKind?) = JobRecord("j", "m", "c", 0, finish, failure, 0, 0, 0, 0, 0)
         assertEquals(Outcome.DONE, Outcome.of(record(FinishReason.STOP, null)))
         assertEquals(Outcome.TOOL_CALL, Outcome.of(record(FinishReason.TOOL_CALLS, null)))
         assertEquals(Outcome.CLIENT_LEFT, Outcome.of(record(null, FailureKind.CLIENT_GONE)))
@@ -130,22 +129,30 @@ class HostSettingsTest {
 }
 
 class RunHistoryTest {
-    private class Lines : RunStore {
+    private class MemoryStore : RunStore {
         val lines = mutableListOf<String>()
         override suspend fun readLines() = lines.toList()
-        override suspend fun appendLine(line: String) { lines += line }
-        override suspend fun rewrite(lines: List<String>) { this.lines.clear(); this.lines += lines }
+        override suspend fun appendLine(line: String) {
+            lines += line
+        }
+        override suspend fun rewrite(lines: List<String>) {
+            this.lines.clear()
+            this.lines += lines
+        }
     }
 
     private fun run(id: String, at: Long) = JobRecord(id, "m", "c", at, FinishReason.STOP, null, 10, 5, 0, 0, 100, clientId = "k")
 
     @Test
     fun keepsTheNewestWithinTheLimitsAndCompacts() = kotlinx.coroutines.test.runTest {
-        val store = Lines()
+        val store = MemoryStore()
         var now = 1_000L
         val history = RunHistory(store, this, { now }, Retention(maxRuns = 5, maxAgeMs = 10_000))
         testScheduler.advanceUntilIdle()
-        repeat(12) { history.add(run("r$it", now)); now += 10 }
+        repeat(12) {
+            history.add(run("r$it", now))
+            now += 10
+        }
         assertEquals(listOf("r11", "r10", "r9", "r8", "r7"), history.runs.value.map { it.id })
         // Appends run a fifth over the limit at most before the file is rewritten.
         assertTrue(store.lines.size <= 6, "${store.lines.size} lines")
@@ -155,7 +162,11 @@ class RunHistoryTest {
 
     @Test
     fun oldRunsAgeOutOnLoad() = kotlinx.coroutines.test.runTest {
-        val store = Lines().apply { lines += RunCodec.encode(run("old", 0)); lines += RunCodec.encode(run("new", 50_000)); lines += "not json" }
+        val store = MemoryStore().apply {
+            lines += RunCodec.encode(run("old", 0))
+            lines += RunCodec.encode(run("new", 50_000))
+            lines += "not json"
+        }
         val history = RunHistory(store, this, { 55_000 }, Retention(maxAgeMs = 10_000))
         testScheduler.advanceUntilIdle()
         assertEquals(listOf("new"), history.runs.value.map { it.id })

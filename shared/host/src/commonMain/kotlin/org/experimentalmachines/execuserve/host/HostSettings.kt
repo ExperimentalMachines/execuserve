@@ -1,6 +1,7 @@
 package org.experimentalmachines.execuserve.host
 
 import org.experimentalmachines.execuserve.engine.EngineConfig
+import org.experimentalmachines.execuserve.engine.Units
 import org.experimentalmachines.execuserve.server.BindMode
 import org.experimentalmachines.execuserve.server.ServerSettings
 
@@ -60,7 +61,7 @@ data class HostSettings(
     )
 
     fun engineConfig() = ENGINE.copy(
-        maxResidentModels = maxResidentModels.coerceIn(1, 3),
+        maxResidentModels = residentLimit,
         maxQueued = maxQueued,
         maxPerClient = maxPerClient,
         queueTimeoutMs = queueTimeoutSeconds * MS_PER_SECOND,
@@ -79,16 +80,19 @@ data class HostSettings(
     /** Resolve aliases and discard missing models before they consume a startup slot. */
     fun startupModels(resolve: (String) -> String? = { it }): List<String> =
         (listOfNotNull(defaultModel) + preloadModels.sorted()).mapNotNull(resolve).distinct()
-            .take(if (threads == 0) maxResidentModels.coerceIn(1, 3) else 1)
+            .take(if (threads == 0) residentLimit else 1)
 
     /** Whether going from [running] to this needs the listener restarted; engine limits apply live. */
     fun needsRestartFrom(running: HostSettings) = serverSettings() != running.serverSettings()
 
+    /** The resident-model setting, clamped to what one phone can hold. */
+    private val residentLimit get() = maxResidentModels.coerceIn(Choices.RESIDENT_MODELS)
+
     private fun list(text: String) = text.split(',', ' ', '\n').map { it.trim() }.filter { it.isNotEmpty() }
 
     private companion object {
-        const val MS_PER_SECOND = 1_000L
-        const val MS_PER_MINUTE = 60_000L
+        const val MS_PER_SECOND = Units.MS_PER_SECOND
+        const val MS_PER_MINUTE = Units.MS_PER_MINUTE
     }
 }
 
@@ -102,6 +106,9 @@ object Choices {
     val PER_CLIENT = 1..64
     val QUEUE_TIMEOUT_SECONDS = 5..3_600
     val REQUEST_TIMEOUT_SECONDS = 10..7_200
+
+    /** Models kept in memory at once: three small ones already fill a 12 GB phone. */
+    val RESIDENT_MODELS = 1..3
 
     /** Automatic, then every count up to [cores]. */
     fun threads(cores: Int): List<Int> = listOf(0) + (1..cores.coerceAtLeast(1))

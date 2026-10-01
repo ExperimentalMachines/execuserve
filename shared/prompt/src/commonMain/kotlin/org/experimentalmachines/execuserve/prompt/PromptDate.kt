@@ -28,12 +28,10 @@ package org.experimentalmachines.execuserve.prompt
 data class PromptDate(val day: Int, val month: Int, val year: Int) {
 
     /** `26 Jul 2024`, which is Llama 3.2's spelling (`%d %b %Y`, zero-padded day). */
-    fun asLlamaDate(): String =
-        "${day.toString().padStart(2, '0')} ${SHORT_MONTHS[month - 1]} $year"
+    fun asLlamaDate(): String = "${day.toString().padStart(2, '0')} ${SHORT_MONTHS[month - 1]} $year"
 
     /** `29 August 2026`, which is SmolLM3's spelling (`%d %B %Y`, zero-padded day). */
-    fun asSmolLm3Date(): String =
-        "${day.toString().padStart(2, '0')} ${LONG_MONTHS[month - 1]} $year"
+    fun asSmolLm3Date(): String = "${day.toString().padStart(2, '0')} ${LONG_MONTHS[month - 1]} $year"
 
     private companion object {
         val SHORT_MONTHS = listOf(

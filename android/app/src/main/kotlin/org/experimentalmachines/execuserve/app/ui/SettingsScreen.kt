@@ -2,7 +2,6 @@ package org.experimentalmachines.execuserve.app.ui
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
@@ -29,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.executorch.ExecuTorchRuntime
@@ -86,18 +86,24 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues) {
                 MenuRow(
                     stringResource(R.string.settings_resident),
                     stringResource(R.string.settings_resident_note),
-                    options = (1..3).map { it to it.toString() },
+                    options = Choices.RESIDENT_MODELS.map { it to it.toString() },
                     selected = current.maxResidentModels,
                     onSelect = { count -> update { it.copy(maxResidentModels = count, threads = if (count > 1) 0 else it.threads) } },
                 )
-                Text(stringResource(R.string.settings_resident_threads), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.settings_resident_threads),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Expandable(stringResource(R.string.settings_startup_models), stringResource(R.string.settings_startup_models_note)) {
                     installed.forEach { entry ->
                         SwitchRow(entry.aliases.firstOrNull() ?: entry.id, null, entry.id in current.preloadModels || entry.id == current.defaultModel) { on ->
-                            update { settings -> settings.copy(
-                                defaultModel = settings.defaultModel.takeUnless { !on && it == entry.id },
-                                preloadModels = if (on) settings.preloadModels + entry.id else settings.preloadModels - entry.id,
-                            ) }
+                            update { settings ->
+                                settings.copy(
+                                    defaultModel = settings.defaultModel.takeUnless { !on && it == entry.id },
+                                    preloadModels = if (on) settings.preloadModels + entry.id else settings.preloadModels - entry.id,
+                                )
+                            }
                         }
                     }
                 }
@@ -106,97 +112,134 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues) {
         item(key = "keys") { Panel { Expandable(stringResource(R.string.settings_keys)) { KeysPanel(keys, model::addKey, model::revokeKey) } } }
 
         item(key = "model") {
-            Panel { Expandable(stringResource(R.string.settings_model)) {
-                ChoiceRow(
-                    stringResource(R.string.settings_reasoning),
-                    stringResource(R.string.settings_when_unset),
-                    options = ThinkingDefault.entries.map { it to stringResource(it.words) },
-                    selected = current.thinking,
-                    onSelect = { v -> update { it.copy(thinking = v) } },
-                )
-                val greedy = stringResource(R.string.settings_temperature_greedy)
-                MenuRow(
-                    stringResource(R.string.settings_temperature),
-                    stringResource(R.string.settings_when_unset),
-                    options = Choices.TEMPERATURES.map { it to (if (it == 0f) greedy else "%.1f".format(it)) },
-                    selected = Choices.nearestTemperature(current.temperature),
-                    onSelect = { v -> update { it.copy(temperature = v) } },
-                )
-                SwitchRow(
-                    stringResource(R.string.settings_keep_reasoning),
-                    stringResource(R.string.settings_keep_reasoning_note),
-                    current.keepReasoningInHistory,
-                ) { on -> update { it.copy(keepReasoningInHistory = on) } }
-                val active by model.activeThreads.collectAsState()
-                val automatic = stringResource(R.string.threads_auto)
-                MenuRow(
-                    stringResource(R.string.settings_threads),
-                    active?.let { stringResource(R.string.settings_threads_now, it) } ?: stringResource(R.string.settings_threads_idle),
-                    options = Choices.threads(model.cpuCores).map { n -> n to if (n == 0) automatic else n.toString() },
-                    selected = current.threads,
-                    onSelect = { v -> update { it.copy(threads = v, maxResidentModels = if (v > 0) 1 else it.maxResidentModels) } },
-                )
-                Text(stringResource(R.string.settings_threads_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Expandable(stringResource(R.string.settings_threads_why)) {
-                    Text(stringResource(R.string.settings_threads_why_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Panel {
+                Expandable(stringResource(R.string.settings_model)) {
+                    ChoiceRow(
+                        stringResource(R.string.settings_reasoning),
+                        stringResource(R.string.settings_when_unset),
+                        options = ThinkingDefault.entries.map { it to stringResource(it.words) },
+                        selected = current.thinking,
+                        onSelect = { v -> update { it.copy(thinking = v) } },
+                    )
+                    val greedy = stringResource(R.string.settings_temperature_greedy)
+                    MenuRow(
+                        stringResource(R.string.settings_temperature),
+                        stringResource(R.string.settings_when_unset),
+                        options = Choices.TEMPERATURES.map { it to (if (it == 0f) greedy else "%.1f".format(it)) },
+                        selected = Choices.nearestTemperature(current.temperature),
+                        onSelect = { v -> update { it.copy(temperature = v) } },
+                    )
+                    SwitchRow(
+                        stringResource(R.string.settings_keep_reasoning),
+                        stringResource(R.string.settings_keep_reasoning_note),
+                        current.keepReasoningInHistory,
+                    ) { on -> update { it.copy(keepReasoningInHistory = on) } }
+                    val active by model.activeThreads.collectAsState()
+                    val automatic = stringResource(R.string.threads_auto)
+                    MenuRow(
+                        stringResource(R.string.settings_threads),
+                        active?.let { stringResource(R.string.settings_threads_now, it) } ?: stringResource(R.string.settings_threads_idle),
+                        options = Choices.threads(model.cpuCores).map { n -> n to if (n == 0) automatic else n.toString() },
+                        selected = current.threads,
+                        onSelect = { v -> update { it.copy(threads = v, maxResidentModels = if (v > 0) 1 else it.maxResidentModels) } },
+                    )
+                    Text(
+                        stringResource(R.string.settings_threads_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Expandable(stringResource(R.string.settings_threads_why)) {
+                        Text(
+                            stringResource(R.string.settings_threads_why_body),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-            } }
+            }
         }
 
         item(key = "background") {
-            Panel { Expandable(stringResource(R.string.settings_background)) {
-                val context = LocalContext.current
-                SwitchRow(stringResource(R.string.settings_boot), null, current.startAtBoot) { on -> update { it.copy(startAtBoot = on) } }
-                // HyperOS decides, with a permission no app can read, whether Android may
-                // restart the server after its process dies, and whether it may start at boot.
-                // Measured on the POCO: without it a crash ended serving for good; with it the
-                // server was back in two seconds. So the row is always there on these phones.
-                if (isXiaomi()) {
-                    Row(Modifier.heightIn(min = Dimens.touch), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.settings_autostart_title), style = MaterialTheme.typography.bodyLarge)
-                            Text(stringResource(R.string.settings_autostart), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Panel {
+                Expandable(stringResource(R.string.settings_background)) {
+                    val context = LocalContext.current
+                    SwitchRow(stringResource(R.string.settings_boot), null, current.startAtBoot) { on -> update { it.copy(startAtBoot = on) } }
+                    // HyperOS decides, with a permission no app can read, whether Android may
+                    // restart the server after its process dies, and whether it may start at boot.
+                    // Measured on the POCO: without it a crash ended serving for good; with it the
+                    // server was back in two seconds. So the row is always there on these phones.
+                    if (isXiaomi()) {
+                        Row(
+                            Modifier.heightIn(min = Dimens.touch),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.settings_autostart_title), style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    stringResource(R.string.settings_autostart),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Action(stringResource(R.string.action_open), onClick = { openAutostart(context) })
                         }
-                        Action(stringResource(R.string.action_open), onClick = { openAutostart(context) })
                     }
+                    ChoiceRow(
+                        stringResource(R.string.settings_wake),
+                        options = WakePolicy.entries.map { it to stringResource(it.words) },
+                        selected = current.wake,
+                        onSelect = { v -> update { it.copy(wake = v) } },
+                    )
+                    MenuRow(
+                        stringResource(R.string.settings_unload),
+                        options = Choices.IDLE_UNLOAD_MINUTES.map { minutes ->
+                            minutes to if (minutes == 0) stringResource(R.string.never) else pluralStringResource(R.plurals.after_minutes, minutes, minutes)
+                        },
+                        selected = current.idleUnloadMinutes,
+                        onSelect = { v -> update { it.copy(idleUnloadMinutes = v) } },
+                    )
+                    MenuRow(
+                        stringResource(R.string.settings_battery_floor),
+                        stringResource(R.string.settings_battery_floor_note),
+                        options = Choices.BATTERY_FLOORS.map { percent ->
+                            percent to if (percent == 0) stringResource(R.string.never) else stringResource(R.string.battery_below, percent)
+                        },
+                        selected = current.minBatteryPercent,
+                        onSelect = { v -> update { it.copy(minBatteryPercent = v) } },
+                    )
+                    BatteryOptimisation()
                 }
-                ChoiceRow(
-                    stringResource(R.string.settings_wake),
-                    options = WakePolicy.entries.map { it to stringResource(it.words) },
-                    selected = current.wake,
-                    onSelect = { v -> update { it.copy(wake = v) } },
-                )
-                MenuRow(
-                    stringResource(R.string.settings_unload),
-                    options = Choices.IDLE_UNLOAD_MINUTES.map { minutes ->
-                        minutes to if (minutes == 0) stringResource(R.string.never) else pluralStringResource(R.plurals.after_minutes, minutes, minutes)
-                    },
-                    selected = current.idleUnloadMinutes,
-                    onSelect = { v -> update { it.copy(idleUnloadMinutes = v) } },
-                )
-                MenuRow(
-                    stringResource(R.string.settings_battery_floor),
-                    stringResource(R.string.settings_battery_floor_note),
-                    options = Choices.BATTERY_FLOORS.map { percent ->
-                        percent to if (percent == 0) stringResource(R.string.never) else stringResource(R.string.battery_below, percent)
-                    },
-                    selected = current.minBatteryPercent,
-                    onSelect = { v -> update { it.copy(minBatteryPercent = v) } },
-                )
-                BatteryOptimisation()
-            } }
+            }
         }
 
         item(key = "limits") {
             Panel {
-                Expandable(stringResource(R.string.settings_limits), stringResource(R.string.settings_limits_summary, current.maxQueued, current.maxPerClient)) {
+                Expandable(
+                    stringResource(R.string.settings_limits),
+                    stringResource(R.string.settings_limits_summary, current.maxQueued, current.maxPerClient),
+                ) {
                     val seconds = stringResource(R.string.unit_seconds)
-                    NumberRow(stringResource(R.string.settings_max_queued), value = current.maxQueued, range = Choices.QUEUE_SIZES) { v -> update { it.copy(maxQueued = v) } }
-                    NumberRow(stringResource(R.string.settings_max_per_client), value = current.maxPerClient, range = Choices.PER_CLIENT) { v -> update { it.copy(maxPerClient = v) } }
-                    NumberRow(stringResource(R.string.settings_queue_timeout), value = current.queueTimeoutSeconds, range = Choices.QUEUE_TIMEOUT_SECONDS, suffix = seconds) { v ->
+                    NumberRow(stringResource(R.string.settings_max_queued), value = current.maxQueued, range = Choices.QUEUE_SIZES) { v ->
+                        update { it.copy(maxQueued = v) }
+                    }
+                    NumberRow(stringResource(R.string.settings_max_per_client), value = current.maxPerClient, range = Choices.PER_CLIENT) { v ->
+                        update { it.copy(maxPerClient = v) }
+                    }
+                    NumberRow(
+                        stringResource(R.string.settings_queue_timeout),
+                        value = current.queueTimeoutSeconds,
+                        range = Choices.QUEUE_TIMEOUT_SECONDS,
+                        suffix = seconds,
+                    ) { v ->
                         update { it.copy(queueTimeoutSeconds = v) }
                     }
-                    NumberRow(stringResource(R.string.settings_request_timeout), value = current.requestTimeoutSeconds, range = Choices.REQUEST_TIMEOUT_SECONDS, suffix = seconds) { v ->
+                    NumberRow(
+                        stringResource(R.string.settings_request_timeout),
+                        value = current.requestTimeoutSeconds,
+                        range = Choices.REQUEST_TIMEOUT_SECONDS,
+                        suffix = seconds,
+                    ) { v ->
                         update { it.copy(requestTimeoutSeconds = v) }
                     }
                 }
@@ -206,10 +249,20 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues) {
         item(key = "advanced") {
             Panel {
                 Expandable(stringResource(R.string.settings_advanced), stringResource(R.string.settings_advanced_summary)) {
-                    TextRow(stringResource(R.string.settings_hosts), stringResource(R.string.settings_hosts_note), current.extraHosts, "phone.tailnet.ts.net") { v ->
+                    TextRow(
+                        stringResource(R.string.settings_hosts),
+                        stringResource(R.string.settings_hosts_note),
+                        current.extraHosts,
+                        "phone.tailnet.ts.net",
+                    ) { v ->
                         update { it.copy(extraHosts = v) }
                     }
-                    TextRow(stringResource(R.string.settings_cors), stringResource(R.string.settings_cors_note), current.corsOrigins, "http://localhost:3000") { v ->
+                    TextRow(
+                        stringResource(R.string.settings_cors),
+                        stringResource(R.string.settings_cors_note),
+                        current.corsOrigins,
+                        "http://localhost:3000",
+                    ) { v ->
                         update { it.copy(corsOrigins = v) }
                     }
                     SwitchRow(stringResource(R.string.settings_external), stringResource(R.string.settings_external_note), current.allowExternalStart) { on ->
@@ -249,9 +302,11 @@ private fun KeysPanel(keys: List<ApiKey>, onAdd: (String) -> Unit, onRevoke: (St
         Text(stringResource(R.string.settings_keys_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         keys.forEach { key ->
             CopyRow(
-                value = key.secret, label = key.name,
+                value = key.secret,
+                label = key.name,
                 shown = key.secret.take(KEY_HEAD) + "…" + key.secret.takeLast(KEY_TAIL),
-                qr = true, sensitive = true,
+                qr = true,
+                sensitive = true,
                 extra = {
                     if (keys.size > 1) Action(stringResource(R.string.action_revoke), onClick = { onRevoke(key.id) }, destructive = true)
                 },
@@ -291,7 +346,7 @@ private fun BatteryOptimisation() {
         }
         if (!exempt) {
             Action(stringResource(R.string.action_exempt), onClick = {
-                context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}")))
+                context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, "package:${context.packageName}".toUri()))
             })
         }
     }
@@ -301,7 +356,7 @@ private fun isXiaomi() = Build.MANUFACTURER.lowercase() in setOf("xiaomi", "poco
 
 private fun openAutostart(context: Context) {
     val autostart = Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
-    val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+    val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri())
     runCatching { context.startActivity(autostart) }.onFailure { context.startActivity(details) }
 }
 

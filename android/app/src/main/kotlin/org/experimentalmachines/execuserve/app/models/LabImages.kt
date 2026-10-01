@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
+import org.experimentalmachines.execuserve.catalog.HfCatalog
 import org.experimentalmachines.execuserve.catalog.Labs
 import java.io.File
 import java.net.HttpURLConnection
@@ -60,12 +61,24 @@ class LabImages(cacheDir: File, private val scope: CoroutineScope) {
         connection.setRequestProperty("User-Agent", "ExecuServe")
         return try {
             if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
-            connection.inputStream.use { input ->
-                val bytes = input.readNBytes(MAX_BYTES + 1)
-                bytes.takeIf { it.size <= MAX_BYTES }
-            }
+            connection.inputStream.use { input -> readAtMost(input, MAX_BYTES) }
         } finally {
             connection.disconnect()
+        }
+    }
+
+    /**
+     * The whole stream if it is at most [limit] bytes, else null. InputStream.readNBytes
+     * would do this, but only from API 33, and the app runs from 31.
+     */
+    private fun readAtMost(input: java.io.InputStream, limit: Int): ByteArray? {
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(BUFFER_BYTES)
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) return out.toByteArray()
+            if (out.size() + read > limit) return null
+            out.write(buffer, 0, read)
         }
     }
 
@@ -80,9 +93,10 @@ class LabImages(cacheDir: File, private val scope: CoroutineScope) {
     }
 
     private companion object {
-        const val HUB = "huggingface.co"
+        const val HUB = HfCatalog.HUB_HOST
         const val TIMEOUT_MS = 15_000
         const val MAX_BYTES = 512 * 1024
+        const val BUFFER_BYTES = 8 * 1024
         const val DRAWN_PX = 128
     }
 }

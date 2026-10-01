@@ -175,11 +175,8 @@ private object Qwen3Template : PromptTemplate {
     override val stopMarkers: List<String> = listOf("<|im_end|>")
     override val supportsThinking: Boolean = true
 
-    override fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-        thinking: Boolean,
-    ): String = Qwen3Prompt.render(messages, tools, thinking, verbatimHistory = true)
+    override fun render(messages: List<ChatMessage>, tools: List<ToolDefinition>, thinking: Boolean): String =
+        Qwen3Prompt.render(messages, tools, thinking, verbatimHistory = true)
 }
 
 /**
@@ -195,11 +192,8 @@ private object Qwen35Template : PromptTemplate {
     override val stopMarkers: List<String> = listOf(IM_END)
     override val supportsThinking: Boolean = true
 
-    override fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-        thinking: Boolean,
-    ): String = Qwen35Prompt.render(messages, tools, thinking, verbatimHistory = true)
+    override fun render(messages: List<ChatMessage>, tools: List<ToolDefinition>, thinking: Boolean): String =
+        Qwen35Prompt.render(messages, tools, thinking, verbatimHistory = true)
 }
 
 /** ChatML end-of-turn, shared by every family that speaks it. */
@@ -214,22 +208,14 @@ private object SmolLm2Template : PromptTemplate {
     override val stopMarkers: List<String> = listOf(IM_END)
     override val supportsTools: Boolean = false
 
-    override fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-        thinking: Boolean,
-    ): String = SmolLm2Prompt.render(messages)
+    override fun render(messages: List<ChatMessage>, tools: List<ToolDefinition>, thinking: Boolean): String = SmolLm2Prompt.render(messages)
 }
 
 /** [Qwen25Prompt] as a [PromptTemplate]. Verbatim by construction — see its own docs. */
 private object Qwen25Template : PromptTemplate {
     override val stopMarkers: List<String> = listOf(IM_END)
 
-    override fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-        thinking: Boolean,
-    ): String = Qwen25Prompt.render(messages, tools)
+    override fun render(messages: List<ChatMessage>, tools: List<ToolDefinition>, thinking: Boolean): String = Qwen25Prompt.render(messages, tools)
 }
 
 /** [SmolLm3Prompt] as a [PromptTemplate]. */
@@ -242,11 +228,7 @@ private object SmolLm3Template : PromptTemplate {
     // whole cache mid-conversation (codex QA). One stale day is the cheaper wrong.
     private val pinnedDate: String by lazy { promptDateToday().asSmolLm3Date() }
 
-    override fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-        thinking: Boolean,
-    ): String = SmolLm3Prompt.render(
+    override fun render(messages: List<ChatMessage>, tools: List<ToolDefinition>, thinking: Boolean): String = SmolLm3Prompt.render(
         messages,
         tools,
         thinking,
@@ -274,11 +256,7 @@ private object Llama32Template : PromptTemplate {
 
     private val pinnedDate: String by lazy { promptDateToday().asLlamaDate() }
 
-    override fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-        thinking: Boolean,
-    ): String = Llama32Prompt.render(
+    override fun render(messages: List<ChatMessage>, tools: List<ToolDefinition>, thinking: Boolean): String = Llama32Prompt.render(
         messages,
         tools,
         date = pinnedDate,
@@ -291,11 +269,7 @@ private object Llama32Template : PromptTemplate {
 private object Phi4Template : PromptTemplate {
     override val stopMarkers: List<String> = listOf("<|end|>", "<|endoftext|>")
 
-    override fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-        thinking: Boolean,
-    ): String = Phi4Prompt.render(messages, tools)
+    override fun render(messages: List<ChatMessage>, tools: List<ToolDefinition>, thinking: Boolean): String = Phi4Prompt.render(messages, tools)
 }
 
 /** [Gemma3Prompt] as a [PromptTemplate], without the textual BOS for the same reason. */
@@ -321,11 +295,8 @@ private object Gemma3Template : PromptTemplate {
         fit = Fit.STRETCH,
     )
 
-    override fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-        thinking: Boolean,
-    ): String = Gemma3Prompt.render(messages, includeBos = false, verbatimHistory = true)
+    override fun render(messages: List<ChatMessage>, tools: List<ToolDefinition>, thinking: Boolean): String =
+        Gemma3Prompt.render(messages, includeBos = false, verbatimHistory = true)
 }
 
 /**
@@ -358,9 +329,6 @@ private object Lfm25Template : PromptTemplate {
         fit = Fit.LETTERBOX,
     )
 
-    override fun render(
-        messages: List<ChatMessage>,
-        tools: List<ToolDefinition>,
-        thinking: Boolean,
-    ): String = Lfm25Prompt.render(messages, tools, verbatimHistory = true, includeBos = false)
+    override fun render(messages: List<ChatMessage>, tools: List<ToolDefinition>, thinking: Boolean): String =
+        Lfm25Prompt.render(messages, tools, verbatimHistory = true, includeBos = false)
 }

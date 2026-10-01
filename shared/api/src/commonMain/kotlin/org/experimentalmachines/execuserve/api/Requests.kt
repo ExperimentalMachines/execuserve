@@ -35,9 +35,7 @@ data class ChatCompletionRequest(
 )
 
 @Serializable
-data class StreamOptions(
-    @SerialName("include_usage") val includeUsage: Boolean = false,
-)
+data class StreamOptions(@SerialName("include_usage") val includeUsage: Boolean = false)
 
 /**
  * One message. `content` stays a raw element because OpenAI allows three shapes for it: a
@@ -54,25 +52,13 @@ data class MessageDto(
 
 /** A tool offered to the model. Only `function` tools carry [function]; others are dropped. */
 @Serializable
-data class ToolDto(
-    val type: String = "function",
-    val function: FunctionDto? = null,
-    val name: String? = null,
-)
+data class ToolDto(val type: String = "function", val function: FunctionDto? = null, val name: String? = null)
 
 @Serializable
-data class FunctionDto(
-    val name: String,
-    val description: String? = null,
-    val parameters: JsonObject? = null,
-)
+data class FunctionDto(val name: String, val description: String? = null, val parameters: JsonObject? = null)
 
 @Serializable
-data class ToolCallDto(
-    val id: String? = null,
-    val type: String = "function",
-    val function: FunctionCallDto,
-)
+data class ToolCallDto(val id: String? = null, val type: String = "function", val function: FunctionCallDto)
 
 @Serializable
 data class FunctionCallDto(
