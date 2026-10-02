@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!--
         Every word the app shows. Protocol text (OpenAI error messages, model ids, JSON)
         stays in code: clients parse it. No em or en dashes, by the project's style.
@@ -112,7 +112,7 @@
     <string name="try_stream_on">Tokens appear as the model writes them (stream: true)</string>
     <string name="try_stream_off">The whole reply arrives at once (stream: false)</string>
     <string name="try_model">Model</string>
-    <string name="try_limit">Up to %1$d tokens</string>
+    <string name="try_limit" tools:ignore="PluralsCandidate">Up to %1$d tokens</string>
     <string name="try_writing">Writing…</string>
     <string name="try_waiting">Waiting for the whole reply…</string>
     <string name="try_reasoning">Reasoning</string>
@@ -164,7 +164,10 @@
     <string name="runs_col_total">Total</string>
     <string name="runs_col_rate">Tok/s</string>
     <string name="compare_how">How these are measured</string>
-    <string name="bucket_rate">%2$s tok/s median, %1$s, %3$d runs</string>
+    <plurals name="bucket_rate">
+        <item quantity="one">%2$s tok/s median, %1$s, %3$d run</item>
+        <item quantity="other">%2$s tok/s median, %1$s, %3$d runs</item>
+    </plurals>
     <string name="runs_export">Export CSV</string>
     <string name="runs_clear">Clear</string>
     <string name="runs_clear_title">Clear the run history?</string>
@@ -183,7 +186,10 @@
     <string name="phase_writing">Writing</string>
     <string name="phase_total">Total</string>
     <string name="phase_value">%1$s, %2$s tok at %3$s tok/s</string>
-    <string name="run_threads">%1$d threads</string>
+    <plurals name="run_threads">
+        <item quantity="one">%1$d thread</item>
+        <item quantity="other">%1$d threads</item>
+    </plurals>
     <string name="run_api">%1$s, %2$s</string>
     <string name="run_streamed">streamed</string>
     <string name="run_whole">whole</string>
@@ -205,12 +211,15 @@
     </plurals>
     <string name="compare_threads">Threads</string>
     <string name="compare_threads_mixed">%1$s (mixed: speeds combine settings)</string>
-    <string name="spread">%1$s median, %2$d runs</string>
+    <plurals name="spread">
+        <item quantity="one">%1$s median, %2$d run</item>
+        <item quantity="other">%1$s median, %2$d runs</item>
+    </plurals>
     <string name="bucket_short">context under 512 tokens</string>
     <string name="bucket_medium">context 512 to 2k tokens</string>
     <string name="bucket_long">context over 2k tokens</string>
     <string name="bench_title">Benchmark</string>
-    <string name="bench_note">Three cold runs of one model: a prompt read in a single runtime call, so its token count is exact, then up to %1$d tokens written. Counts are what the runtime reported. Runs queue behind real requests.</string>
+    <string name="bench_note" tools:ignore="PluralsCandidate">Three cold runs of one model: a prompt read in a single runtime call, so its token count is exact, then up to %1$d tokens written. Counts are what the runtime reported. Runs queue behind real requests.</string>
     <string name="bench_run">Run benchmark</string>
     <string name="bench_needs_server">Start the server to run a benchmark.</string>
     <string name="bench_progress">Run %1$d of %2$d</string>
@@ -309,7 +318,7 @@
     <string name="settings_optimisation_on">On. Exempt the app if requests stall after long idle periods; the foreground service alone was enough on the phones tested.</string>
     <string name="settings_optimisation_off">Exempt: Android will not defer the app.</string>
     <string name="settings_limits">Limits</string>
-    <string name="settings_limits_summary">Queue of %1$d, %2$d per client, timeouts</string>
+    <string name="settings_limits_summary" tools:ignore="PluralsCandidate">Queue of %1$d, %2$d per client, timeouts</string>
     <string name="settings_max_queued">Requests waiting, at most</string>
     <string name="settings_max_per_client">Per client, at most</string>
     <string name="settings_queue_timeout">Longest wait in the queue</string>

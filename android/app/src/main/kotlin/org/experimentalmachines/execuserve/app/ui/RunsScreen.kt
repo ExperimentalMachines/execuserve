@@ -222,7 +222,7 @@ private fun RunDetail(run: JobRecord, checks: List<Discrepancy>) {
         Line(
             stringResource(R.string.fig_device),
             listOfNotNull(
-                run.threads?.let { stringResource(R.string.run_threads, it) },
+                run.threads?.let { pluralStringResource(R.plurals.run_threads, it, it) },
                 stringResource(Heat.of(run.thermal).words),
                 run.batteryPercent?.let { stringResource(if (run.charging) R.string.fig_battery_charging else R.string.fig_battery, it) },
             ).joinToString(", "),
@@ -324,7 +324,10 @@ private fun SummaryBlock(model: MainViewModel, summary: ModelSummary, lab: Strin
             }
         }
         summary.firstTokenMs?.let { spread ->
-            Line(stringResource(R.string.compare_first_token), stringResource(R.string.spread, Format.duration(spread.median.toLong()), spread.count))
+            Line(
+                stringResource(R.string.compare_first_token),
+                pluralStringResource(R.plurals.spread, spread.count, Format.duration(spread.median.toLong()), spread.count),
+            )
         }
         if (summary.prefill.isNotEmpty()) Line(stringResource(R.string.compare_prompt), buckets(summary.prefill))
         if (summary.decode.isNotEmpty()) Line(stringResource(R.string.compare_writing), buckets(summary.decode))
@@ -349,7 +352,7 @@ private fun SummaryBlock(model: MainViewModel, summary: ModelSummary, lab: Strin
 @Composable
 private fun buckets(rates: Map<ContextBucket, Spread>): String = ContextBucket.entries.mapNotNull { bucket ->
     rates[bucket]?.let { spread ->
-        stringResource(R.string.bucket_rate, stringResource(bucket.words), Format.rate(spread.median), spread.count)
+        pluralStringResource(R.plurals.bucket_rate, spread.count, stringResource(bucket.words), Format.rate(spread.median), spread.count)
     }
 }.joinToString("\n")
 
@@ -421,7 +424,7 @@ private fun BenchmarkPanel(model: MainViewModel, installed: List<String>, servin
             Text(
                 listOfNotNull(
                     pluralStringResource(R.plurals.runs_count, latest.size, Format.count(latest.size)),
-                    last.threads?.let { stringResource(R.string.run_threads, it) },
+                    last.threads?.let { pluralStringResource(R.plurals.run_threads, it, it) },
                     stringResource(Heat.of(last.thermal).words),
                     Format.time(last.finishedAtMs),
                 ).joinToString(", "),

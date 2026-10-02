@@ -20,6 +20,14 @@ android {
         buildConfig = true
     }
     testOptions.unitTests.isIncludeAndroidResources = true
+    lint {
+        // Clean today, so any new finding fails the build; deliberate exceptions live in
+        // lint.xml with their reason.
+        warningsAsErrors = true
+        abortOnError = true
+        // A newer AndroidX or AGP is news, not a defect; dependency bumps are their own change.
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
+    }
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"

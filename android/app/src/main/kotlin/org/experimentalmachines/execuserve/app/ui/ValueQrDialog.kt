@@ -27,7 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -78,7 +79,8 @@ internal fun ValueQrDialog(value: String, label: String?, sensitive: Boolean, on
         }
     }
     val description = stringResource(R.string.qr_title)
-    val qrSize = (LocalConfiguration.current.screenHeightDp * .45f).coerceIn(96f, 280f).dp
+    val windowHeight = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() }
+    val qrSize = (windowHeight * .45f).coerceIn(96.dp, 280.dp)
     Dialog(onDismissRequest = onClose, properties = DialogProperties()) {
         Surface(shape = MaterialTheme.shapes.large) {
             Column(Modifier.widthIn(max = 360.dp).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

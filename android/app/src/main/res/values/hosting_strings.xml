@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="host_models">Hosted models</string>
     <string name="host_library">Library</string>
     <string name="host_stopped">Start hosting to let other apps use your models.</string>
-    <string name="host_summary">%1$d available · %2$d in memory · keep up to %3$d</string>
+    <string name="host_summary" tools:ignore="PluralsCandidate">%1$d available · %2$d in memory · keep up to %3$d</string>
     <string name="host_compute_note">Shared queue · one request at a time.</string>
     <string name="host_model_failed">Needs attention</string>
     <string name="host_offline">Server offline</string>

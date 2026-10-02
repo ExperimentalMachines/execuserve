@@ -1,5 +1,6 @@
 package org.experimentalmachines.execuserve.app.ui
 
+import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -80,6 +81,8 @@ import org.experimentalmachines.execuserve.app.R
  * something to be done: its title carries the state's light and colour, the same rule as
  * the status panel, so no panel is ever painted over (painted amber read as mud in dark mode).
  */
+// Title (or size) first is this file's call style: Panel("Hosting") { }, Dot(color, 8.dp).
+@SuppressLint("ModifierParameter")
 @Composable
 fun Panel(
     title: String? = null,
@@ -101,6 +104,8 @@ fun Panel(
     }
 }
 
+// Title (or size) first is this file's call style: Panel("Hosting") { }, Dot(color, 8.dp).
+@SuppressLint("ModifierParameter")
 @Composable
 fun PanelTitle(title: String, trailing: @Composable (() -> Unit)? = null, modifier: Modifier = Modifier, tone: Tone? = null) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -110,6 +115,8 @@ fun PanelTitle(title: String, trailing: @Composable (() -> Unit)? = null, modifi
     }
 }
 
+// Title (or size) first is this file's call style: Panel("Hosting") { }, Dot(color, 8.dp).
+@SuppressLint("ModifierParameter")
 @Composable
 fun Dot(color: Color, size: Dp = 10.dp, modifier: Modifier = Modifier) {
     Box(modifier.size(size).clip(CircleShape).background(color))
