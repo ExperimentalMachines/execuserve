@@ -395,4 +395,25 @@
     <string name="settings_resident_threads">Multiple loaded models use automatic CPU threads. A manual thread count keeps one model loaded at a time.</string>
     <string name="settings_startup_models">Load when hosting starts</string>
     <string name="settings_startup_models_note">Selected models load up to the ready-model limit. Other models load when requested.</string>
+
+    <!-- Reporting a model reply (Play's generative-AI policy). -->
+    <string name="report_action">Report this reply</string>
+    <string name="report_title">Report this reply</string>
+    <string name="report_intro">Replies come from the model you chose, not from ExecuServe. Choose what is wrong; you will see the whole report and pick where it goes before anything is sent.</string>
+    <string name="report_reason_offensive">Offensive or hateful</string>
+    <string name="report_reason_harmful">Harmful or dangerous</string>
+    <string name="report_reason_sexual">Sexual content</string>
+    <string name="report_reason_false">False or misleading</string>
+    <string name="report_reason_other">Something else</string>
+    <string name="report_note">Note (optional)</string>
+    <string name="report_preview">The report</string>
+    <string name="report_share">Share report</string>
+    <string name="report_chooser">Send the report with</string>
+    <string name="report_heading">ExecuServe content report</string>
+    <string name="report_subject">ExecuServe content report: %1$s</string>
+    <string name="report_field_model">Model</string>
+    <string name="report_field_reason">Reason</string>
+    <string name="report_field_note">Note</string>
+    <string name="report_field_version">App version</string>
+    <string name="report_field_reply">Reply:</string>
 </resources>

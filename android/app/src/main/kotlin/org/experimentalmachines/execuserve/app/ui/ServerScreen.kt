@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -49,6 +50,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
+import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.app.settings.Recovery
 import org.experimentalmachines.execuserve.app.text.Format
@@ -558,6 +560,25 @@ private fun TryPanel(
                 Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
                     SelectionContainer { Text(state.content, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium) }
                 }
+                // Play's generative-AI policy: any reply can be reported from here.
+                if (!state.running) {
+                    var reporting by rememberSaveable { mutableStateOf(false) }
+                    val context = LocalContext.current
+                    val chooser = stringResource(R.string.report_chooser)
+                    TextButton(onClick = { reporting = true }) { Text(stringResource(R.string.report_action)) }
+                    if (reporting) {
+                        ReportDialog(
+                            model = state.model ?: target,
+                            reply = state.content,
+                            version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                            onDismiss = { reporting = false },
+                            onShare = { subject, text ->
+                                reporting = false
+                                ContentReport.share(context, subject, text, chooser)
+                            },
+                        )
+                    }
+                }
             }
             if (state.stopped) {
                 Text(stringResource(R.string.try_stopped), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -578,9 +599,7 @@ private fun TryPanel(
                         stringResource(R.string.fact_tokens),
                         stringResource(R.string.fact_tokens_value, Format.count(result.promptTokens), Format.count(result.completionTokens)),
                     )
-                    if (result.decodeTokensPerSecond >
-                        0
-                    ) {
+                    if (result.decodeTokensPerSecond > 0) {
                         Fact(stringResource(R.string.host_decode), stringResource(R.string.fig_rate, Format.rate(result.decodeTokensPerSecond)))
                     }
                     if (result.cachedTokens > 0) Fact(stringResource(R.string.fact_cached), Format.count(result.cachedTokens))

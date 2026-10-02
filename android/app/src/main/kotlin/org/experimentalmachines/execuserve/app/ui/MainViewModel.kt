@@ -38,6 +38,8 @@ import org.experimentalmachines.execuserve.server.BindMode
 /** The console's test request. */
 data class TryState(
     val stream: Boolean = true,
+    /** The model the reply came from, for a report. */
+    val model: String? = null,
     val running: Boolean = false,
     val content: String = "",
     val reasoning: String = "",
@@ -190,7 +192,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     fun runTry(prompt: String, model: String) {
         if (_tryState.value.running) return
         val port = (server.value as? ServeHost.State.Running)?.settings?.port ?: return
-        _tryState.update { TryState(stream = it.stream, running = true) }
+        _tryState.update { TryState(stream = it.stream, running = true, model = model) }
         viewModelScope.launch {
             val key = graph.settings.keyFor(CONSOLE_TEST_KEY)
             var result: TestResult? = null
