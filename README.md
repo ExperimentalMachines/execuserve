@@ -8,6 +8,7 @@
 **ExecuTorch models, served from your phone.**<br>
 An OpenAI- and Anthropic-compatible server for compiled `.pte` models, running in the background on Android.
 
+[![Website](https://img.shields.io/badge/website-experimentalmachines.org%2Fexecuserve-262626?style=flat-square)](https://experimentalmachines.org/execuserve/)
 [![CI](https://github.com/ExperimentalMachines/execuserve/actions/workflows/ci.yml/badge.svg)](https://github.com/ExperimentalMachines/execuserve/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-262626?style=flat-square)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-12%2B%20·%20arm64--v8a-262626?style=flat-square)](#requirements)
@@ -374,7 +375,7 @@ backgrounding, exposure, every edge case and the design review log are in
 | [docs/results/](docs/results/) | Measurements on real phones, with dates |
 | [docs/brand/](docs/brand/) | The mark, lockups, Play assets and how to use them |
 | [docs/RELEASING.md](docs/RELEASING.md) | Signing, version codes, and the Play release steps |
-| [docs/privacy-policy.md](docs/privacy-policy.md) | What stays on the phone and what leaves, and when |
+| [docs/privacy-policy.md](docs/privacy-policy.md) | What stays on the phone and what leaves, and when; published at [experimentalmachines.org/execuserve/privacy](https://experimentalmachines.org/execuserve/privacy/) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Setting up, the checks, what a change needs |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability, and what is in scope |
 
@@ -393,6 +394,8 @@ carry an encoder, and TLS for network mode.
 
 Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Performance
 claims come with before-and-after numbers from a real device.
+
+**Website:** <https://experimentalmachines.org/execuserve/>
 
 **Organisation:** [Experimental Machines](https://experimentalmachines.org), which also
 publishes the models at <https://huggingface.co/experimentalmachines> and

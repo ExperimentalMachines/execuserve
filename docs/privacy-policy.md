@@ -1,6 +1,7 @@
 # ExecuServe privacy policy
 
-*Effective 2 October 2026. Published by [Experimental Machines](https://experimentalmachines.org).*
+*Effective 2 October 2026. Published by [Experimental Machines](https://experimentalmachines.org) at
+<https://experimentalmachines.org/execuserve/privacy/>; that page and this file change together.*
 
 ExecuServe runs language models on your phone and serves them to apps you allow. It has no
 account, no analytics, no advertising, no crash reporter and no server of ours. Nothing you

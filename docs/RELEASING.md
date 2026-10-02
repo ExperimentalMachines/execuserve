@@ -14,7 +14,7 @@ technical requirements were checked on the release build on 2 October 2026.
 | 16 KB page alignment | All native libraries, ExecuTorch included, have 16 KB `LOAD` alignment, and the APK passes `zipalign -c -P 16` | Checked on the release APK |
 | Minified release runs | R8 with resource shrinking; the release build is what serves on the test phone | On device |
 | Generative-AI reporting | **Report this reply** on every reply in the console's Try it | `ReportDialogTest`, `ContentReportTest` |
-| Privacy policy | [privacy-policy.md](privacy-policy.md) | Needs a public URL (below) |
+| Privacy policy | [privacy-policy.md](privacy-policy.md), live at [experimentalmachines.org/execuserve/privacy](https://experimentalmachines.org/execuserve/privacy/) | Published with the organisation's site |
 
 ## The upload key, once
 
@@ -55,10 +55,11 @@ typed by hand.
 
 ## In the Play Console, by hand
 
-1. **Privacy policy URL.** Publish [privacy-policy.md](privacy-policy.md) at a public URL
-   (GitHub renders it at
-   `https://github.com/ExperimentalMachines/execuserve/blob/main/docs/privacy-policy.md`, or
-   host it with the organisation's site) and paste it into App content → Privacy policy.
+1. **Privacy policy URL.** `https://experimentalmachines.org/execuserve/privacy/`, published
+   from the organisation's site (`app/execuserve/privacy/page.tsx` in
+   [experimentalmachines.org](https://github.com/ExperimentalMachines/experimentalmachines.org)).
+   Paste it into App content → Privacy policy. It mirrors [privacy-policy.md](privacy-policy.md):
+   change both together. The listing's website is `https://experimentalmachines.org/execuserve/`.
 2. **Data safety.** No data collected or shared by the developer: there is no server, no
    analytics and no account. Data processed only on the device is not "collected" under
    Play's definition, and what the user sends through the share sheet is their action. Model
