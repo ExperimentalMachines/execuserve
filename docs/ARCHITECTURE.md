@@ -636,6 +636,13 @@ keeps the true ember in both themes; interactive text uses the darker accessible
 
 ## Testing
 
+`./gradlew verify` is the gate, and CI runs it on every push: ktlint (`.editorconfig`), detekt
+(`config/detekt/detekt.yml`, with per-module baselines recording only complexity that
+predates the gate) and Android lint (`android/app/lint.xml` names each deliberate exception),
+then every test tier below, the debug build, and the shared modules compiled for iOS. Every
+Kotlin warning fails the build. CI adds a macOS job for the iOS compilation, which Linux
+skips, and the browser chat's checks.
+
 - `commonTest`/`jvmTest`: scheduler (ordering, affinity, deadlines, cancellation at every
   stage, admission limits), sequence cache, every pipeline filter, schema round trips,
   Ktor routes through `testApplication`; the host's settings mapping, state meanings, the
@@ -645,6 +652,9 @@ keeps the true ember in both themes; interactive text uses the darker accessible
   3:1 and Lc 30). 0 of 58 below target.
 - `:jvm:devserver`: the real HTTP stack over a scripted runtime, exercised with the
   official OpenAI Python client.
+- `tools/web/browser-check.mjs`: the browser chat in Playwright against the dev server:
+  layout at eight viewports, connection and scoped endpoints, generation settings, streaming,
+  cancellation, metrics, and Markdown rendering, with the Content-Security-Policy enforced.
 - On device: the app on the emulator and then the POCO X8 Pro Max with a real `.pte`.
 
 ## After the first release

@@ -300,6 +300,17 @@ try {
     await screenshot(`${output}/metrics-${width}x${height}.png`);
     await restoreStreams();
   }
+  // Models separate numbered items with blank lines; that is still one list, numbered 1-3,
+  // and a list that resumes after a paragraph keeps the model's own number.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await newConversation();
+  const listed = '1. **One**: first\n\n2. **Two**: second\n\n3. **Three**: third\n\nBetween.\n\n4. Four';
+  await installStreams([{ events: [{ at: 0, chunk: { choices: [{ delta: { content: listed }, finish_reason: 'stop' }] } }], end: 80 }]);
+  await sendPrompt('A numbered list'); await finished();
+  const lists = await page.locator('.message.assistant .message-body').last().evaluate(body =>
+    [...body.querySelectorAll('ol')].map(list => ({ start: list.start, items: list.children.length })));
+  assert.deepEqual(lists, [{ start: 1, items: 3 }, { start: 4, items: 1 }]); checks++;
+  await restoreStreams();
   assert.deepEqual(errors, []);
   console.log(`PASS: ${checks} ${browserName} browser checks; artifacts: ${output}`);
 } finally { await browser.close(); }

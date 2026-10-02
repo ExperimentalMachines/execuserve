@@ -22,3 +22,6 @@ node_modules/
 
 # Design studies and their third-party reference images: local only.
 /output/
+
+# Browser automation snapshots.
+.playwright-mcp/

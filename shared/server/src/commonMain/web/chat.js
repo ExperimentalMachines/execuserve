@@ -143,12 +143,12 @@
     // Process fences line by line so an unfinished fence still displays its contents.
     const lines = text.split("\n");
     let paragraph = [], code = null, language = "", list = null;
-    const flush = () => {
+    const flushParagraph = () => {
       if (paragraph.length) {
         const p = node("p"); inline(p, paragraph.join("\n")); parent.append(p); paragraph = [];
       }
-      list = null;
     };
+    const flush = () => { flushParagraph(); list = null; };
     const flushCode = () => {
       const block = node("div", "code-block"), heading = node("div", "code-heading");
       const button = node("button", "copy-button", "Copy"); button.type = "button";
@@ -162,12 +162,17 @@
         if (code !== null) flushCode();
         else { flush(); code = []; language = line.slice(3).trim().slice(0, 40); }
       } else if (code !== null) code.push(line);
-      else if (!line.trim()) flush();
+      // A blank line ends a paragraph but not a list: models separate items with blank lines.
+      else if (!line.trim()) flushParagraph();
       else if (/^#{1,4} /.test(line)) { flush(); const h = node("h3"); inline(h, line.replace(/^#{1,4} /, "")); parent.append(h); }
       else if (/^(?:[-*] |\d+\. )/.test(line)) {
         if (paragraph.length) flush();
         const kind = /^\d/.test(line) ? "ol" : "ul";
-        if (!list || list.tagName.toLowerCase() !== kind) { list = node(kind); parent.append(list); }
+        if (!list || list.tagName.toLowerCase() !== kind) {
+          list = node(kind); parent.append(list);
+          // A list that resumes after other text keeps the number the model wrote.
+          if (kind === "ol") list.start = parseInt(line, 10);
+        }
         const li = node("li"); inline(li, line.replace(/^(?:[-*] |\d+\. )/, "")); list.append(li);
       } else { list = null; paragraph.push(line); }
     }

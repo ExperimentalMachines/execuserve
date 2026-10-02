@@ -107,7 +107,7 @@ object Choices {
     val QUEUE_TIMEOUT_SECONDS = 5..3_600
     val REQUEST_TIMEOUT_SECONDS = 10..7_200
 
-    /** Models kept in memory at once: three small ones already fill a 12 GB phone. */
+    /** Models kept in memory at once; each resident model costs its file size plus its window. */
     val RESIDENT_MODELS = 1..3
 
     /** Automatic, then every count up to [cores]. */
