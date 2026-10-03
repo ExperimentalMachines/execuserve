@@ -69,7 +69,9 @@ An independent project by Experimental Machines. Not affiliated with, endorsed b
 |---|---|---|
 | App icon | [../brand/play-icon.png](../brand/play-icon.png) | 512 × 512 |
 | Feature graphic | [../brand/feature-graphic.png](../brand/feature-graphic.png) | 1024 × 500 |
-| Phone screenshots, in order | [screenshots/](screenshots/) | 1080 × 1920 each, 8 of 8 |
+| Phone screenshots, in order | [screenshots/](screenshots/) `01`–`08` | 1080 × 1920 each, 8 of 8 |
+| 7-inch tablet screenshots | [screenshots/](screenshots/) `tablet7-01`–`05` | 1920 × 1080 (16:9) each |
+| 10-inch tablet screenshots | [screenshots/](screenshots/) `tablet10-01`–`05` | 2560 × 1440 (16:9) each |
 
 1. Your phone is the server (Hosting)
 2. Try any model in Chat
@@ -79,6 +81,12 @@ An independent project by Experimental Machines. Not affiliated with, endorsed b
 6. Private by design (Chat, dark theme)
 7. You decide who connects (Settings)
 8. Report any reply (the report dialog)
+
+Tablets, the same five for each size, in order: Your tablet is the server (Hosting), Try any
+model in Chat, Your models and the catalog side by side (Library), See every request and
+compare every model (Activity), You decide who connects (Settings). They were captured on two
+16:9 emulators, a 7-inch at 1920 × 1080 and a 10-inch at 2560 × 1440, both at 280 dpi; see
+[TESTING-ON-A-PHONE.md](../TESTING-ON-A-PHONE.md).
 
 ## Foreground service video
 
@@ -107,6 +115,8 @@ release build installed and a model served:
 - Capture each screen to `build/play/raw/` with `python3 tools/play/ui.py shot <file>`, using
   `tap` to move between tabs. The names `compose.py` expects are in its `SHOTS` table.
 - Record the video with `tools/play/record.py`, whose docstring has the steps.
+- For tablets, capture the same way on the `es-tablet7` and `es-tablet10` emulators into
+  `build/play/tablet7/` and `build/play/tablet10/`, named as `compose.py`'s `TABLET_SHOTS`.
 - Compose with `python3 tools/play/compose.py`, check the results, and copy them here.
 
 Show prompts whose answers can't be wrong in a store image: a haiku or a list of names,
