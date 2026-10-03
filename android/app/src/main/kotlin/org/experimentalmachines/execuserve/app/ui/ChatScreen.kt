@@ -91,9 +91,14 @@ fun ChatScreen(model: MainViewModel, padding: PaddingValues, openModels: () -> U
             )
             else -> {
                 // Whatever is in memory answers fastest, so it is the suggestion until someone picks.
-                val target = chat.model?.takeIf { id -> installed.any { it.id == id } }
-                    ?: status?.resident?.firstOrNull()?.id ?: settings?.defaultModel?.takeIf { id -> installed.any { it.id == id } } ?: installed.first().id
-                val entry = installed.first { it.id == target }
+                // Every candidate must still be installed: a model removed from disk and rescanned
+                // can stay resident until it is unloaded (agy review).
+                fun installedOrNull(id: String?) = installed.firstOrNull { it.id == id }
+                val entry = installedOrNull(chat.model)
+                    ?: status?.resident.orEmpty().firstNotNullOfOrNull { installedOrNull(it.id) }
+                    ?: installedOrNull(settings?.defaultModel)
+                    ?: installed.first()
+                val target = entry.id
                 Controls(installed, entry, chat, model)
                 Conversation(chat, ModelNames.shown(entry, installed), Modifier.weight(1f)) { model.sendChat(it, target) }
                 Composer(ModelNames.shown(entry, installed), chat.running, onSend = { model.sendChat(it, target) }, onStop = model::stopChat)

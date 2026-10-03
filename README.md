@@ -132,7 +132,7 @@ adb, loads the model, and prints the base URL and the key.
 | `POST /apply-template` | The exact prompt a chat request renders to, without running it (llama.cpp's name) |
 | `GET /metrics` | Prometheus text: `execuserve_` counters, gauges, time to first token and request quantiles |
 | `GET /v1/execuserve/runs` | The caller's own run history as JSON with per-model summaries, or `?format=csv` |
-| `GET /v1/execuserve/status` | The lane, the queue, resident models, threads, the caller's recent requests |
+| `GET /v1/execuserve/status` | The lane, the queue, resident models, threads, the caller's recent requests; another key's running request shows its progress but not who sent it |
 | `POST /v1/execuserve/models/{id}/load` · `/unload` | Explicit residency |
 | `GET /health` | No key needed |
 

@@ -20,7 +20,7 @@ internal object StatusJson {
             putJsonObject("running") {
                 put("id", running.id)
                 put("model", running.model)
-                put("client", running.client)
+                if (running.client.isNotEmpty()) put("client", running.client)
                 put("started_at_ms", running.startedAtMs)
                 put("generated_tokens", running.generatedTokens)
                 put("cached_tokens", running.cachedTokens)

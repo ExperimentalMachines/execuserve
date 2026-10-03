@@ -247,11 +247,11 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             )
         }
         viewModelScope.launch {
-            val key = graph.settings.keyFor(CONSOLE_KEY, FORMER_CONSOLE_KEYS)
             var result: TestResult? = null
             var failure: TestFailure? = null
             var stopped = false
             try {
+                val key = graph.settings.keyFor(CONSOLE_KEY, FORMER_CONSOLE_KEYS)
                 result = client.chat(call, "http://127.0.0.1:$port/v1", key.secret, ConsoleChat.body(model, turns, thinking)) { content, reasoning ->
                     updateReply(replyId) { it.copy(content = it.content + content, reasoning = it.reasoning + reasoning) }
                 }
@@ -259,9 +259,12 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 stopped = true
             } catch (refused: TestFailure) {
                 failure = refused
+            } finally {
+                // Whatever happened, the reply stops running: one left running would block every
+                // later send (agy review).
+                updateReply(replyId) { it.copy(running = false, result = result, failure = failure, stopped = stopped) }
+                if (chatCall === call) chatCall = null
             }
-            updateReply(replyId) { it.copy(running = false, result = result, failure = failure, stopped = stopped) }
-            if (chatCall === call) chatCall = null
         }
     }
 

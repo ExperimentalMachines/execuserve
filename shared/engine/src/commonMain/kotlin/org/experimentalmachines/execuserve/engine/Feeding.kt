@@ -30,7 +30,9 @@ internal fun warmPiece(text: String, limit: Int): String {
     if (most <= 0) throw RuntimeFailure("The prefill bound cannot fit a complete character")
     val window = text.substring(0, most)
     var newline = window.lastIndexOf('\n')
-    // A run of line breaks stays together: cut after the last of them, not inside.
+    // A line break stays with whatever whitespace follows it, more breaks or indentation:
+    // tokenizers merge "\n" with the spaces after it, so cutting between them would split a
+    // token. Indented text therefore falls back to an earlier break, or to a space.
     while (newline > 0 && newline + 1 < text.length && text[newline + 1].isWhitespace()) {
         newline = window.lastIndexOf('\n', newline - 1)
     }

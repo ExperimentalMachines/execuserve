@@ -967,6 +967,7 @@ class Engine(
         id = job.id,
         model = job.model.id,
         client = job.request.client.label,
+        clientId = job.request.client.id,
         startedAtMs = job.startedAtMs,
         generatedTokens = tokens,
         cachedTokens = cached,

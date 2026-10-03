@@ -24,7 +24,7 @@
     <string name="action_revoke">Revoke</string>
     <string name="action_fix">Fix</string>
     <string name="action_allow">Allow</string>
-    <string name="action_exempt">Exempt</string>
+    <string name="action_exempt">Open list</string>
     <string name="action_ok">OK</string>
     <string name="copied">Copied</string>
     <string name="none_yet">None yet</string>
@@ -294,7 +294,7 @@
     <string name="settings_battery_floor_note">Only when not charging</string>
     <string name="battery_below">Below %1$d%%</string>
     <string name="settings_optimisation">Battery optimisation</string>
-    <string name="settings_optimisation_on">On. Exempt the app if requests stall after long idle periods; the foreground service alone was enough on the phones tested.</string>
+    <string name="settings_optimisation_on">On. If requests stall after long idle periods, choose ExecuServe in the list and set it to not optimised; the foreground service alone was enough on the phones tested.</string>
     <string name="settings_optimisation_off">Exempt: Android will not defer the app.</string>
     <string name="settings_limits">Limits</string>
     <string name="settings_limits_summary" tools:ignore="PluralsCandidate">Queue of %1$d, %2$d per client, timeouts</string>

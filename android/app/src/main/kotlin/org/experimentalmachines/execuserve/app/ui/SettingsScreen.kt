@@ -329,7 +329,8 @@ private fun KeysPanel(keys: List<ApiKey>, onAdd: (String) -> Unit, onRevoke: (St
 /**
  * Whether Android may defer the app. Not needed on the phones measured (the foreground
  * service alone kept the server reachable in Doze), so it is a setting here rather than a
- * warning on the console.
+ * warning on the console. It opens the system's list rather than asking directly: the direct
+ * request needs a permission Play reserves for apps that cannot work without it.
  */
 @Composable
 private fun BatteryOptimisation() {
@@ -347,7 +348,7 @@ private fun BatteryOptimisation() {
         }
         if (!exempt) {
             Action(stringResource(R.string.action_exempt), onClick = {
-                context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, "package:${context.packageName}".toUri()))
+                context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
             })
         }
     }

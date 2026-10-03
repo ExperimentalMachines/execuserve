@@ -49,7 +49,10 @@ class ModelScopeTest {
             )
             val engine = Engine(runtime, StaticModelSource(models), dispatcher, scope, config)
             engine.start()
-            val ctx = ServerContext(engine, ServerSettings(), StaticKeys(listOf(ApiKey("one", "One", "sk-one"))), { emptySet() }, "test", { 1_700_000_000 })
+            val ctx =
+                ServerContext(engine, ServerSettings(), StaticKeys(listOf(ApiKey("one", "One", "sk-one"), ApiKey("two", "Two", "sk-two"))), {
+                    emptySet()
+                }, "test", { 1_700_000_000 })
             application { execuServe(ctx) }
             val http = createClient { defaultRequest { if (HttpHeaders.Host !in headers) header(HttpHeaders.Host, "localhost:8080") } }
             try {
@@ -188,6 +191,13 @@ class ModelScopeTest {
                     assertTrue(live["prefill_started_at_ms"]!!.jsonPrimitive.content.toLong() > 0)
                     assertTrue(live["prompt_chars"]!!.jsonPrimitive.content.toInt() > 0)
                     assertEquals(0, live["prefilled_chars"]!!.jsonPrimitive.content.toInt())
+                    assertEquals("One", live["client"]!!.jsonPrimitive.content)
+                    // Another key sees that the phone is busy, not whose request it is or its size.
+                    val seen = http.get("/models/alpha/v1/execuserve/status") { header(HttpHeaders.Authorization, "Bearer sk-two") }
+                    val theirs = json(seen.bodyAsText())["running"]!!.jsonObject
+                    assertEquals("alpha", theirs["model"]!!.jsonPrimitive.content)
+                    assertFalse("client" in theirs)
+                    assertEquals(0, theirs["prompt_chars"]!!.jsonPrimitive.content.toInt())
                     val other = http.send("/models/second/v1/messages", body("second"), anthropic = true)
                     assertEquals(HttpStatusCode.TooManyRequests, other.status, other.bodyAsText())
                 } finally {

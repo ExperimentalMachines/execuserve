@@ -371,7 +371,10 @@ private val ContextBucket.words: Int get() = when (this) {
 @Composable
 private fun BenchmarkPanel(model: MainViewModel, installed: List<String>, serving: Boolean, runs: List<JobRecord>) {
     val state by model.benchmark.collectAsState()
-    var chosen by rememberSaveable { mutableStateOf(installed.firstOrNull()) }
+    var chosen by rememberSaveable { mutableStateOf<String?>(null) }
+    // Read each time: a choice made before any model was installed, or of one since deleted,
+    // must not leave Run disabled with no menu to change it (agy review).
+    val active = chosen?.takeIf { it in installed } ?: installed.firstOrNull()
     Panel(stringResource(R.string.bench_title)) {
         Text(
             stringResource(R.string.bench_note, Benchmark.DECODE_TOKENS),
@@ -384,7 +387,7 @@ private fun BenchmarkPanel(model: MainViewModel, installed: List<String>, servin
                 options = installed.map {
                     it to it
                 },
-                selected = chosen ?: installed.first(),
+                selected = active ?: installed.first(),
                 onSelect = { chosen = it },
             )
         }
@@ -399,7 +402,7 @@ private fun BenchmarkPanel(model: MainViewModel, installed: List<String>, servin
                 )
             }
             else -> if (serving) {
-                InkButton(stringResource(R.string.bench_run), onClick = { chosen?.let(model::runBenchmark) }, enabled = chosen != null)
+                InkButton(stringResource(R.string.bench_run), onClick = { active?.let(model::runBenchmark) }, enabled = active != null)
             } else {
                 Text(
                     stringResource(R.string.bench_needs_server),

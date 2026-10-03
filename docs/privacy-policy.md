@@ -1,6 +1,6 @@
 # ExecuServe privacy policy
 
-*Effective 2 October 2026. Published by [Experimental Machines](https://experimentalmachines.org) at
+*Effective 3 October 2026. Published by [Experimental Machines](https://experimentalmachines.org) at
 <https://experimentalmachines.org/execuserve/privacy/>; that page and this file change together.*
 
 ExecuServe runs language models on your phone and serves them to apps you allow. It has no
@@ -55,7 +55,6 @@ shows you the full report before you share it.
 | Foreground service, wake lock | Keeping the server answering while the screen is off |
 | Notifications | The ongoing notification that shows the server is running |
 | Start at boot | Restarting the server after a reboot, if you turned that on |
-| Battery optimisation exemption | Asked from Settings, so Android does not stop the server in the background |
 | Hide overlays | Stops other apps covering the confirmation when another app asks to start the server |
 
 ## Children

@@ -18,6 +18,8 @@ data class RunningJob(
     /** Characters are progress units, not an unverified tokenizer count. */
     val promptChars: Int = 0,
     val prefilledChars: Int = 0,
+    /** The key that asked, so the API can show its owner what it hides from other keys. */
+    val clientId: String = "",
 ) {
     fun prefillElapsedMs(nowMs: Long): Long = if (prefillStartedAtMs > 0) {
         ((firstTokenAtMs.takeIf { it > 0 } ?: nowMs) - prefillStartedAtMs).coerceAtLeast(0)

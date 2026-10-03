@@ -69,9 +69,9 @@ typed by hand.
    send a request from another app or the computer, show it answered. The captioned video is
    [play/execuserve-foreground-service.mp4](play/execuserve-foreground-service.mp4); upload
    it to YouTube as unlisted and paste the link.
-4. **Battery optimisation exemption.** Justify `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` as the
-   app's core function (answering other apps while in the background), or replace the direct
-   request with the battery-optimisation settings list to drop the permission.
+4. **Battery optimisation.** Nothing to declare: the app does not hold
+   `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, and Settings opens the system's battery-optimisation
+   list for anyone who wants to exempt it.
 5. **Content rating, target audience** (not children), category (Tools), contact details.
 6. **Listing.** The text, eight phone screenshots and how to remake them are in
    [play/listing.md](play/listing.md); the 512 px icon and 1024 × 500 feature graphic are in
