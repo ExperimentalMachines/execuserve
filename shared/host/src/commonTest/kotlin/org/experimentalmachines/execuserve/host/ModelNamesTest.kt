@@ -25,6 +25,17 @@ class ModelNamesTest {
     }
 
     @Test
+    fun historyIdsFollowTheSameRule() {
+        val ids = listOf(lfm32k.id, lfm4k.id, qwen.id, bare.id)
+        val aliases = listOf(lfm32k, lfm4k, qwen, bare).associate { it.id to it.aliases.firstOrNull() }
+        assertEquals(
+            mapOf(lfm32k.id to lfm32k.id, lfm4k.id to lfm4k.id, qwen.id to "qwen3-1.7b", bare.id to bare.id),
+            ModelNames.shown(ids, aliases::get),
+        )
+        assertEquals(mapOf(lfm4k.id to "lfm2.5-1.2b-instruct"), ModelNames.shown(listOf(lfm4k.id), aliases::get))
+    }
+
+    @Test
     fun residentModelsComeFirstThenTheDefault() {
         val installed = listOf(lfm32k, lfm4k, qwen, bare)
         assertEquals(listOf(qwen, bare, lfm32k, lfm4k), ModelNames.hostedOrder(installed, resident = setOf(qwen.id), defaultModel = bare.id))

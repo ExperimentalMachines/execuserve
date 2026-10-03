@@ -483,7 +483,8 @@ private fun LogPanel(latest: List<JobRecord>, openRuns: () -> Unit) {
         if (latest.isEmpty()) {
             Text(stringResource(R.string.none_yet), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        latest.forEach { run -> key(run.id) { RunRow(run) } }
+        val names = remember(latest) { historyNames(latest.map { it.model }.distinct()) }
+        latest.forEach { run -> key(run.id) { RunRow(run, names.getValue(run.model)) } }
     }
 }
 

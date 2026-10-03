@@ -47,6 +47,7 @@ import org.experimentalmachines.execuserve.engine.ModelSummary
 import org.experimentalmachines.execuserve.engine.Spread
 import org.experimentalmachines.execuserve.host.Benchmark
 import org.experimentalmachines.execuserve.host.Heat
+import org.experimentalmachines.execuserve.host.ModelNames
 import org.experimentalmachines.execuserve.host.Outcome
 import org.experimentalmachines.execuserve.host.ServeHost
 
@@ -68,6 +69,7 @@ fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
     val ordinary = remember(runs) { runs.filter { it.api != Benchmark.API } }
     val shown = remember(ordinary, filter) { if (filter == null) ordinary else ordinary.filter { it.model == filter } }
     val models = remember(ordinary) { ordinary.map { it.model }.distinct() }
+    val names = remember(models) { historyNames(models) }
 
     val side: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
         item(key = "diagnostics") {
@@ -97,14 +99,14 @@ fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
                 if (models.size > 1) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
                         ModelChip(stringResource(R.string.runs_all), filter == null) { filter = null }
-                        models.forEach { id -> ModelChip(id, filter == id) { filter = id } }
+                        models.forEach { id -> ModelChip(names.getValue(id), filter == id) { filter = id } }
                     }
                 }
                 if (shown.isEmpty()) {
                     Text(stringResource(R.string.runs_none), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 // The newest hundred are drawn; the rest are in the export and the API.
-                shown.take(SHOWN_RUNS).forEach { run -> key(run.id) { RunRow(run) } }
+                shown.take(SHOWN_RUNS).forEach { run -> key(run.id) { RunRow(run, names.getValue(run.model)) } }
                 Expandable(stringResource(R.string.runs_kept_title)) {
                     Text(stringResource(R.string.runs_kept), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -139,12 +141,16 @@ fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
     }
 }
 
+/** History names: the alias, or the full id where two exports share it (see [ModelNames.shown]). */
+internal fun historyNames(ids: Collection<String>): Map<String, String> = ModelNames.shown(ids) { ModelIds.aliasesFor(it).firstOrNull() }
+
+/** A model filter; a full id is cut in the middle, so the window at its end still shows. */
 @Composable
 private fun ModelChip(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 200.dp)) },
+        label = { Text(label, maxLines = 1, overflow = TextOverflow.MiddleEllipsis, modifier = Modifier.widthIn(max = 200.dp)) },
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -155,13 +161,12 @@ private fun ModelChip(label: String, selected: Boolean, onClick: () -> Unit) {
 /** One run: what happened and how long it took at a glance; each phase and every check on a tap. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun RunRow(run: JobRecord) {
+fun RunRow(run: JobRecord, name: String) {
     val tones = LocalTones.current
     var open by rememberSaveable(run.id) { mutableStateOf(false) }
     val outcome = Outcome.of(run)
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val checks = remember(run) { Metrics.discrepancies(run) }
-    val alias = remember(run.model) { ModelIds.aliasesFor(run.model).firstOrNull() ?: run.model }
     Column {
         Divider()
         Column(
@@ -169,7 +174,7 @@ fun RunRow(run: JobRecord) {
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
-                Text(alias, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 Chevron(open, 18.dp)
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -14,6 +14,17 @@ object ModelNames {
         return if (shared) entry.id else alias
     }
 
+    /**
+     * The same rule for bare ids, such as the models in the request history, some of which may
+     * no longer be installed: each id's [aliasOf], unless another of [ids] has that alias too.
+     */
+    fun shown(ids: Collection<String>, aliasOf: (String) -> String?): Map<String, String> {
+        val aliases = ids.associateWith(aliasOf)
+        return aliases.mapValues { (id, alias) ->
+            if (alias == null || aliases.any { (other, its) -> other != id && its == alias }) id else alias
+        }
+    }
+
     /** Models in memory first, then the default, then the rest in the order given. */
     fun hostedOrder(installed: List<ModelEntry>, resident: Set<String>, defaultModel: String?): List<ModelEntry> =
         installed.sortedWith(compareByDescending<ModelEntry> { it.id in resident }.thenByDescending { it.id == defaultModel })
