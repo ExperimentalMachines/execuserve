@@ -66,13 +66,16 @@ typed by hand.
    downloads go to Hugging Face; say so in the description rather than as collection.
 3. **Foreground service declaration.** `specialUse`, subtype as in the manifest: "Local AI
    inference server". Play asks for a short video: start the server, background the app,
-   send a request from another app or the computer, show it answered.
+   send a request from another app or the computer, show it answered. The captioned video is
+   [play/execuserve-foreground-service.mp4](play/execuserve-foreground-service.mp4); upload
+   it to YouTube as unlisted and paste the link.
 4. **Battery optimisation exemption.** Justify `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` as the
    app's core function (answering other apps while in the background), or replace the direct
    request with the battery-optimisation settings list to drop the permission.
 5. **Content rating, target audience** (not children), category (Tools), contact details.
-6. **Listing.** The 512 px icon and 1024 × 500 feature graphic are in [brand/](brand/);
-   phone screenshots of Hosting, Library and Activity still need taking.
+6. **Listing.** The text, eight phone screenshots and how to remake them are in
+   [play/listing.md](play/listing.md); the 512 px icon and 1024 × 500 feature graphic are in
+   [brand/](brand/).
 7. **Testing.** Upload to internal testing first and read the pre-launch report. A personal
    developer account must also run a closed test with at least 12 testers for 14 days
    before production.
