@@ -109,6 +109,10 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, sharing, 0L)
 
     private val client = LocalClient()
+
+    /** The chat request in flight, for Stop; only touched on the main thread. */
+    private var chatCall: LocalClient.Call? = null
+
     private val _chat = MutableStateFlow(ChatState())
     val chat: StateFlow<ChatState> = _chat.asStateFlow()
     private var nextMessageId = 0L
@@ -203,11 +207,19 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     /** Starts over; a reply still being written is stopped first. */
     fun newChat() {
-        if (_chat.value.running) client.cancel()
+        chatCall?.cancel()
+        chatCall = null
         _chat.update { ChatState(model = it.model, thinking = it.thinking) }
     }
 
-    fun stopChat() = client.cancel()
+    fun stopChat() {
+        chatCall?.cancel()
+    }
+
+    /** Leaving the console closes a reply's socket, so the server stops writing to nobody. */
+    override fun onCleared() {
+        chatCall?.cancel()
+    }
 
     /**
      * Sends [text] with the conversation so far to this app's own server, over loopback and
@@ -225,6 +237,8 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         val thinking = if (entry != null && ConsoleChat.canThink(entry)) _chat.value.thinking else null
         val askId = ++nextMessageId
         val replyId = ++nextMessageId
+        // Made before anything suspends, so Stop works even while the key is still being read.
+        val call = LocalClient.Call().also { chatCall = it }
         _chat.update {
             it.copy(
                 model = model,
@@ -238,7 +252,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             var failure: TestFailure? = null
             var stopped = false
             try {
-                result = client.chat("http://127.0.0.1:$port/v1", key.secret, ConsoleChat.body(model, turns, thinking)) { content, reasoning ->
+                result = client.chat(call, "http://127.0.0.1:$port/v1", key.secret, ConsoleChat.body(model, turns, thinking)) { content, reasoning ->
                     updateReply(replyId) { it.copy(content = it.content + content, reasoning = it.reasoning + reasoning) }
                 }
             } catch (_: StoppedByUser) {
@@ -247,6 +261,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 failure = refused
             }
             updateReply(replyId) { it.copy(running = false, result = result, failure = failure, stopped = stopped) }
+            if (chatCall === call) chatCall = null
         }
     }
 

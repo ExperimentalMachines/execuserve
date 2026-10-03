@@ -228,14 +228,31 @@ class Engine(
     /** Forgets load failures, after the model files were replaced. */
     suspend fun forgetFailures() = command(Action.ForgetFailures)
 
+    /**
+     * Queues [action] for the lane and waits for it. Commands share the request queue's bound,
+     * and a caller that leaves before the lane reaches its command takes the command with it:
+     * otherwise a client could pile up loads and unloads behind a long reply and drop the
+     * connections, and the lane would still run every one.
+     */
     private suspend fun command(action: Action) {
-        val done = CompletableDeferred<Unit>()
+        val item = Item.Command(action, CompletableDeferred())
         lock.withLock {
             if (stopping) throw Refusal.Unavailable("The server is stopping.")
-            queue += Item.Command(action, done)
+            val waiting = queue.count { it is Item.Command }
+            if (waiting >= config.maxQueued) {
+                throw Refusal.QueueFull("$waiting model commands are already waiting. Retry shortly.", retryAfterMs(waiting))
+            }
+            queue += item
         }
         wake.trySend(Unit)
-        done.await()
+        try {
+            item.done.await()
+        } catch (cancelled: CancellationException) {
+            withContext(NonCancellable) {
+                lock.withLock { queue.remove(item) }
+            }
+            throw cancelled
+        }
     }
 
     /** Cancels one job by id, queued or running. */
@@ -768,7 +785,7 @@ class Engine(
         setLane(LaneState.LOADING, running = current?.let { running(it, 0, 0) })
         val facts = runCatching { runtime.probe(entry.files) }.getOrElse { ModelFacts(entry.contextLength) }
         val session = try {
-            runtime.open(entry.files, facts)
+            runtime.open(entry.files, facts, entry.family)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Throwable) {

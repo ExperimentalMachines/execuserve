@@ -161,6 +161,22 @@ class RunHistoryTest {
     }
 
     @Test
+    fun runsAgeOutWhileTheProcessLives() = kotlinx.coroutines.test.runTest {
+        val store = MemoryStore()
+        var now = 0L
+        val history = RunHistory(store, this, { now }, Retention(maxAgeMs = 72_000))
+        testScheduler.advanceUntilIdle()
+        history.add(run("old", now))
+        now = 72_050 // past the limit, within its slack (1/720 of it, 100 ms)
+        history.add(run("new", now))
+        assertEquals(listOf("new"), history.runs.value.map { it.id }, "shown history drops it at once")
+        assertEquals(2, store.lines.size, "the store waits out the slack")
+        now = 72_200
+        history.add(run("newer", now))
+        assertEquals(listOf("new", "newer"), store.lines.mapNotNull(RunCodec::decode).map { it.id })
+    }
+
+    @Test
     fun oldRunsAgeOutOnLoad() = kotlinx.coroutines.test.runTest {
         val store = MemoryStore().apply {
             lines += RunCodec.encode(run("old", 0))

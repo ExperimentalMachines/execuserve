@@ -46,8 +46,12 @@ interface LlmRuntime {
     /** Reads [ModelFacts] without opening the model for generation. Throws if unreadable. */
     fun probe(files: ModelFiles): ModelFacts
 
-    /** Opens the model. Blocking; called only on the compute lane. */
-    fun open(files: ModelFiles, facts: ModelFacts): LlmSession
+    /**
+     * Opens the model. Blocking; called only on the compute lane. [family] is the installed
+     * entry's chat-template family (`lfm2.5`, ...) when it has one: catalog installs name every
+     * file `model.pte`, so the file name alone cannot say what the model is.
+     */
+    fun open(files: ModelFiles, facts: ModelFacts, family: String?): LlmSession
 
     /**
      * CPU threads for models opened from now on; 0 leaves the choice to the runtime. A

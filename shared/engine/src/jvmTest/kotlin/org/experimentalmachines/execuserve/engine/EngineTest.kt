@@ -1,13 +1,17 @@
 package org.experimentalmachines.execuserve.engine
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.experimentalmachines.execuserve.prompt.ChatMessage
@@ -90,6 +94,15 @@ class EngineTest {
         assertEquals(FinishReason.STOP, run.result.finishReason)
         assertEquals(3, run.result.completionTokens)
         assertIs<JobEvent.Started>(run.events.first())
+    }
+
+    @Test
+    fun theRuntimeIsToldTheInstalledFamily() = test {
+        // Catalog installs are all named model.pte; the runtime's LFM2 state check needs the family.
+        val runtime = FakeRuntime(reply = { listOf("Hi", "<|im_end|>") })
+        val engine = engine(runtime, listOf(ModelEntry("lfm", ModelFiles("/models/lfm/model.pte", "/models/lfm/tokenizer.json"), family = "lfm2.5")))
+        engine.submit(chat(user("Hi"))).collect()
+        assertEquals(listOf<String?>("lfm2.5"), runtime.openedFamilies)
     }
 
     @Test
@@ -221,6 +234,27 @@ class EngineTest {
         running.collect()
         waiting.collect()
         assertEquals(1, engine.status.value.totals.refused)
+    }
+
+    @Test
+    fun modelCommandsAreBoundedAndLeaveWithTheirCaller() = test {
+        val runtime = FakeRuntime()
+        val gate = CountDownLatch(1)
+        runtime.hang = gate
+        val engine = engine(runtime, config = EngineConfig(maxQueued = 1))
+        val running = engine.submit(chat(user("a")))
+        engine.status.first { it.running != null }
+        coroutineScope {
+            // Undispatched, each command is queued before launch returns.
+            val left = launch(start = CoroutineStart.UNDISPATCHED) { engine.unload(null) }
+            assertFailsWith<Refusal.QueueFull> { engine.unload(null) }
+            // The caller hangs up: its command goes, and the next one fits again.
+            left.cancelAndJoin()
+            val next = launch(start = CoroutineStart.UNDISPATCHED) { engine.unload(null) }
+            gate.countDown()
+            running.collect()
+            next.join()
+        }
     }
 
     @Test

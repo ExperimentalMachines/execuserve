@@ -65,14 +65,14 @@ class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { tr
         }
     }
 
-    override fun open(files: ModelFiles, facts: ModelFacts): LlmSession = synchronized(poolLock) {
+    override fun open(files: ModelFiles, facts: ModelFacts, family: String?): LlmSession = synchronized(poolLock) {
         if (!File(files.model).isFile) throw RuntimeFailure("${files.model} is missing")
         if (!File(files.tokenizer).isFile) throw RuntimeFailure("${files.tokenizer} is missing")
         val selectedThreads = threads
         if (openSessions > 0 && (selectedThreads != 0 || residentThreads != 0 || pinnedPoolThreads == null)) {
             throw RuntimeFailure("Unload the current models before changing CPU threads or opening another model.")
         }
-        ExecuTorchSession(files, facts, selectedThreads, poolLock) {
+        ExecuTorchSession(files, facts, family, selectedThreads, poolLock) {
             openSessions--
             if (openSessions == 0) pinnedPoolThreads = null
         }.also {
@@ -118,6 +118,7 @@ class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { tr
 private class ExecuTorchSession(
     private val files: ModelFiles,
     private val facts: ModelFacts,
+    family: String?,
     private val threads: Int,
     private val poolLock: Any,
     private val onClosed: () -> Unit,
@@ -132,10 +133,11 @@ private class ExecuTorchSession(
      * graph never clears, and `resetContext` only rewinds the position: the next prompt
      * starts on the previous one's state (tool-call probability 0.94 fell to 0.38 in
      * OpenWeights' probe). An export that clears it says so with `get_state_reset_at_zero`;
-     * any other used LFM2 file is reopened instead, about a second.
+     * any other used LFM2 file is reopened instead, about a second. The installed family says
+     * which model this is; the file name is the fallback for files copied in by hand, since the
+     * catalog names every file `model.pte`.
      */
-    private val reopenOnReset: Boolean =
-        "lfm2" in File(files.model).name.lowercase().filter { it.isLetterOrDigit() } && facts.stateResetAtZero != true
+    private val reopenOnReset: Boolean = isLfm2(family ?: File(files.model).name) && facts.stateResetAtZero != true
 
     private fun openModule(): LlmModule = synchronized(poolLock) {
         try {
@@ -253,3 +255,6 @@ private class ExecuTorchSession(
 
     private fun String.longField(name: String): Long = Regex("\"$name\"\\s*:\\s*(\\d+)").find(this)?.groupValues?.get(1)?.toLongOrNull() ?: 0
 }
+
+/** Whether [name] (a family such as `lfm2.5`, or a file name) is an LFM2 model. */
+internal fun isLfm2(name: String): Boolean = "lfm2" in name.lowercase().filter { it.isLetterOrDigit() }

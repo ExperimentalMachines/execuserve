@@ -251,10 +251,13 @@ private fun Reply(message: ChatMessage) {
             }
         }
         ReplyStatus(message)
-        if (!message.running && message.content.isNotEmpty()) {
+        if (!message.running && (message.content.isNotEmpty() || message.reasoning.isNotEmpty())) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = { copy(context, message.content) }) { Text(stringResource(R.string.action_copy)) }
-                // Play's generative-AI policy: any reply can be reported from where it appears.
+                if (message.content.isNotEmpty()) {
+                    TextButton(onClick = { copy(context, message.content) }) { Text(stringResource(R.string.action_copy)) }
+                }
+                // Play's generative-AI policy: anything a model showed can be reported where it
+                // appears, its reasoning too, even when it stopped before replying.
                 TextButton(onClick = { reporting = true }) { Text(stringResource(R.string.report_action)) }
             }
         }
@@ -270,6 +273,7 @@ private fun Reply(message: ChatMessage) {
                 reporting = false
                 ContentReport.share(context, subject, text, chooser)
             },
+            reasoning = message.reasoning,
         )
     }
 }

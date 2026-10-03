@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.experimentalmachines.execuserve.catalog.InstallPlan
 import org.experimentalmachines.execuserve.catalog.Manifest
 import org.experimentalmachines.execuserve.catalog.RemoteFile
@@ -50,7 +52,13 @@ class Downloader(private val modelsDir: File, private val scope: CoroutineScope,
      * (codex review).
      */
     @Volatile private var active: Pair<String, HttpURLConnection>? = null
-    private var chain: Job? = null
+
+    /**
+     * One install at a time, in the order asked. Mutex waiters queue fairly, and one that is
+     * cancelled leaves the queue without letting the next one past a download still running;
+     * joining only the previous download did (codex review).
+     */
+    private val oneAtATime = Mutex()
 
     val busy: Boolean get() = _state.value.values.any { it.active }
 
@@ -59,13 +67,9 @@ class Downloader(private val modelsDir: File, private val scope: CoroutineScope,
         if (_state.value[plan.id]?.active == true) return
         val total = plan.files.sumOf { it.sizeBytes ?: 0 }
         set(DownloadState(plan.id, 0, total, DownloadState.Phase.QUEUED))
-        val previous = chain
-        val job = scope.launch(Dispatchers.IO) {
-            previous?.join()
-            install(plan, total)
+        jobs[plan.id] = scope.launch(Dispatchers.IO) {
+            oneAtATime.withLock { install(plan, total) }
         }
-        jobs[plan.id] = job
-        chain = job
     }
 
     @Synchronized

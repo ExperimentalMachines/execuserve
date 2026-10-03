@@ -17,23 +17,30 @@ import java.net.URL
  * shared code.
  */
 class LocalClient {
-    @Volatile private var connection: HttpURLConnection? = null
+    /**
+     * One request, which [cancel] stops from any thread: before its socket opens (it then never
+     * sends) or while it streams (closing the socket, so the server sees the client leave and
+     * stops within a token). Each request has its own, so stopping an old one cannot touch
+     * the next.
+     */
+    class Call {
+        @Volatile internal var cancelled = false
+            private set
 
-    @Volatile private var cancelled = false
+        @Volatile internal var connection: HttpURLConnection? = null
 
-    /** Closes the socket; the server sees the client leave and stops within a token. */
-    fun cancel() {
-        cancelled = true
-        connection?.disconnect()
+        fun cancel() {
+            cancelled = true
+            connection?.disconnect()
+        }
     }
 
     /**
-     * @throws TestFailure when the server refuses or the stream fails.
-     * @throws StoppedByUser after [cancel].
+     * @throws TestFailure when the server refuses, the stream fails, or it stops before its end.
+     * @throws StoppedByUser after [Call.cancel].
      */
-    suspend fun chat(baseUrl: String, key: String, body: String, onText: (content: String, reasoning: String) -> Unit): TestResult =
+    suspend fun chat(call: Call, baseUrl: String, key: String, body: String, onText: (content: String, reasoning: String) -> Unit): TestResult =
         withContext(Dispatchers.IO) {
-            cancelled = false
             val started = SystemClock.elapsedRealtime()
             var firstToken = 0L
             val reader = ReplyReader { content, reasoning ->
@@ -41,18 +48,20 @@ class LocalClient {
                 onText(content, reasoning)
             }
             val http = open("$baseUrl/chat/completions", key)
-            connection = http
+            // Published before the check: a cancel either sees this connection or is seen here.
+            call.connection = http
             try {
+                if (call.cancelled) throw StoppedByUser()
                 http.outputStream.use { it.write(body.toByteArray()) }
                 refuseUnlessOk(http)
                 readStream(http, reader)
+                if (!reader.finished) throw IOException("The reply stopped before its end.")
                 val total = SystemClock.elapsedRealtime() - started
                 reader.result(firstTokenMs = if (firstToken > 0) firstToken - started else total, totalMs = total)
             } catch (closed: IOException) {
-                if (cancelled) throw StoppedByUser()
+                if (call.cancelled) throw StoppedByUser()
                 throw TestFailure(null, closed.message ?: closed::class.java.simpleName)
             } finally {
-                connection = null
                 http.disconnect()
             }
         }

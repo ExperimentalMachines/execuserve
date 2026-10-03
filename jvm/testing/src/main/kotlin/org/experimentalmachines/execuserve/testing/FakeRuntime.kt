@@ -30,6 +30,9 @@ class FakeRuntime(
     override val id: String = "fake",
 ) : LlmRuntime {
     val log: MutableList<String> = CopyOnWriteArrayList()
+
+    /** The family each open was told, in order. */
+    val openedFamilies: MutableList<String?> = CopyOnWriteArrayList()
     val sessions: MutableList<FakeSession> = CopyOnWriteArrayList()
 
     /** Milliseconds each prefilled character takes, to make long prompts cost time. */
@@ -48,9 +51,10 @@ class FakeRuntime(
 
     override fun probe(files: ModelFiles): ModelFacts = ModelFacts(window, prefillLength, true)
 
-    override fun open(files: ModelFiles, facts: ModelFacts): LlmSession {
+    override fun open(files: ModelFiles, facts: ModelFacts, family: String?): LlmSession {
         broken[files.model]?.let { throw RuntimeFailure(it) }
         log += "open ${files.model}"
+        openedFamilies += family
         return FakeSession(files.model).also { sessions += it }
     }
 

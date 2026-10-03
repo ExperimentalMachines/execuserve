@@ -55,16 +55,32 @@ object ContentReport {
     /** Long enough for any reply the console asks for, short enough for a share intent. */
     const val MAX_REPLY_CHARS = 8_000
 
-    /** The report's text: a heading, labelled fields (blank ones left out), then the reply. */
-    fun text(heading: String, fields: List<Pair<String, String>>, replyLabel: String, reply: String): String = buildString {
+    /**
+     * The report's text: a heading, labelled fields (blank ones left out), the model's
+     * reasoning when it showed any (it is on screen, so it can be what is wrong), then the reply.
+     */
+    fun text(
+        heading: String,
+        fields: List<Pair<String, String>>,
+        replyLabel: String,
+        reply: String,
+        reasoningLabel: String = "",
+        reasoning: String = "",
+    ): String = buildString {
         appendLine(heading)
         appendLine()
         fields.filter { it.second.isNotBlank() }.forEach { (label, value) -> appendLine("$label: ${value.trim()}") }
+        if (reasoning.isNotBlank()) {
+            appendLine()
+            appendLine(reasoningLabel)
+            appendLine(clip(reasoning))
+        }
         appendLine()
         appendLine(replyLabel)
-        val trimmed = reply.trim()
-        append(if (trimmed.length > MAX_REPLY_CHARS) trimmed.take(MAX_REPLY_CHARS) + "…" else trimmed)
+        append(clip(reply))
     }
+
+    private fun clip(text: String): String = text.trim().let { if (it.length > MAX_REPLY_CHARS) it.take(MAX_REPLY_CHARS) + "…" else it }
 
     /** The share sheet, with the report as plain text; nothing is sent until the person picks. */
     fun share(context: Context, subject: String, text: String, chooserTitle: String) {
@@ -81,7 +97,14 @@ object ContentReport {
  * until a reason is chosen, so every report says what was wrong.
  */
 @Composable
-fun ReportDialog(model: String, reply: String, version: String, onDismiss: () -> Unit, onShare: (subject: String, text: String) -> Unit) {
+fun ReportDialog(
+    model: String,
+    reply: String,
+    version: String,
+    onDismiss: () -> Unit,
+    onShare: (subject: String, text: String) -> Unit,
+    reasoning: String = "",
+) {
     var reason by rememberSaveable { mutableStateOf<ContentReport.Reason?>(null) }
     var note by rememberSaveable { mutableStateOf("") }
     val heading = stringResource(R.string.report_heading)
@@ -95,6 +118,8 @@ fun ReportDialog(model: String, reply: String, version: String, onDismiss: () ->
         ),
         stringResource(R.string.report_field_reply),
         reply,
+        stringResource(R.string.report_field_reasoning),
+        reasoning,
     )
     val subject = stringResource(R.string.report_subject, model)
     AlertDialog(

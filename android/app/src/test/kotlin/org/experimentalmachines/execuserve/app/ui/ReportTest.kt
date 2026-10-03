@@ -34,6 +34,14 @@ class ContentReportTest {
         assertTrue(text.endsWith("x…"))
         assertEquals(ContentReport.MAX_REPLY_CHARS, text.substringAfter("Reply:\n").count { it == 'x' })
     }
+
+    @Test
+    fun reasoningOnScreenIsReportedBeforeTheReply() {
+        val text = ContentReport.text("Report", listOf("Model" to "qwen3"), "Reply:", "", "Reasoning:", " what it thought ")
+        assertEquals("Report\n\nModel: qwen3\n\nReasoning:\nwhat it thought\n\nReply:\n", text)
+        // Without reasoning the report reads as before.
+        assertEquals("Report\n\nModel: m\n\nReply:\nr", ContentReport.text("Report", listOf("Model" to "m"), "Reply:", "r", "Reasoning:", " "))
+    }
 }
 
 @RunWith(RobolectricTestRunner::class)

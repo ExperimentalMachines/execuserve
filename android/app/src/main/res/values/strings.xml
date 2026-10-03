@@ -395,6 +395,7 @@
     <string name="report_field_note">Note</string>
     <string name="report_field_version">App version</string>
     <string name="report_field_reply">Reply:</string>
+    <string name="report_field_reasoning">Reasoning:</string>
 
     <!-- Chat: the console's own client of its server. -->
     <string name="host_chat">Chat</string>

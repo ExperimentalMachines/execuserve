@@ -26,7 +26,9 @@ class ConsoleTestTest {
             """data: {"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":3,"prompt_tokens_details":{"cached_tokens":8}},"timings":{"predicted_per_second":25.5}}""",
         )
         lines.forEach { assertTrue(reader.line(it)) }
+        assertFalse(reader.finished)
         assertFalse(reader.line("data: [DONE]"))
+        assertTrue(reader.finished)
         assertEquals("Hello world", content.toString())
         assertEquals("Hmm.", reasoning.toString())
         val result = reader.result(firstTokenMs = 100, totalMs = 400)
@@ -55,6 +57,7 @@ class ConsoleTestTest {
                 """"usage":{"prompt_tokens":5,"completion_tokens":1}}""",
         )
         assertEquals("Hi", text)
+        assertTrue(reader.finished)
         assertEquals(FinishReason.LENGTH, reader.result(10, 10).finish)
     }
 

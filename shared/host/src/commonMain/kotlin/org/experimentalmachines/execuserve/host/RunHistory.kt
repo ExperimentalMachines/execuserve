@@ -4,7 +4,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -54,29 +53,44 @@ class RunHistory(
     /** Lines in the store, to know when to compact it. */
     private var stored = 0
 
+    /** When the oldest line in the store finished, to know when age makes it due to go. */
+    private var oldestStoredMs = Long.MAX_VALUE
+
     init {
         scope.launch {
             lock.withLock {
                 val lines = store.readLines()
                 val kept = keep(lines.mapNotNull(RunCodec::decode))
                 stored = lines.size
+                oldestStoredMs = kept.firstOrNull()?.finishedAtMs ?: Long.MAX_VALUE
                 if (kept.size < lines.size) compact(kept)
                 _runs.value = kept.asReversed()
             }
         }
     }
 
+    /**
+     * Records [run], and lets go of what has passed either limit: at once from [runs] (so the
+     * console, exports and the API never show it), and from the store when it is due. The
+     * store is rewritten when it runs a fifth over the count, or when its oldest line is past
+     * the age limit by 1/720 of it (an hour in thirty days), so appends stay cheap while a
+     * process that lives for weeks still forgets on time (codex review).
+     */
     suspend fun add(run: JobRecord) = lock.withLock {
         store.appendLine(RunCodec.encode(run))
         stored++
-        _runs.update { (listOf(run) + it).take(retention.maxRuns) }
-        // The file may run a fifth over the limit before it is rewritten, so appends stay cheap.
-        if (stored > retention.maxRuns + retention.maxRuns / COMPACT_SLACK) compact(keep(_runs.value.asReversed()))
+        oldestStoredMs = minOf(oldestStoredMs, run.finishedAtMs)
+        val kept = keep(_runs.value.asReversed() + run)
+        _runs.value = kept.asReversed()
+        val overCount = stored > retention.maxRuns + retention.maxRuns / COMPACT_SLACK
+        val overAge = oldestStoredMs < clock() - retention.maxAgeMs - retention.maxAgeMs / AGE_SLACK
+        if (overCount || overAge) compact(kept)
     }
 
     suspend fun clear() = lock.withLock {
         store.rewrite(emptyList())
         stored = 0
+        oldestStoredMs = Long.MAX_VALUE
         _runs.value = emptyList()
     }
 
@@ -88,10 +102,12 @@ class RunHistory(
     private suspend fun compact(oldestFirst: List<JobRecord>) {
         store.rewrite(oldestFirst.map(RunCodec::encode))
         stored = oldestFirst.size
+        oldestStoredMs = oldestFirst.firstOrNull()?.finishedAtMs ?: Long.MAX_VALUE
     }
 
     private companion object {
         const val COMPACT_SLACK = 5
+        const val AGE_SLACK = 720
     }
 }
 

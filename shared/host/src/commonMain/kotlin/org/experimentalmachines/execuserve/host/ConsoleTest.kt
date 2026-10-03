@@ -53,11 +53,21 @@ class ReplyReader(private val onText: (content: String, reasoning: String) -> Un
     private var timings: JsonObject? = null
     private var finish: String? = null
 
+    /**
+     * Whether the reply came to its end: `[DONE]` in a stream, or a whole response. A stream
+     * that stops without it was cut off, however clean the connection's close looked.
+     */
+    var finished: Boolean = false
+        private set
+
     /** Reads one line of a stream; false once the stream has ended. */
     fun line(line: String): Boolean {
         if (!line.startsWith(DATA)) return true
         val payload = line.removePrefix(DATA)
-        if (payload == DONE) return false
+        if (payload == DONE) {
+            finished = true
+            return false
+        }
         val chunk = ConsoleTest.JSON.parseToJsonElement(payload).jsonObject
         if ("error" in chunk) throw TestFailure(null, ConsoleTest.errorMessage(payload))
         figures(chunk)
@@ -75,6 +85,7 @@ class ReplyReader(private val onText: (content: String, reasoning: String) -> Un
         val choice = response["choices"]?.jsonArray?.firstOrNull()?.jsonObject
         finish = choice?.text("finish_reason")?.ifEmpty { null }
         (choice?.get("message") as? JsonObject)?.let(::emit)
+        finished = true
     }
 
     fun result(firstTokenMs: Long, totalMs: Long) = TestResult(
