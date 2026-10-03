@@ -7,6 +7,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.experimentalmachines.execuserve.catalog.CatalogVariant
 import org.experimentalmachines.execuserve.catalog.HfCatalog
+import org.experimentalmachines.execuserve.catalog.Uncensored
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -16,11 +17,15 @@ data class CatalogRepo(val repo: String, val variants: List<CatalogVariant>)
 /**
  * The `experimentalmachines` exports, read from Hugging Face on request. The listing and one
  * `config.json` per repository; nothing is fetched until the Models screen asks.
+ *
+ * Derivatives with their refusals removed are listed only when [includeUncensored]: Play's
+ * policy on generated content asks apps to guard against it, so the store build leaves them
+ * out (`-PcatalogUncensored=true` builds one that lists them).
  */
-class CatalogRepository {
+class CatalogRepository(private val includeUncensored: Boolean = false) {
 
     suspend fun load(): List<CatalogRepo> = withContext(Dispatchers.IO) {
-        val repos = HfCatalog.parseRepos(get(HfCatalog.listUrl()))
+        val repos = HfCatalog.parseRepos(get(HfCatalog.listUrl())).filter { includeUncensored || !Uncensored.isUncensored(it.id) }
         coroutineScope {
             repos.map { repo ->
                 async {

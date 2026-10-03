@@ -24,7 +24,7 @@ class AppGraph(context: Context) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val settings = SettingsStore(context)
     val models = ModelStore(context)
-    val catalog = CatalogRepository()
+    val catalog = CatalogRepository(includeUncensored = BuildConfig.CATALOG_UNCENSORED)
     val history = RunHistory(FileRunStore(context.filesDir.resolve("runs.jsonl")), scope, System::currentTimeMillis)
     val host = ServeHost(AndroidPlatform(context), settings, models, history, scope)
     val downloader = Downloader(models.directory, scope) { models.rescan() }

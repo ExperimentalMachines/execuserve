@@ -110,5 +110,5 @@ release build installed and a model served:
 - Compose with `python3 tools/play/compose.py`, check the results, and copy them here.
 
 Show prompts whose answers can't be wrong in a store image: a haiku or a list of names,
-not a technical explanation a small model may get wrong. Leave out the catalog's
-`heretic` (abliterated) variants.
+not a technical explanation a small model may get wrong. The release build's catalog
+already leaves out the `heretic` (abliterated) variants.

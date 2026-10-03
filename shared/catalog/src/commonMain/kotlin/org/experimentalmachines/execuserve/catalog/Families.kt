@@ -83,3 +83,13 @@ object Labs {
     /** The Hub's answer to "what is this organisation's picture": `{"avatarUrl": ...}`. */
     fun avatarApi(lab: String) = HfCatalog.avatarUrl(lab)
 }
+
+/**
+ * Derivatives with their refusals removed (Heretic and other abliterated copies), known by the
+ * names they are published under: the Hub has no tag for them.
+ */
+object Uncensored {
+    private val MARKERS = listOf("heretic", "abliterat", "uncensor")
+
+    fun isUncensored(repo: String): Boolean = repo.lowercase().let { id -> MARKERS.any { it in id } }
+}

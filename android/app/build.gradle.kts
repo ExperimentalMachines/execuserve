@@ -80,6 +80,9 @@ android {
         // Counted, not typed: see gitCommitCount. The name is editorial and stays typed.
         versionCode = gitCommitCount
         versionName = "0.1.0"
+        // The catalog leaves out uncensored derivatives unless a build asks for them; the Play
+        // bundle never does. See CatalogRepository.
+        buildConfigField("boolean", "CATALOG_UNCENSORED", (providers.gradleProperty("catalogUncensored").orNull == "true").toString())
     }
     signingConfigs {
         if (uploadKeystore != null) {
@@ -155,8 +158,10 @@ dependencies {
 // stop before building it than to find out at upload.
 val hasUploadKey = uploadKeystore != null
 tasks.matching { it.name == "bundleRelease" }.configureEach {
+    // A local, not the script's property: the configuration cache cannot store the script.
+    val keyed = hasUploadKey
     doFirst {
-        if (!hasUploadKey) {
+        if (!keyed) {
             throw GradleException(
                 "bundleRelease needs the upload key: add keystore.properties (storeFile, storePassword, keyAlias, " +
                     "keyPassword) or set EXECUSERVE_KEYSTORE and its three companions. See docs/RELEASING.md.",

@@ -14,9 +14,15 @@ technical requirements were checked on the release build on 2 October 2026.
 | 16 KB page alignment | All native libraries, ExecuTorch included, have 16 KB `LOAD` alignment, and the APK passes `zipalign -c -P 16` | Checked on the release APK |
 | Minified release runs | R8 with resource shrinking; the release build is what serves on the test phone | On device |
 | Generative-AI reporting | **Report this reply** on every reply in the console's Chat | `ReportDialogTest`, `ContentReportTest` |
+| Uncensored models | The catalog leaves out Heretic and other abliterated derivatives unless built with `-PcatalogUncensored=true`; the Play bundle never is | `CatalogTest.uncensoredDerivativesAreKnownByName` |
 | Privacy policy | [privacy-policy.md](privacy-policy.md), live at [experimentalmachines.org/execuserve/privacy](https://experimentalmachines.org/execuserve/privacy/) | Published with the organisation's site |
 
 ## The upload key, once
+
+ExecuServe uses Experimental Machines' upload key, the one OpenWeights already uploads
+with: Play App Signing gives each app its own signing key, and one upload key may serve
+several apps. Point `storeFile` in `keystore.properties` at that keystore. A new key, if one
+is ever wanted, is made like this:
 
 ```sh
 keytool -genkeypair -keystore ~/keys/execuserve-upload.jks -alias upload \

@@ -146,4 +146,12 @@ class HubUrlTest {
         assertEquals("https://huggingface.co/api/organizations/LiquidAI/avatar", Labs.avatarApi("LiquidAI"))
         kotlin.test.assertFailsWith<IllegalArgumentException> { Labs.avatarApi("x/../../api") }
     }
+
+    @Test
+    fun uncensoredDerivativesAreKnownByName() {
+        kotlin.test.assertTrue(Uncensored.isUncensored("experimentalmachines/LFM2.5-1.2B-Instruct-heretic-ExecuTorch"))
+        kotlin.test.assertTrue(Uncensored.isUncensored("someone/Llama-3.2-3B-Instruct-abliterated"))
+        kotlin.test.assertTrue(Uncensored.isUncensored("someone/Qwen3-4B-Uncensored"))
+        kotlin.test.assertFalse(Uncensored.isUncensored("experimentalmachines/LFM2.5-1.2B-Instruct-ExecuTorch"))
+    }
 }
