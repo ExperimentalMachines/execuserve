@@ -40,6 +40,25 @@ send to a model, and nothing a model replies, is sent to us.
 
 We do not sell, rent or share data, because we do not collect it.
 
+## Deleting your data
+
+Everything ExecuServe keeps is on your phone, so you delete it there; there is nothing for
+us to delete, because we hold nothing. In the app:
+
+- **Run history:** Activity → **Clear**. It is also removed on its own after 30 days or
+  10,000 requests.
+- **Models:** Library → **Delete** on each model, which removes its files.
+- **API keys:** Settings → API keys → **Revoke**.
+- **Chat conversations** in the app are only in memory: **New chat**, or closing the app,
+  removes them. The browser chat's are gone when you reload or close the tab.
+
+To delete everything at once (models, settings, keys and history), uninstall ExecuServe, or
+clear its storage in Android's Settings → Apps → ExecuServe → Storage. A run history you
+exported, or a report you shared, is wherever you sent it.
+
+Hugging Face keeps its own records of model downloads (your IP address and the app's name);
+we cannot delete those. Ask Hugging Face, under its privacy policy.
+
 ## Model replies
 
 Replies come from third-party models you choose, not from us. They can be wrong or
