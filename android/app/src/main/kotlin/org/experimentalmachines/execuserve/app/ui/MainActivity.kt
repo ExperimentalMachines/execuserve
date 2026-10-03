@@ -81,10 +81,10 @@ private fun App(model: MainViewModel) {
                     tab = Tabs.CHAT
                 },
             )
-            Tabs.LIBRARY -> ModelsScreen(model, padding)
+            Tabs.LIBRARY -> ModelsScreen(model, padding, twoColumns)
             Tabs.CHAT -> ChatScreen(model, padding, openModels = { tab = Tabs.LIBRARY })
             Tabs.ACTIVITY -> RunsScreen(model, padding, twoColumns)
-            else -> SettingsScreen(model, padding)
+            else -> SettingsScreen(model, padding, twoColumns)
         }
     }
 }

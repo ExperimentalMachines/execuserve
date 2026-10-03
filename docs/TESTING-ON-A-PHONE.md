@@ -128,7 +128,13 @@ They cover both landscape rotations with asymmetric side insets, gesture navigat
 portrait and split-screen widths, enlarged text, tablets, light/dark themes, RTL, and
 scrolling to the final navigation tab in a short window. Insets are applied once around
 the whole frame; the two-column decision uses the width left after navigation and page
-gutters, with additional room for enlarged text.
+gutters, with additional room for enlarged text. Every tab but Chat splits into two columns
+when there is room (`PanelColumns`); Chat stays one readable column.
+
+For tablets without one to hand, `~/.android/avd` can hold two 16:9 emulators made from the
+Android 36 arm64 image: a 7-inch at 1920×1080 and a 10-inch at 2560×1440, both at 280 dpi
+(smallest widths 617 and 823 dp). On them the wording switches to "tablet"
+(`values-sw600dp`), and they are what the Play tablet screenshots were captured on.
 
 On a device, check every tab in both landscape rotations with gesture navigation and
 three-button navigation. Repeat with larger text, in split screen, and with the keyboard

@@ -118,7 +118,8 @@ internal fun ConsoleFrame(
                     contentAlignment = Alignment.TopCenter,
                 ) {
                     val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
-                    val twoColumns = (tab == Tabs.HOSTING || tab == Tabs.ACTIVITY) &&
+                    // Every tab but Chat splits when there is room; a conversation reads as one column.
+                    val twoColumns = tab != Tabs.CHAT &&
                         minOf(maxWidth, Dimens.columns) >= Dimens.minColumn * fontScale * 2 + Dimens.gutter
                     Box(
                         Modifier.widthIn(max = if (twoColumns) Dimens.columns else Dimens.column).fillMaxSize(),

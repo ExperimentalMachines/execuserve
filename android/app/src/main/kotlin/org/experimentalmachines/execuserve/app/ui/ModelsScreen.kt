@@ -6,11 +6,10 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
@@ -42,7 +41,7 @@ import org.experimentalmachines.execuserve.executorch.ExecuTorchRuntime
 import org.experimentalmachines.execuserve.host.ModelNames
 
 @Composable
-fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
+fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
     val installed by model.installed.collectAsState()
     val problems by model.problems.collectAsState()
     val downloads by model.downloads.collectAsState()
@@ -57,7 +56,8 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
 
     val active = downloads.values.filter { it.active || it.phase == DownloadState.Phase.FAILED }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap)) {
+    // What is on the device, then what could be: the catalog beside it when there is room.
+    val main: LazyListScope.() -> Unit = {
         item(key = "installed") {
             Panel(
                 stringResource(R.string.models_on_phone),
@@ -126,6 +126,8 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
                 }
             }
         }
+    }
+    val side: LazyListScope.() -> Unit = {
         when (val state = catalog) {
             CatalogState.Idle -> item(key = "browse") {
                 Panel(stringResource(R.string.catalog_title)) {
@@ -161,6 +163,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
             }
         }
     }
+    PanelColumns(wide, padding, main = main, side = side)
 
     deleting?.let { entry ->
         val freed = remember(entry) { model.bytesFreedBy(entry) }

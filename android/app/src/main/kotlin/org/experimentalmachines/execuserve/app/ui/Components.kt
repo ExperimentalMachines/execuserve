@@ -18,8 +18,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -27,6 +29,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -530,3 +534,23 @@ private object NavMark {
 
 /** MarkPaths are drawn in a 100-unit square. */
 private const val MARK_UNITS = 100f
+
+/**
+ * A screen's panels: one list, or, when the frame has room ([wide]: tablets, landscape, split
+ * screen), [main] and [side] side by side, each scrolling on its own. One list puts [side]
+ * after [main], so the order reads the same either way.
+ */
+@Composable
+fun PanelColumns(wide: Boolean, padding: PaddingValues, modifier: Modifier = Modifier, main: LazyListScope.() -> Unit, side: LazyListScope.() -> Unit) {
+    if (wide) {
+        Row(modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(Dimens.gutter)) {
+            LazyColumn(Modifier.weight(1f), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = main)
+            LazyColumn(Modifier.weight(1f), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = side)
+        }
+    } else {
+        LazyColumn(modifier.fillMaxSize(), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap)) {
+            main()
+            side()
+        }
+    }
+}

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Every string that says "phone", for screens at least 600dp across (7- and 10-inch tablets).
+  Android picks these over values/strings.xml by smallest width. StringsTest keeps the two in
+  step: each "phone" string in values/ needs its tablet copy here, and none here says "phone".
+-->
+<resources>
+    <string name="status_paused_hot">New requests are refused until the tablet cools down.</string>
+    <string name="status_paused_battery">New requests are refused until the tablet charges.</string>
+    <string name="bind_loopback">This tablet</string>
+    <string name="connect_local_title">From another app on this tablet</string>
+    <string name="net_this_device">This tablet</string>
+    <string name="runs_clear_body">Every stored run goes, on this tablet and in the API. The counters since the server started are kept.</string>
+    <string name="check_decode_clocks">The runtime\'s writing time and this tablet\'s clock differ by more than 10%%.</string>
+    <string name="models_on_phone">On this tablet</string>
+    <string name="settings_open_loopback">Apps on this tablet need no key</string>
+    <string name="settings_threads_note">A change reopens the loaded model. The benchmark in Activity measures which count suits this tablet.</string>
+    <string name="settings_boot">Start when the tablet starts</string>
+    <string name="settings_autostart">Allow it, or HyperOS will not bring the server back after the app stops unexpectedly, nor start it with the tablet. The app cannot check this setting itself.</string>
+    <string name="settings_optimisation_on">On. If requests stall after long idle periods, choose ExecuServe in the list and set it to not optimised; the foreground service alone was enough on the devices tested.</string>
+    <string name="settings_hosts">Other names for this tablet</string>
+    <string name="start_what_loopback">It will serve %1$s to apps on this tablet, on port %2$d, with your saved settings.</string>
+    <string name="start_what_network">It will serve %1$s to this tablet and your network, on port %2$d, with your saved settings.</string>
+    <string name="copied_on_phone">Copied on tablet</string>
+    <string name="chat_no_models_note">Download one from the catalog, or copy a .pte export onto the tablet.</string>
+    <string name="chat_welcome_note">Replies come from the model on this tablet, through the same API, key and queue your apps use.</string>
+    <string name="chat_suggest_write">Write a haiku about this tablet</string>
+</resources>

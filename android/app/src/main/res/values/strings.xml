@@ -103,7 +103,7 @@
     <string name="heat_too_hot">Too hot</string>
     <string name="heat_critical">Critical</string>
 
-    <!-- Try it -->
+    <!-- Shared labels -->
     <string name="try_model">Model</string>
     <plurals name="characters">
         <item quantity="one">%s character</item>
@@ -274,7 +274,7 @@
     <string name="settings_threads_now">%1$d in use now</string>
     <string name="settings_threads_idle">Shown once a model loads</string>
     <string name="threads_auto">Automatic</string>
-    <string name="settings_threads_note">A change reopens the loaded model. The benchmark on Runs measures which count suits this phone.</string>
+    <string name="settings_threads_note">A change reopens the loaded model. The benchmark in Activity measures which count suits this phone.</string>
     <string name="settings_threads_why">Why Automatic may not be fastest</string>
     <string name="settings_threads_why_body">Generating a reply is limited by memory and reading a prompt by compute, so the best count differs between the two. On the POCO X8 Pro Max, Automatic (7) generated 18 tokens a second, 4 threads 22, and 8 threads read prompts fastest.</string>
     <string name="settings_background">Background</string>
@@ -319,7 +319,7 @@
     <string name="settings_about">About</string>
     <string name="about_version">ExecuServe %1$s</string>
     <string name="about_runtime">ExecuTorch %1$s on XNNPACK</string>
-    <string name="about_api">OpenAI-compatible API at /v1: Chat Completions, Responses, Completions and Models.</string>
+    <string name="about_api">At /v1: OpenAI Chat Completions, Responses, Completions and Models, and Anthropic Messages.</string>
     <string name="about_license">Apache-2.0, by Experimental Machines</string>
 
     <!-- Start from another app -->

@@ -39,7 +39,9 @@ should regenerate its baseline (`./gradlew detektBaseline`) so the entry goes aw
 - **Numbers from a real phone** for any performance claim, before and after, with the device
   and the model file named.
 - **No new hard-coded values.** Limits and choices live once (`HostSettings`, `Choices`,
-  `Units`, `HttpStatus`); user-visible text lives in string resources.
+  `Units`, `HttpStatus`); user-visible text lives in string resources. A string that says
+  "phone" also needs its tablet wording in `values-sw600dp/strings.xml`; `StringsTest` fails
+  until it has one.
 - **Security posture holds.** Every route needs a key unless it is the health check or the
   static chat shell; the browser chat keeps its Content-Security-Policy with no inline script
   or style; nothing new is written where backups or other apps could read it.

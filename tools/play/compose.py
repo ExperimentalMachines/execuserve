@@ -1,7 +1,11 @@
-"""Compose the Play Store screenshots (1080x1920, within Play's 2:1 limit) and the captioned
-foreground-service video from raw captures in build/play/raw and build/play/video/fgs-raw.mp4.
+"""Compose the Play Store screenshots and the captioned foreground-service video.
 
-    python3 tools/play/compose.py [stills] [video]
+    python3 tools/play/compose.py [stills] [tablets] [video]
+
+- stills: phone screenshots, 1080x1920, from build/play/raw (1280x2772 captures).
+- tablets: 7- and 10-inch screenshots at 16:9, from build/play/tablet7 and tablet10
+  (1920x1080 and 2560x1440 captures from the es-tablet7 and es-tablet10 emulators).
+- video: from build/play/video/fgs-raw.mp4.
 
 The finished files land in build/play/store and build/play/video; docs/play keeps the ones
 published. Captions are drawn with Pillow, since Homebrew's ffmpeg has no drawtext.
@@ -37,30 +41,32 @@ def wrap(draw, text, f, width):
             lines.append(line); line = w
     return lines + [line]
 
-def caption(title, sub, size=(W, BAND), bg=INK):
+def caption(title, sub, size=(W, BAND), bg=INK, scale=1.0):
     """The caption band: an ember rule, the headline, and one supporting line."""
     img = Image.new("RGBA", size, bg)
     d = ImageDraw.Draw(img)
-    big, small = font(64, b"SemiBold"), font(34, b"Regular")
-    y = 78
-    d.rounded_rectangle((W // 2 - 36, y, W // 2 + 36, y + 8), 4, fill=EMBER)
-    y += 34
-    for line in wrap(d, title, big, W - 140):
-        d.text((W // 2, y), line, font=big, fill=PAPER, anchor="ma"); y += 76
-    y += 8
-    for line in wrap(d, sub, small, W - 160):
-        d.text((W // 2, y), line, font=small, fill=MUTED, anchor="ma"); y += 46
+    width, mid = size[0], size[0] // 2
+    px = lambda v: round(v * scale)  # noqa: E731
+    big, small = font(px(64), b"SemiBold"), font(px(34), b"Regular")
+    y = px(78)
+    d.rounded_rectangle((mid - px(36), y, mid + px(36), y + px(8)), px(4), fill=EMBER)
+    y += px(34)
+    for line in wrap(d, title, big, width - px(140)):
+        d.text((mid, y), line, font=big, fill=PAPER, anchor="ma"); y += px(76)
+    y += px(8)
+    for line in wrap(d, sub, small, width - px(160)):
+        d.text((mid, y), line, font=small, fill=MUTED, anchor="ma"); y += px(46)
     return img
 
 def screen_size():
     h = round(CROP_BOTTOM * SCREEN_W / 1280)
     return SCREEN_W, h
 
-def corners_mask(size):
+def corners_mask(size, radius=RADIUS):
     """Opaque ink everywhere but a rectangle with rounded top corners: laid over the screen."""
     w, h = size
     m = Image.new("L", size, 0)
-    ImageDraw.Draw(m).rounded_rectangle((0, 0, w, h + RADIUS), RADIUS, fill=255)
+    ImageDraw.Draw(m).rounded_rectangle((0, 0, w, h + radius), radius, fill=255)
     over = Image.new("RGBA", size, INK)
     over.putalpha(m.point(lambda a: 255 - a))
     return over
@@ -85,6 +91,35 @@ SHOTS = [
     ("11-dark-chat.png", "06-private.png", "Private by design", "Replies come from the model on this phone. No account, no cloud."),
     ("09-settings.png", "07-settings.png", "You decide who connects", "This phone only, or your network with API keys"),
     ("06-report.png", "08-report.png", "Report any reply", "You see the whole report before anything is sent"),
+]
+
+# Tablets: Play takes 16:9 or 9:16, so each image keeps its capture's size and shape. The
+# caption band takes the top 17%; the screen, without the gesture bar, fills the rest.
+TABLET_BAND = 0.17
+TABLET_CROP = 0.96  # of the capture's height: the gesture bar goes
+
+def tablet_still(folder, raw, out, title, sub):
+    shot = Image.open(PLAY / folder / raw).convert("RGB")
+    cw, ch = shot.size
+    shot = shot.crop((0, 0, cw, round(ch * TABLET_CROP)))
+    band = round(ch * TABLET_BAND)
+    scale = ch / 1440 * 0.9  # caption type in proportion to the canvas
+    sh = ch - band
+    sw = round(shot.width * sh / shot.height)
+    radius = round(RADIUS * ch / 1440)
+    shot = shot.resize((sw, sh), Image.LANCZOS).convert("RGBA")
+    shot.alpha_composite(corners_mask((sw, sh), radius))
+    canvas = Image.new("RGBA", (cw, ch), INK)
+    canvas.alpha_composite(caption(title, sub, size=(cw, band), scale=scale), (0, 0))
+    canvas.alpha_composite(shot, ((cw - sw) // 2, band))
+    canvas.convert("RGB").save(STORE / out, optimize=True)
+
+TABLET_SHOTS = [
+    ("01-hosting.png", "Your tablet is the server", "OpenAI- and Anthropic-compatible APIs, running on-device with ExecuTorch"),
+    ("02-chat.png", "Try any model in Chat", "Prefill and decode speeds on every reply"),
+    ("03-library.png", "Your models and the catalog, side by side", "Ready-made ExecuTorch exports from Qwen, Meta, Liquid AI and more"),
+    ("04-activity.png", "See every request, compare every model", "Speeds, phases and device state, kept across restarts"),
+    ("05-settings.png", "You decide who connects", "This tablet only, or your network with API keys"),
 ]
 
 # Video captions, by the scene changes in the recording (seconds). screenrecord writes frames
@@ -122,8 +157,13 @@ def video():
 
 if __name__ == "__main__":
     STORE.mkdir(exist_ok=True)
-    what = sys.argv[1:] or ["stills", "video"]
+    what = sys.argv[1:] or ["stills", "tablets", "video"]
     if "stills" in what:
         for raw, out, t, s in SHOTS: still(raw, out, t, s)
+    if "tablets" in what:
+        for inches in ("7", "10"):
+            if (PLAY / f"tablet{inches}").is_dir():
+                for raw, t, s in TABLET_SHOTS:
+                    tablet_still(f"tablet{inches}", raw, f"tablet{inches}-{raw}", t, s)
     if "video" in what:
         video()

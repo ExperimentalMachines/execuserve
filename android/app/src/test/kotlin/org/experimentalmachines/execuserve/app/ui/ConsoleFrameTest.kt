@@ -132,7 +132,7 @@ class ConsoleFrameTest {
                 for ((left, right) in listOf(24 to 48, 48 to 24)) {
                     show(Scenario(left = left, right = right, tab = tab, theme = theme))
                     assertSafeBounds()
-                    assertEquals(tab == Tabs.HOSTING || tab == Tabs.ACTIVITY, twoColumns)
+                    assertEquals(tab != Tabs.CHAT, twoColumns)
                 }
             }
         }

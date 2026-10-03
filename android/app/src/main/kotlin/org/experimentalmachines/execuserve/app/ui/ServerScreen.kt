@@ -14,10 +14,8 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
@@ -121,17 +119,7 @@ fun ServerScreen(
         item(key = "device") { DevicePanel(model) }
         item(key = "log") { LogPanel(runs.filter { it.api != Benchmark.API }.take(LATEST_RUNS), openRuns) }
     }
-    if (wide) {
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(Dimens.gutter)) {
-            LazyColumn(Modifier.weight(1f), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = primary)
-            LazyColumn(Modifier.weight(1f), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap), content = secondary)
-        }
-    } else {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap)) {
-            primary()
-            secondary()
-        }
-    }
+    PanelColumns(wide, padding, main = primary, side = secondary)
 }
 
 @Composable

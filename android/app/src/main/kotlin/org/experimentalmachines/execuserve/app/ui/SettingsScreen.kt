@@ -9,10 +9,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -42,7 +41,7 @@ import org.experimentalmachines.execuserve.server.ApiKey
 import org.experimentalmachines.execuserve.server.BindMode
 
 @Composable
-fun SettingsScreen(model: MainViewModel, padding: PaddingValues) {
+fun SettingsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
     val settings by model.settings.collectAsState()
     val server by model.server.collectAsState()
     val keys by model.keys.collectAsState()
@@ -52,7 +51,8 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues) {
     val tones = LocalTones.current
     val update = model::update
 
-    LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(Dimens.gap)) {
+    // Who can connect and what is served on the left; how the server behaves on the right.
+    val main: LazyListScope.() -> Unit = {
         if (running != null && current.needsRestartFrom(running.settings)) {
             item(key = "restart") {
                 Panel(stringResource(R.string.settings_restart_title), tone = tones.attention) {
@@ -159,7 +159,8 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues) {
                 }
             }
         }
-
+    }
+    val side: LazyListScope.() -> Unit = {
         item(key = "background") {
             Panel {
                 Expandable(stringResource(R.string.settings_background)) {
@@ -294,6 +295,7 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues) {
             }
         }
     }
+    PanelColumns(wide, padding, Modifier.imePadding(), main = main, side = side)
 }
 
 @Composable
