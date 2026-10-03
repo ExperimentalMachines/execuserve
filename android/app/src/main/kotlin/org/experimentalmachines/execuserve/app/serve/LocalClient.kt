@@ -61,6 +61,10 @@ class LocalClient {
             } catch (closed: IOException) {
                 if (call.cancelled) throw StoppedByUser()
                 throw TestFailure(null, closed.message ?: closed::class.java.simpleName)
+            } catch (malformed: IllegalArgumentException) {
+                // A line that is not the JSON object a chunk should be (SerializationException is
+                // one): a failed reply, not a crash (agy review).
+                throw TestFailure(null, "Unreadable reply: ${malformed.message ?: malformed::class.java.simpleName}")
             } finally {
                 http.disconnect()
             }
