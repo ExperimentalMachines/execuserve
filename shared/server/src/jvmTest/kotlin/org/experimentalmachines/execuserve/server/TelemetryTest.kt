@@ -16,6 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -102,7 +104,15 @@ class TelemetryTest {
     fun metricsArePrometheusTextBehindAKey() = serve { http ->
         assertEquals(HttpStatusCode.Unauthorized, http.get("/metrics").status)
         http.ask(alice)
-        val text = http.get("/metrics") { header(HttpHeaders.Authorization, "Bearer ${alice.secret}") }.bodyAsText()
+        // The reply reaches the client a moment before the lane books it: wait for the count.
+        var text = ""
+        withTimeout(5_000) {
+            while (true) {
+                text = http.get("/metrics") { header(HttpHeaders.Authorization, "Bearer ${alice.secret}") }.bodyAsText()
+                if ("execuserve_requests_processing 0" in text) break
+                delay(10)
+            }
+        }
         assertTrue("# TYPE execuserve_requests_total counter" in text, text)
         assertTrue("execuserve_requests_total{outcome=\"completed\"} 1" in text, text)
         assertTrue("execuserve_threads 7" in text, text)
