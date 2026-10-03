@@ -197,6 +197,9 @@ def mono_fit(body, lid, rest, place):
 def compose():
     full_body, full_die = fit(*block(FULL), 100, 100.0)
     small_body, small_die = fit(*block(SMALL), 100, 100.0)
+    lid, rest = block_mono(SMALL)
+    lid, rest = mono_fit(block(SMALL)[0], lid, rest, lambda polys, die: fit(polys, die, 100, 100.0))
+    mono_lid, mono_body, mono_die = lid, rest[:-1], rest[-1]
     write("android/app/src/main/kotlin/org/experimentalmachines/execuserve/app/ui/MarkPaths.kt",
           "package org.experimentalmachines.execuserve.app.ui\n\n"
           f"// {GENERATED}\n"
@@ -206,6 +209,12 @@ def compose():
           f"    const val DIE ={kotlin_string([full_die])}\n"
           f"    const val SMALL_BODY ={kotlin_string(small_body)}\n"
           f"    const val SMALL_DIE ={kotlin_string([small_die])}\n"
+          "\n"
+          "    // One colour, for a tinted glyph: the lid with its socket (fill it even-odd), the\n"
+          "    // sides and legs, and the die seated in the socket.\n"
+          f"    const val MONO_LID ={kotlin_string(mono_lid)}\n"
+          f"    const val MONO_BODY ={kotlin_string(mono_body)}\n"
+          f"    const val MONO_DIE ={kotlin_string([mono_die])}\n"
           "}\n")
 
 

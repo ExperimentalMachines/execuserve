@@ -279,12 +279,14 @@ guarded by `android.permission.DUMP`, which the shell holds and ordinary apps ca
 
 ## The console
 
-A console, not a chat, in PyTorch's colours (paper, ink and ember) and IBM Plex.
+A console for the server, with a chat to try what it serves, in PyTorch's colours (paper,
+ink and ember) and IBM Plex.
 
 | Tab | What it shows |
 |---|---|
-| Hosting | Whether it is serving, the hosted models with their prefill and decode rates, the request being answered, **Connect** (this phone or your network, addresses, key, model IDs, Copy and QR), **Try it**, and anything that would stop it in the background |
+| Hosting | Whether it is serving, the hosted models with their prefill and decode rates, the request being answered, **Connect** (this phone or your network, addresses, key, model IDs, Copy and QR), **Chat** on each hosted model, and anything that would stop it in the background |
 | Library | Installed models with their lab's picture and source, downloads, and the catalog |
+| Chat | A conversation with any installed model over the same local API your clients use: thinking on or off, prefill and decode rates per reply, Copy, and **Report this reply** |
 | Activity | Every request across restarts, its phases and device state, a like-for-like comparison of models, the benchmark, CSV export |
 | Settings | Connection, keys, hosting capacity, model defaults, CPU threads, background behaviour, limits |
 

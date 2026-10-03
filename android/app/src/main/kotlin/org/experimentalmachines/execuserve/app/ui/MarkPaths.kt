@@ -25,4 +25,19 @@ internal object MarkPaths {
             "M73.8 75.03L62.69 81.2L62.69 95.09L73.8 88.91Z"
     const val SMALL_DIE =
         "M50 17.13L78 32.69L50 48.25L22 32.69Z"
+
+    // One colour, for a tinted glyph: the lid with its socket (fill it even-odd), the
+    // sides and legs, and the die seated in the socket.
+    const val MONO_LID =
+        "M50 4.91L97.57 31.34L50 57.77L2.43 31.34Z" +
+            "M50 13.8L84 32.69L50 51.58L16 32.69Z"
+    const val MONO_BODY =
+        "M0 35.39L47.64 61.86L47.64 86.93L0 60.47Z" +
+            "M52.36 61.86L100 35.39L100 60.47L52.36 86.93Z" +
+            "M10.32 66.2L21.44 72.38L21.44 86.27L10.32 80.09Z" +
+            "M89.68 66.2L78.56 72.38L78.56 86.27L89.68 80.09Z" +
+            "M26.2 75.03L37.31 81.2L37.31 95.09L26.2 88.91Z" +
+            "M73.8 75.03L62.69 81.2L62.69 95.09L73.8 88.91Z"
+    const val MONO_DIE =
+        "M50 18.8L75 32.69L50 46.58L25 32.69Z"
 }

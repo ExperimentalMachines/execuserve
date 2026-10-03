@@ -59,9 +59,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -478,18 +486,29 @@ fun NavGlyph(tab: Int, selected: Boolean) {
         val w = size.width
         val stroke = w * 0.09f
         when (tab) {
-            0 -> {
-                drawLine(color, Offset(w * 0.12f, w * 0.25f), Offset(w * 0.42f, w * 0.5f), stroke, StrokeCap.Round)
-                drawLine(color, Offset(w * 0.42f, w * 0.5f), Offset(w * 0.12f, w * 0.75f), stroke, StrokeCap.Round)
-                drawLine(color, Offset(w * 0.52f, w * 0.75f), Offset(w * 0.82f, w * 0.75f), stroke, StrokeCap.Round)
-                drawCircle(if (selected) light else color, w * 0.1f, Offset(w * 0.8f, w * 0.25f))
+            // Hosting: the mark itself, in one colour, its die lit when the tab is selected.
+            Tabs.HOSTING -> scale(w / MARK_UNITS, pivot = Offset.Zero) {
+                drawPath(NavMark.lid, color)
+                drawPath(NavMark.body, color)
+                drawPath(NavMark.die, if (selected) light else color)
             }
-            1 -> for (row in 0..2) {
+            Tabs.LIBRARY -> for (row in 0..2) {
                 val y = w * (0.22f + row * 0.28f)
                 drawLine(color, Offset(w * 0.15f, y), Offset(w * 0.85f, y), stroke, StrokeCap.Round)
             }
-            // Runs: bars of different heights, the shape of a history.
-            2 -> listOf(0.45f, 0.7f, 0.3f, 0.58f).forEachIndexed { index, height ->
+            // Chat: a speech bubble, its tail at the lower left.
+            Tabs.CHAT -> {
+                val bubble = Path().apply {
+                    addRoundRect(RoundRect(w * 0.12f, w * 0.16f, w * 0.88f, w * 0.7f, CornerRadius(w * 0.16f)))
+                    moveTo(w * 0.26f, w * 0.66f)
+                    lineTo(w * 0.22f, w * 0.88f)
+                    lineTo(w * 0.46f, w * 0.68f)
+                }
+                drawPath(bubble, color, style = Stroke(width = stroke, join = StrokeJoin.Round))
+                drawCircle(if (selected) light else color, w * 0.06f, Offset(w * 0.5f, w * 0.43f))
+            }
+            // Activity: bars of different heights, the shape of a history.
+            Tabs.ACTIVITY -> listOf(0.45f, 0.7f, 0.3f, 0.58f).forEachIndexed { index, height ->
                 val x = w * (0.2f + index * 0.2f)
                 drawLine(color, Offset(x, w * 0.82f), Offset(x, w * (0.82f - height * 0.72f)), stroke * 1.2f, StrokeCap.Round)
             }
@@ -501,3 +520,13 @@ fun NavGlyph(tab: Int, selected: Boolean) {
         }
     }
 }
+
+/** The mark's one-colour paths, parsed once (tools/design/mark.py writes them). */
+private object NavMark {
+    val lid = PathParser().parsePathString(MarkPaths.MONO_LID).toPath().apply { fillType = PathFillType.EvenOdd }
+    val body = PathParser().parsePathString(MarkPaths.MONO_BODY).toPath()
+    val die = PathParser().parsePathString(MarkPaths.MONO_DIE).toPath()
+}
+
+/** MarkPaths are drawn in a 100-unit square. */
+private const val MARK_UNITS = 100f

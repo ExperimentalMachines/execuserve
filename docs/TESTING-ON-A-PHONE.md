@@ -132,7 +132,7 @@ gutters, with additional room for enlarged text.
 
 On a device, check every tab in both landscape rotations with gesture navigation and
 three-button navigation. Repeat with larger text, in split screen, and with the keyboard
-open in Settings or Try it. The header, cards and actions must stay inside the system bars
+open in Settings or Chat. The header, cards and actions must stay inside the system bars
 and camera cutout. A narrow landscape window may show one content column beside the rail;
 scroll the rail if the final tab does not fit vertically.
 

@@ -96,7 +96,7 @@ class ServeHostTest {
     }
 
     @Test
-    fun theConsoleTestGoesOverHttpLikeAnyClient() = runBlocking<Unit> {
+    fun theConsoleChatGoesOverHttpLikeAnyClient() = runBlocking<Unit> {
         host.start(onWedged = {})
         val text = StringBuilder()
         val reader = ReplyReader { content, _ -> text.append(content) }
@@ -105,7 +105,7 @@ class ServeHostTest {
         http.doOutput = true
         http.setRequestProperty("Authorization", "Bearer ${key.secret}")
         http.setRequestProperty("Content-Type", "application/json")
-        http.outputStream.use { it.write(ConsoleTest.body("qwen3-1.7b", "Hi", stream = true).toByteArray()) }
+        http.outputStream.use { it.write(ConsoleChat.body("qwen3-1.7b", listOf(ConsoleChat.Turn(ConsoleChat.Role.USER, "Hi")), thinking = null).toByteArray()) }
         assertEquals(200, http.responseCode)
         http.inputStream.bufferedReader().useLines { lines -> lines.takeWhile { reader.line(it) }.count() }
         assertEquals("Hello world", text.toString())
@@ -123,7 +123,7 @@ class ServeHostTest {
         host.start(onWedged = {})
         // 1 800 characters at 5 ms each: nine seconds of prompt, read in chunks of 63.
         runtime.prefillDelayPerCharMs = 5.0
-        val body = ConsoleTest.body("qwen3-1.7b", "word ".repeat(360), stream = false).toByteArray()
+        val body = ConsoleChat.body("qwen3-1.7b", listOf(ConsoleChat.Turn(ConsoleChat.Role.USER, "word ".repeat(360))), thinking = null).toByteArray()
         java.net.Socket("127.0.0.1", port).use { socket ->
             socket.getOutputStream().write(
                 (

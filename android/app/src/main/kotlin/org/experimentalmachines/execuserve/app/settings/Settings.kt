@@ -77,9 +77,18 @@ class SettingsStore(private val context: Context) : HostStore {
         }
     }
 
-    /** The key called [name], made on first use: the console's own test requests use one. */
-    suspend fun keyFor(name: String): ApiKey {
-        keys.first().firstOrNull { it.name == name }?.let { return it }
+    /**
+     * The key called [name], made on first use: the console's own chat uses one. A key under
+     * one of [formerNames] is renamed and kept, so a rename never leaves an orphan behind.
+     */
+    suspend fun keyFor(name: String, formerNames: Set<String> = emptySet()): ApiKey {
+        val all = keys.first()
+        all.firstOrNull { it.name == name }?.let { return it }
+        all.firstOrNull { it.name in formerNames }?.let { old ->
+            val renamed = old.copy(name = name)
+            context.store.edit { p -> p[KEYS] = encodeKeys(decodeKeys(p[KEYS]).map { if (it.id == old.id) renamed else it }) }
+            return renamed
+        }
         return addKey(name)
     }
 

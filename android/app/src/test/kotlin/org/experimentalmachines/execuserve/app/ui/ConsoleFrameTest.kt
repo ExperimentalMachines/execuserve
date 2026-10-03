@@ -128,11 +128,11 @@ class ConsoleFrameTest {
 
     @Test fun bothLandscapeRotationsProtectEveryTab() {
         for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
-            for (tab in 0..3) {
+            for (tab in TABS.indices) {
                 for ((left, right) in listOf(24 to 48, 48 to 24)) {
                     show(Scenario(left = left, right = right, tab = tab, theme = theme))
                     assertSafeBounds()
-                    assertEquals(tab == 0 || tab == 2, twoColumns)
+                    assertEquals(tab == Tabs.HOSTING || tab == Tabs.ACTIVITY, twoColumns)
                 }
             }
         }
@@ -168,14 +168,14 @@ class ConsoleFrameTest {
             assertSafeBounds()
             assertTrue(!twoColumns)
             compose.onNodeWithText("Settings").assertIsDisplayed().performClick()
-            assertEquals(3, selectedTab)
+            assertEquals(Tabs.SETTINGS, selectedTab)
         }
     }
 
     @Test fun shortLandscapeAndKeyboardKeepLastTabReachable() {
         show(Scenario(height = 240, bottom = 40))
         compose.onNodeWithText("Settings").performScrollTo().assertIsDisplayed().performClick()
-        assertEquals(3, selectedTab)
+        assertEquals(Tabs.SETTINGS, selectedTab)
     }
 
     @Test fun rtlKeepsPhysicalInsetsOnTheirReportedSides() {

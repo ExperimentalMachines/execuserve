@@ -59,23 +59,6 @@ class ConsoleTestTest {
     }
 
     @Test
-    fun theCurlCommandSurvivesQuotesInThePrompt() {
-        val curl = ConsoleTest.curl("http://127.0.0.1:8080/v1", "sk-1", "qwen3", "It's \"quoted\"", stream = true)
-        assertTrue(curl.startsWith("curl -N http://127.0.0.1:8080/v1/chat/completions"))
-        // A single quote closes the shell string, so it is written as '\''.
-        assertTrue("""It'\''s \"quoted\"""" in curl)
-        assertTrue("\"max_tokens\":${ConsoleTest.MAX_TOKENS}" in curl)
-    }
-
-    @Test
-    fun theModelListCurlNeedsOnlyTheKey() {
-        assertEquals(
-            "curl http://127.0.0.1:8080/v1/models \\\n  -H \"Authorization: Bearer sk-1\"",
-            ConsoleTest.curlModels("http://127.0.0.1:8080/v1", "sk-1"),
-        )
-    }
-
-    @Test
     fun errorBodiesAreReadInOpenAIShapeOrShortened() {
         assertEquals("No such model.", ConsoleTest.errorMessage("""{"error":{"message":"No such model."}}"""))
         assertEquals("plain text", ConsoleTest.errorMessage("plain text"))

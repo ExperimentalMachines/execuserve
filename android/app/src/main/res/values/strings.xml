@@ -8,6 +8,7 @@
     <!-- Tabs and shared actions -->
     <string name="tab_server">Hosting</string>
     <string name="tab_models">Library</string>
+    <string name="tab_chat">Chat</string>
     <string name="tab_runs">Activity</string>
     <string name="tab_settings">Settings</string>
     <string name="action_start">Start</string>
@@ -21,7 +22,6 @@
     <string name="action_open">Open</string>
     <string name="action_add">Add</string>
     <string name="action_revoke">Revoke</string>
-    <string name="action_send">Send</string>
     <string name="action_fix">Fix</string>
     <string name="action_allow">Allow</string>
     <string name="action_exempt">Exempt</string>
@@ -104,33 +104,12 @@
     <string name="heat_critical">Critical</string>
 
     <!-- Try it -->
-    <string name="try_title">Try it</string>
-    <string name="try_subtitle">One prompt to this server, over HTTP like any client</string>
-    <string name="try_prompt">Prompt</string>
-    <string name="try_prompt_default">Explain what an inference server does, in two sentences.</string>
-    <string name="try_stream">Stream the reply</string>
-    <string name="try_stream_on">Tokens appear as the model writes them (stream: true)</string>
-    <string name="try_stream_off">The whole reply arrives at once (stream: false)</string>
     <string name="try_model">Model</string>
-    <string name="try_limit" tools:ignore="PluralsCandidate">Up to %1$d tokens</string>
-    <string name="try_writing">Writing…</string>
-    <string name="try_waiting">Waiting for the whole reply…</string>
-    <string name="try_reasoning">Reasoning</string>
     <plurals name="characters">
         <item quantity="one">%s character</item>
         <item quantity="other">%s characters</item>
     </plurals>
-    <string name="try_stopped">Stopped.</string>
-    <string name="try_http_error">HTTP %1$d: %2$s</string>
-    <string name="fact_first_token">First token</string>
-    <string name="fact_total">Total</string>
-    <string name="fact_tokens">Tokens</string>
-    <string name="fact_tokens_value">%1$s in, %2$s out</string>
     <string name="fact_cached">Cached</string>
-    <string name="fact_finish">Ended</string>
-    <string name="try_terminal">Same request from a terminal</string>
-    <string name="try_terminal_stream">curl -N, stream: true</string>
-    <string name="try_terminal_whole">curl, stream: false</string>
 
     <!-- host.Outcome -->
     <string name="outcome_done">Done</string>
@@ -416,4 +395,29 @@
     <string name="report_field_note">Note</string>
     <string name="report_field_version">App version</string>
     <string name="report_field_reply">Reply:</string>
+
+    <!-- Chat: the console's own client of its server. -->
+    <string name="host_chat">Chat</string>
+    <string name="chat_start_title">Start serving to chat</string>
+    <string name="chat_start_note">Chat talks to your models through the server, the way any app does. Start it to begin.</string>
+    <string name="chat_no_models_title">Install a model to chat</string>
+    <string name="chat_no_models_note">Download one from the catalog, or copy a .pte export onto the phone.</string>
+    <string name="chat_no_models_action">Open Library</string>
+    <string name="chat_welcome">Talk to %1$s</string>
+    <string name="chat_welcome_note">Replies come from the model on this phone, through the same API, key and queue your apps use.</string>
+    <string name="chat_suggest_plan">Plan my day in five steps</string>
+    <string name="chat_suggest_explain">Explain a KV cache simply</string>
+    <string name="chat_suggest_write">Write a haiku about this phone</string>
+    <string name="chat_placeholder">Message %1$s</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_stop">Stop</string>
+    <string name="chat_new">New chat</string>
+    <string name="chat_think">Think</string>
+    <string name="chat_reasoning">Reasoning</string>
+    <string name="chat_reasoning_now">Thinking…</string>
+    <string name="chat_waiting">Reading your message…</string>
+    <string name="chat_stopped">Stopped</string>
+    <string name="chat_http_error">The server said %1$d: %2$s</string>
+    <string name="chat_prefill">Prefill %1$s tok/s</string>
+    <string name="chat_decode">Decode %1$s tok/s</string>
 </resources>

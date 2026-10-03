@@ -26,8 +26,10 @@ import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.engine.JobRecord
 import org.experimentalmachines.execuserve.engine.Metrics
 import org.experimentalmachines.execuserve.engine.ModelEntry
-import org.experimentalmachines.execuserve.host.CONSOLE_TEST_KEY
+import org.experimentalmachines.execuserve.host.CONSOLE_KEY
+import org.experimentalmachines.execuserve.host.ConsoleChat
 import org.experimentalmachines.execuserve.host.ConsoleTest
+import org.experimentalmachines.execuserve.host.FORMER_CONSOLE_KEYS
 import org.experimentalmachines.execuserve.host.HostSettings
 import org.experimentalmachines.execuserve.host.ServeHost
 import org.experimentalmachines.execuserve.host.TestFailure
@@ -35,18 +37,29 @@ import org.experimentalmachines.execuserve.host.TestResult
 import org.experimentalmachines.execuserve.server.ApiKey
 import org.experimentalmachines.execuserve.server.BindMode
 
-/** The console's test request. */
-data class TryState(
-    val stream: Boolean = true,
-    /** The model the reply came from, for a report. */
+/** One message in the console's chat. A reply fills in as it streams. */
+data class ChatMessage(
+    val id: Long,
+    val fromUser: Boolean,
+    val content: String,
+    val reasoning: String = "",
+    /** The model that answered, for its label and a report. */
     val model: String? = null,
     val running: Boolean = false,
-    val content: String = "",
-    val reasoning: String = "",
     val result: TestResult? = null,
     val failure: TestFailure? = null,
     val stopped: Boolean = false,
 )
+
+/** The console's chat: one conversation in memory, gone when the app process is. */
+data class ChatState(
+    val messages: List<ChatMessage> = emptyList(),
+    /** Chosen in the picker; null until someone chooses, so the screen can suggest one. */
+    val model: String? = null,
+    val thinking: Boolean = false,
+) {
+    val running: Boolean get() = messages.lastOrNull()?.running == true
+}
 
 sealed interface BenchmarkState {
     data object Idle : BenchmarkState
@@ -96,8 +109,9 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, sharing, 0L)
 
     private val client = LocalClient()
-    private val _tryState = MutableStateFlow(TryState())
-    val tryState: StateFlow<TryState> = _tryState.asStateFlow()
+    private val _chat = MutableStateFlow(ChatState())
+    val chat: StateFlow<ChatState> = _chat.asStateFlow()
+    private var nextMessageId = 0L
 
     private val _catalog = MutableStateFlow<CatalogState>(CatalogState.Idle)
     val catalog: StateFlow<CatalogState> = _catalog.asStateFlow()
@@ -123,8 +137,8 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     fun cancelJob(id: String) = viewModelScope.launch { graph.host.cancel(id) }
 
-    /** The key a person shares: theirs, not the one the console's own test requests use. */
-    fun shareableKey(keys: List<ApiKey>): ApiKey? = keys.firstOrNull { it.name != CONSOLE_TEST_KEY } ?: keys.firstOrNull()
+    /** The key a person shares: theirs, not the one the console's own chat uses. */
+    fun shareableKey(keys: List<ApiKey>): ApiKey? = keys.firstOrNull { it.name != CONSOLE_KEY && it.name !in FORMER_CONSOLE_KEYS } ?: keys.firstOrNull()
 
     /** The endpoint and key as one message, for the share sheet. */
     fun shareConnection(baseUrl: String, key: String, model: String?) {
@@ -181,37 +195,63 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     /** Processor cores, for the thread setting's choices. */
     val cpuCores: Int = Runtime.getRuntime().availableProcessors()
 
-    // Try it ------------------------------------------------------------------------------
+    // Chat ------------------------------------------------------------------------------
 
-    fun setTryStream(on: Boolean) = _tryState.update { it.copy(stream = on) }
+    fun chooseChatModel(id: String) = _chat.update { it.copy(model = id) }
+
+    fun setChatThinking(on: Boolean) = _chat.update { it.copy(thinking = on) }
+
+    /** Starts over; a reply still being written is stopped first. */
+    fun newChat() {
+        if (_chat.value.running) client.cancel()
+        _chat.update { ChatState(model = it.model, thinking = it.thinking) }
+    }
+
+    fun stopChat() = client.cancel()
 
     /**
-     * Sends [prompt] to this app's own server over loopback, streamed or whole as the
-     * switch says, so the console shows exactly what a client would get.
+     * Sends [text] with the conversation so far to this app's own server, over loopback and
+     * streamed, exactly as another app would: the console sees what a client gets.
      */
-    fun runTry(prompt: String, model: String) {
-        if (_tryState.value.running) return
+    fun sendChat(text: String, model: String) {
+        val prompt = text.trim()
+        if (prompt.isEmpty() || _chat.value.running) return
         val port = (server.value as? ServeHost.State.Running)?.settings?.port ?: return
-        _tryState.update { TryState(stream = it.stream, running = true, model = model) }
+        // Earlier turns that produced something; a failed or empty reply is not context.
+        val history = _chat.value.messages.filter { it.content.isNotBlank() && it.failure == null }
+            .map { ConsoleChat.Turn(if (it.fromUser) ConsoleChat.Role.USER else ConsoleChat.Role.ASSISTANT, it.content) }
+        val turns = history + ConsoleChat.Turn(ConsoleChat.Role.USER, prompt)
+        val entry = installed.value.firstOrNull { it.id == model }
+        val thinking = if (entry != null && ConsoleChat.canThink(entry)) _chat.value.thinking else null
+        val askId = ++nextMessageId
+        val replyId = ++nextMessageId
+        _chat.update {
+            it.copy(
+                model = model,
+                messages = it.messages + ChatMessage(askId, fromUser = true, content = prompt) +
+                    ChatMessage(replyId, fromUser = false, content = "", model = model, running = true),
+            )
+        }
         viewModelScope.launch {
-            val key = graph.settings.keyFor(CONSOLE_TEST_KEY)
+            val key = graph.settings.keyFor(CONSOLE_KEY, FORMER_CONSOLE_KEYS)
             var result: TestResult? = null
             var failure: TestFailure? = null
             var stopped = false
             try {
-                result = client.chat("http://127.0.0.1:$port/v1", key.secret, model, prompt, _tryState.value.stream) { content, reasoning ->
-                    _tryState.update { it.copy(content = it.content + content, reasoning = it.reasoning + reasoning) }
+                result = client.chat("http://127.0.0.1:$port/v1", key.secret, ConsoleChat.body(model, turns, thinking)) { content, reasoning ->
+                    updateReply(replyId) { it.copy(content = it.content + content, reasoning = it.reasoning + reasoning) }
                 }
             } catch (_: StoppedByUser) {
                 stopped = true
             } catch (refused: TestFailure) {
                 failure = refused
             }
-            _tryState.update { it.copy(running = false, result = result, failure = failure, stopped = stopped) }
+            updateReply(replyId) { it.copy(running = false, result = result, failure = failure, stopped = stopped) }
         }
     }
 
-    fun stopTry() = client.cancel()
+    private fun updateReply(id: Long, change: (ChatMessage) -> ChatMessage) =
+        _chat.update { state -> state.copy(messages = state.messages.map { if (it.id == id) change(it) else it }) }
 
     // Models ------------------------------------------------------------------------------
 

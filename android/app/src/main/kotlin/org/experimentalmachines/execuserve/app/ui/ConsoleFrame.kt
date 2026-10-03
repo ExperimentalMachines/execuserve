@@ -118,7 +118,7 @@ internal fun ConsoleFrame(
                     contentAlignment = Alignment.TopCenter,
                 ) {
                     val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
-                    val twoColumns = (tab == 0 || tab == 2) &&
+                    val twoColumns = (tab == Tabs.HOSTING || tab == Tabs.ACTIVITY) &&
                         minOf(maxWidth, Dimens.columns) >= Dimens.minColumn * fontScale * 2 + Dimens.gutter
                     Box(
                         Modifier.widthIn(max = if (twoColumns) Dimens.columns else Dimens.column).fillMaxSize(),

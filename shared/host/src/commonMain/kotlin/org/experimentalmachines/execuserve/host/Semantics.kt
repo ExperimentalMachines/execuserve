@@ -101,5 +101,8 @@ enum class NetworkKind { THIS_DEVICE, WIFI, TAILSCALE, VPN, HOTSPOT, USB, ETHERN
 /** One URL a client can use. */
 data class Endpoint(val url: String, val network: NetworkKind)
 
-/** The key the console's own test requests use, so the log shows them as what they are. */
-const val CONSOLE_TEST_KEY = "Console test"
+/** The key the console's own chat uses, so the log shows its requests as what they are. */
+const val CONSOLE_KEY = "Console"
+
+/** Earlier names of [CONSOLE_KEY], taken over (same id and secret) rather than left behind. */
+val FORMER_CONSOLE_KEYS = setOf("Console test")

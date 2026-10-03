@@ -13,7 +13,7 @@ technical requirements were checked on the release build on 2 October 2026.
 | `targetSdk` 36 | Done | `aapt2 dump badging` |
 | 16 KB page alignment | All native libraries, ExecuTorch included, have 16 KB `LOAD` alignment, and the APK passes `zipalign -c -P 16` | Checked on the release APK |
 | Minified release runs | R8 with resource shrinking; the release build is what serves on the test phone | On device |
-| Generative-AI reporting | **Report this reply** on every reply in the console's Try it | `ReportDialogTest`, `ContentReportTest` |
+| Generative-AI reporting | **Report this reply** on every reply in the console's Chat | `ReportDialogTest`, `ContentReportTest` |
 | Privacy policy | [privacy-policy.md](privacy-policy.md), live at [experimentalmachines.org/execuserve/privacy](https://experimentalmachines.org/execuserve/privacy/) | Published with the organisation's site |
 
 ## The upload key, once

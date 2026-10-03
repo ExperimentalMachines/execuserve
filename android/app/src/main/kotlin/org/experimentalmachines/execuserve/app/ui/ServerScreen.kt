@@ -19,15 +19,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,7 +45,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
-import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.app.settings.Recovery
 import org.experimentalmachines.execuserve.app.text.Format
@@ -59,11 +53,10 @@ import org.experimentalmachines.execuserve.engine.JobRecord
 import org.experimentalmachines.execuserve.engine.LaneState
 import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.host.Benchmark
-import org.experimentalmachines.execuserve.host.ConsoleTest
 import org.experimentalmachines.execuserve.host.Heat
 import org.experimentalmachines.execuserve.host.HostSettings
+import org.experimentalmachines.execuserve.host.ModelNames
 import org.experimentalmachines.execuserve.host.NetworkKind
-import org.experimentalmachines.execuserve.host.Outcome
 import org.experimentalmachines.execuserve.host.ServeHost
 import org.experimentalmachines.execuserve.host.ServerLook
 import org.experimentalmachines.execuserve.server.ApiKey
@@ -71,7 +64,15 @@ import org.experimentalmachines.execuserve.server.BindMode
 
 /** The listener is shared; every installed model has its own address and memory state. */
 @Composable
-fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, openModels: () -> Unit, openRuns: () -> Unit, openSettings: () -> Unit) {
+fun ServerScreen(
+    model: MainViewModel,
+    padding: PaddingValues,
+    wide: Boolean,
+    openModels: () -> Unit,
+    openRuns: () -> Unit,
+    openSettings: () -> Unit,
+    openChat: (String) -> Unit,
+) {
     val server by model.server.collectAsState()
     val status by model.status.collectAsState()
     val settings by model.settings.collectAsState()
@@ -88,13 +89,7 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
                 server,
                 status,
                 installed.size,
-                if (current.threads ==
-                    0
-                ) {
-                    current.maxResidentModels
-                } else {
-                    1
-                },
+                if (current.threads == 0) current.maxResidentModels else 1,
                 recovery,
                 model::start,
                 model::stop,
@@ -105,9 +100,18 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
             PanelTitle(stringResource(R.string.host_models), trailing = { Action(stringResource(R.string.host_library), openModels) })
         }
         if (installed.isEmpty()) item(key = "empty") { EmptyModels(openModels) }
-        installed.forEach { entry ->
+        val resident = status?.resident.orEmpty().map { it.id }.toSet()
+        ModelNames.hostedOrder(installed, resident, current.defaultModel).forEach { entry ->
             item(key = "host-" + entry.id) {
-                HostedModel(entry, status, running, runs.firstOrNull { it.model == entry.id && it.api != Benchmark.API }, model)
+                HostedModel(
+                    entry,
+                    ModelNames.shown(entry, installed),
+                    status,
+                    running,
+                    runs.firstOrNull { it.model == entry.id && it.api != Benchmark.API },
+                    model,
+                    onChat = { openChat(entry.id) },
+                )
             }
         }
     }
@@ -115,9 +119,6 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
         item(key = "connect") { ConnectPanel(server, current, key, model) }
         item(key = "attention") { Attention() }
         item(key = "device") { DevicePanel(model) }
-        if (running != null && installed.isNotEmpty()) {
-            item(key = "try") { TryPanel(model, running, current, key, installed, status) }
-        }
         item(key = "log") { LogPanel(runs.filter { it.api != Benchmark.API }.take(LATEST_RUNS), openRuns) }
     }
     if (wide) {
@@ -195,7 +196,15 @@ private fun StatusPanel(
 /** Metrics belong to a model, never to whichever model happened to finish most recently. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HostedModel(entry: ModelEntry, status: EngineStatus?, running: ServeHost.State.Running?, last: JobRecord?, model: MainViewModel) {
+private fun HostedModel(
+    entry: ModelEntry,
+    name: String,
+    status: EngineStatus?,
+    running: ServeHost.State.Running?,
+    last: JobRecord?,
+    model: MainViewModel,
+    onChat: () -> Unit,
+) {
     val loaded = status?.resident?.any { it.id == entry.id } == true
     val job = status?.running?.takeIf { it.model == entry.id }
     val broken = status?.broken?.get(entry.id)
@@ -232,7 +241,7 @@ private fun HostedModel(entry: ModelEntry, status: EngineStatus?, running: Serve
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             LabMark(model, entry.lab, 32.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(entry.aliases.firstOrNull() ?: entry.id, style = MaterialTheme.typography.titleMedium)
+                Text(name, style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(state), style = MaterialTheme.typography.labelLarge, color = tone.color)
             }
         }
@@ -315,6 +324,7 @@ private fun HostedModel(entry: ModelEntry, status: EngineStatus?, running: Serve
                         status?.lane != LaneState.LOADING,
                     )
                 }
+                Action(stringResource(R.string.host_chat), onChat)
                 Action(stringResource(if (connecting) R.string.host_close_connection else R.string.host_connect), { connecting = !connecting })
             }
         }
@@ -480,142 +490,6 @@ private fun LogPanel(latest: List<JobRecord>, openRuns: () -> Unit) {
 // ---------------------------------------------------------------------------------------
 // Try it
 // ---------------------------------------------------------------------------------------
-
-/**
- * One request to this server from the console, streamed or whole. Not a chat: a single
- * prompt, to see the endpoint answer the way a client would and what it cost.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun TryPanel(
-    model: MainViewModel,
-    running: ServeHost.State.Running,
-    settings: HostSettings,
-    key: ApiKey?,
-    installed: List<ModelEntry>,
-    status: EngineStatus?,
-) {
-    val tones = LocalTones.current
-    val state by model.tryState.collectAsState()
-    val defaultPrompt = stringResource(R.string.try_prompt_default)
-    var prompt by rememberSaveable { mutableStateOf(defaultPrompt) }
-    var chosen by rememberSaveable { mutableStateOf<String?>(null) }
-    val target = chosen?.takeIf { id -> installed.any { it.id == id } }
-        ?: status?.resident?.firstOrNull()?.id ?: settings.defaultModel ?: installed.first().id
-    // Collapsed until wanted: a test is an occasional act, and open it would push the figures and the log down.
-    Panel {
-        Expandable(stringResource(R.string.try_title), stringResource(R.string.try_subtitle)) {
-            OutlinedTextField(
-                value = prompt,
-                onValueChange = { prompt = it },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 5,
-                label = { Text(stringResource(R.string.try_prompt)) },
-            )
-            if (installed.size > 1) {
-                MenuRow(
-                    stringResource(R.string.try_model),
-                    options = installed.map { it.id to (it.aliases.firstOrNull() ?: it.id) },
-                    selected = target,
-                    onSelect = { chosen = it },
-                )
-            }
-            SwitchRow(
-                stringResource(R.string.try_stream),
-                stringResource(if (state.stream) R.string.try_stream_on else R.string.try_stream_off),
-                state.stream,
-            ) { model.setTryStream(it) }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (state.running) {
-                    OutlineButton(stringResource(R.string.action_stop), model::stopTry)
-                    Text(
-                        stringResource(if (state.stream || state.content.isNotEmpty()) R.string.try_writing else R.string.try_waiting),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    InkButton(stringResource(R.string.action_send), onClick = { model.runTry(prompt, target) }, enabled = prompt.isNotBlank())
-                    Text(
-                        stringResource(R.string.try_limit, ConsoleTest.MAX_TOKENS),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            if (state.running && state.content.isEmpty() && state.reasoning.isEmpty()) {
-                LinearProgressIndicator(Modifier.fillMaxWidth(), color = tones.working.color, trackColor = tones.working.container)
-            }
-            if (state.reasoning.isNotEmpty()) {
-                Expandable(
-                    stringResource(R.string.try_reasoning),
-                    pluralStringResource(R.plurals.characters, state.reasoning.length, Format.count(state.reasoning.length)),
-                ) {
-                    SelectionContainer {
-                        Text(state.reasoning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-            if (state.content.isNotEmpty()) {
-                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
-                    SelectionContainer { Text(state.content, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium) }
-                }
-                // Play's generative-AI policy: any reply can be reported from here.
-                if (!state.running) {
-                    var reporting by rememberSaveable { mutableStateOf(false) }
-                    val context = LocalContext.current
-                    val chooser = stringResource(R.string.report_chooser)
-                    TextButton(onClick = { reporting = true }) { Text(stringResource(R.string.report_action)) }
-                    if (reporting) {
-                        ReportDialog(
-                            model = state.model ?: target,
-                            reply = state.content,
-                            version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                            onDismiss = { reporting = false },
-                            onShare = { subject, text ->
-                                reporting = false
-                                ContentReport.share(context, subject, text, chooser)
-                            },
-                        )
-                    }
-                }
-            }
-            if (state.stopped) {
-                Text(stringResource(R.string.try_stopped), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            state.failure?.let { failure ->
-                Text(
-                    failure.status?.let { stringResource(R.string.try_http_error, it, failure.message.orEmpty()) } ?: failure.message.orEmpty(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = tones.failed.color,
-                )
-            }
-            state.result?.let { result ->
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.gutter), verticalArrangement = Arrangement.spacedBy(Dimens.row)) {
-                    // A whole reply arrives at once, so its first-token time would repeat the total.
-                    if (state.stream) Fact(stringResource(R.string.fact_first_token), Format.duration(result.firstTokenMs))
-                    Fact(stringResource(R.string.fact_total), Format.duration(result.totalMs))
-                    Fact(
-                        stringResource(R.string.fact_tokens),
-                        stringResource(R.string.fact_tokens_value, Format.count(result.promptTokens), Format.count(result.completionTokens)),
-                    )
-                    if (result.decodeTokensPerSecond > 0) {
-                        Fact(stringResource(R.string.host_decode), stringResource(R.string.fig_rate, Format.rate(result.decodeTokensPerSecond)))
-                    }
-                    if (result.cachedTokens > 0) Fact(stringResource(R.string.fact_cached), Format.count(result.cachedTokens))
-                    result.finish?.let { finish ->
-                        val outcome = Outcome.of(finish)
-                        Fact(stringResource(R.string.fact_finish), stringResource(outcome.words), valueColor = tones.of(outcome.mood).color)
-                    }
-                }
-            }
-            val curl = ConsoleTest.curl(running.endpoints.first().url, key?.secret ?: "KEY", target, prompt, state.stream)
-            Expandable(stringResource(R.string.try_terminal), stringResource(if (state.stream) R.string.try_terminal_stream else R.string.try_terminal_whole)) {
-                CopyRow(curl)
-            }
-        }
-    }
-}
 
 /**
  * What another app on this phone puts in `res/xml/network_security_config.xml` to call

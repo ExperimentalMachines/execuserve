@@ -39,6 +39,7 @@ import org.experimentalmachines.execuserve.catalog.Labs
 import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.executorch.ExecuTorchRuntime
+import org.experimentalmachines.execuserve.host.ModelNames
 
 @Composable
 fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
@@ -75,6 +76,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
                     key(entry.id) {
                         InstalledRow(
                             entry = entry,
+                            name = ModelNames.shown(entry, installed),
                             isDefault = settings?.let { entry.id == it.defaultModel || entry.id in it.preloadModels } == true,
                             status = status,
                             onDefault = { on ->
@@ -164,7 +166,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
         val freed = remember(entry) { model.bytesFreedBy(entry) }
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text(stringResource(R.string.delete_title, entry.aliases.firstOrNull() ?: entry.id)) },
+            title = { Text(stringResource(R.string.delete_title, ModelNames.shown(entry, installed))) },
             text = { Text(stringResource(R.string.delete_body, Format.bytes(freed))) },
             confirmButton = {
                 Action(stringResource(R.string.action_delete), onClick = {
@@ -182,6 +184,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues) {
 @Composable
 private fun InstalledRow(
     entry: ModelEntry,
+    name: String,
     isDefault: Boolean,
     status: EngineStatus?,
     onDefault: (Boolean) -> Unit,
@@ -198,7 +201,7 @@ private fun InstalledRow(
         Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
                 LabMark(model, entry.lab, 32.dp)
-                Text(entry.aliases.firstOrNull() ?: entry.id, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                Text(name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                 // A state is a light and a word, as everywhere else.
                 if (loaded) {
                     Dot(tones.good.color, 8.dp)

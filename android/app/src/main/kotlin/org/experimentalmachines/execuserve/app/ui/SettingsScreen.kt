@@ -33,6 +33,7 @@ import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.executorch.ExecuTorchRuntime
 import org.experimentalmachines.execuserve.host.Choices
+import org.experimentalmachines.execuserve.host.ModelNames
 import org.experimentalmachines.execuserve.host.ServeHost
 import org.experimentalmachines.execuserve.host.ThemeMode
 import org.experimentalmachines.execuserve.host.ThinkingDefault
@@ -97,7 +98,7 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues) {
                 )
                 Expandable(stringResource(R.string.settings_startup_models), stringResource(R.string.settings_startup_models_note)) {
                     installed.forEach { entry ->
-                        SwitchRow(entry.aliases.firstOrNull() ?: entry.id, null, entry.id in current.preloadModels || entry.id == current.defaultModel) { on ->
+                        SwitchRow(ModelNames.shown(entry, installed), null, entry.id in current.preloadModels || entry.id == current.defaultModel) { on ->
                             update { settings ->
                                 settings.copy(
                                     defaultModel = settings.defaultModel.takeUnless { !on && it == entry.id },
