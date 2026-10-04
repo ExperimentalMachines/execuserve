@@ -144,24 +144,36 @@ main and run it again; the new count is a new code.
 
 ### Setting it up, once
 
-1. **A service account with access to ExecuServe.** OpenWeights already releases with one. In
-   the Play Console, *Users and permissions*, open that service account (or invite a new one)
-   and under *App permissions* add ExecuServe, with *View app information (read-only)*,
-   *Release apps to testing tracks* and *Release to production, exclude devices, and use Play
-   App Signing*. Nothing account-wide. Its JSON key is not kept anywhere once it is a secret,
-   so create a new key for it in the Google Cloud Console (*IAM*, *Service accounts*, *Keys*).
-2. **The secrets.** On the machine that signs releases, with `keystore.properties` in place:
+1. **A service account of its own.** ExecuServe releases with
+   `execuserve-release@play-integrity-bjvtksbr6dao04e.iam.gserviceaccount.com` ("ExecuServe
+   release (GitHub Actions)"), in the same Google Cloud project as OpenWeights'
+   `openweights-release`, which has the Google Play Android Developer API enabled. One account
+   per app, so a key can publish only its own app and either can be revoked or rotated alone.
+   It was created on 2026-10-04 and its JSON key went straight into the repository secret
+   `PLAY_SERVICE_ACCOUNT_JSON`; no copy was kept. To rotate it, create a new key and set the
+   secret from it, then delete the old key:
 
    ```sh
-   GEMINI_API_KEY=... tools/release/set_play_secrets.sh ~/Downloads/<the key>.json
+   gcloud iam service-accounts keys create key.json --project play-integrity-bjvtksbr6dao04e \
+     --iam-account execuserve-release@play-integrity-bjvtksbr6dao04e.iam.gserviceaccount.com
+   gh secret set PLAY_SERVICE_ACCOUNT_JSON -R ExperimentalMachines/execuserve < key.json && rm key.json
+   gcloud iam service-accounts keys list --managed-by=user --project play-integrity-bjvtksbr6dao04e \
+     --iam-account execuserve-release@play-integrity-bjvtksbr6dao04e.iam.gserviceaccount.com
+   gcloud iam service-accounts keys delete <the old key's id> --project play-integrity-bjvtksbr6dao04e \
+     --iam-account execuserve-release@play-integrity-bjvtksbr6dao04e.iam.gserviceaccount.com
    ```
-
-   It sets `EXECUSERVE_KEYSTORE_BASE64`, `EXECUSERVE_KEYSTORE_PASSWORD`,
-   `EXECUSERVE_KEY_ALIAS` and `EXECUSERVE_KEY_PASSWORD` from `keystore.properties` and the
-   keystore it names, `PLAY_SERVICE_ACCOUNT_JSON` from the key, and `GEMINI_API_KEY` if one is
-   exported. Every value goes from its file into `gh secret set` on stdin and is never
-   printed. Delete the downloaded key after.
-3. **A dry run** on the internal track, then a real one there, before the first production
+2. **Its access to the app.** In the Play Console, *Users and permissions*, *Invite new users*,
+   with that email address. Under *App permissions* add ExecuServe only, with *View app
+   information (read-only)*, *Release apps to testing tracks* and *Release to production,
+   exclude devices, and use Play App Signing*. Nothing account-wide.
+3. **The signing secrets.** On the machine that signs releases, with `keystore.properties` in
+   place, `tools/release/set_play_secrets.sh` sets `EXECUSERVE_KEYSTORE_BASE64`,
+   `EXECUSERVE_KEYSTORE_PASSWORD`, `EXECUSERVE_KEY_ALIAS` and `EXECUSERVE_KEY_PASSWORD` from
+   it and the keystore it names (done on 2026-10-04). Given a key file it also sets
+   `PLAY_SERVICE_ACCOUNT_JSON`, and with `GEMINI_API_KEY` exported it sets that secret, for
+   drafted notes. Every value goes from its file into `gh secret set` on stdin and is never
+   printed.
+4. **A dry run** on the internal track, then a real one there, before the first production
    release from the workflow.
 
 The same script runs from a laptop, with the key's JSON in `PLAY_SERVICE_ACCOUNT_JSON`:
