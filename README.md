@@ -342,7 +342,7 @@ cd execuserve
 | Checks | `./gradlew verify` runs ktlint, detekt and Android lint, every JVM and Android host test, assembles the debug build and compiles the shared modules for iOS; every Kotlin warning fails the build |
 | Without a phone | `./gradlew :jvm:devserver:installDist` builds the real server over a scripted model; `tools/compat/` holds the OpenAI, Anthropic and edge-case suites to run against it or a phone |
 | On a phone | [docs/TESTING-ON-A-PHONE.md](docs/TESTING-ON-A-PHONE.md) |
-| Release | `versionCode` is the commit count; `bundleRelease` needs the upload key ([docs/RELEASING.md](docs/RELEASING.md)) |
+| Release | `versionCode` is the commit count; `bundleRelease` needs the upload key; the **Release** workflow builds main and publishes to a Play track ([docs/RELEASING.md](docs/RELEASING.md)) |
 
 ```sh
 jvm/devserver/build/install/execuserve-dev/bin/execuserve-dev --port 8080 --key sk-dev
@@ -378,7 +378,7 @@ backgrounding, exposure, every edge case and the design review log are in
 | [docs/TESTING-ON-A-PHONE.md](docs/TESTING-ON-A-PHONE.md) | Testing on a physical phone, from installing past HyperOS to a screen-off soak |
 | [docs/results/](docs/results/) | Measurements on real phones, with dates |
 | [docs/brand/](docs/brand/) | The mark, lockups, Play assets and how to use them |
-| [docs/RELEASING.md](docs/RELEASING.md) | Signing, version codes, and the Play release steps |
+| [docs/RELEASING.md](docs/RELEASING.md) | Signing, version codes, releasing from GitHub Actions, and the Play Console steps |
 | [docs/privacy-policy.md](docs/privacy-policy.md) | What stays on the phone and what leaves, and when; published at [experimentalmachines.org/execuserve/privacy](https://experimentalmachines.org/execuserve/privacy/) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Setting up, the checks, what a change needs |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability, and what is in scope |

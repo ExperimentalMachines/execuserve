@@ -1,7 +1,8 @@
 # Releasing to Google Play
 
-What the build already does for a Play release, and what is left to do by hand. The
-technical requirements were checked on the release build on 2 October 2026.
+What the build already does for a Play release, how a release goes out from GitHub Actions,
+and what is left to do by hand. The technical requirements were checked on the release build
+on 2 October 2026.
 
 ## What the build does
 
@@ -58,6 +59,114 @@ shallow clone stops the build rather than counting wrong; CI fetches the full hi
 squash or rebase ever takes the count below a code already uploaded, the build stops and
 asks for `versionCodeFloor` in `android/app/build.gradle.kts` to be raised. `versionName` is
 typed by hand.
+
+## Releasing from GitHub Actions
+
+`.github/workflows/release.yml`, started by hand: Actions, **Release**, **Run workflow**. It is
+OpenWeights' release workflow and its `tools/release/play.py`, ported: what differs is the
+package (`org.experimentalmachines.execuserve`), where `versionName` lives
+(`android/app/build.gradle.kts`), the secrets' names (`EXECUSERVE_*`), and which paths count as
+shipping in the bundle. It builds main as it is at that moment and takes five inputs: the
+track (internal, closed testing `alpha`, open testing `beta`, or production), the rollout
+percentage (below 100 is a staged rollout), the What's new text (optional), a `version_code`
+to promote instead of building, and a dry run switch.
+
+It runs in two jobs.
+
+1. **prepare** runs the release tool's tests, checks the secrets, asks Play which version
+   code each track is serving, and stops within seconds if main's code is not higher than
+   every code Play has, or if nothing has changed. It then writes the release notes (below),
+   builds `:android:app:bundleRelease` with the upload key (the store build: without
+   `-PcatalogUncensored`), checks the bundle is signed, and keeps the bundle, `mapping.txt`
+   and the notes as the run's artifact. The run's summary shows the notes, the commits they
+   came from, and the SHA-256 of the signing certificate, which must match the upload
+   certificate in the Console.
+2. **publish** uploads the bundle and the R8 mapping file, puts the release on the track with
+   the notes, and commits the edit. For production it waits first: the job runs in the
+   `play-production` environment, which needs an approval from @alpharomercoma, so nothing
+   reaches users until somebody has read the summary and pressed Approve. The testing tracks
+   go straight through (`play-testing`). Both environments deploy from main only. A dry run
+   stops before this job and uploads nothing.
+
+A track with no release yet, production before the first one there, is measured from the
+newest version any testing track has, below the one being released. With no release on any
+track at all, the run needs the text in whats_new.
+
+### Testing first, then promoting the same bundle
+
+Release to internal testing, look at it on a phone, then promote that bundle: given a
+`version_code` Play already has, the workflow builds nothing and releases that bundle on the
+chosen track, with notes from the commits since the track's version up to the one that bundle
+was built from. It refuses a code Play does not have, and a code no commit on main has the
+count of.
+
+```
+Run workflow: track internal                       builds main as 31, releases it to testers
+Run workflow: track production, version_code 31    promotes that bundle, after the approval
+```
+
+### Where "what changed" comes from
+
+The version code is the commit count on main, so the code a track is serving names the commit
+it was built from, and the release is every commit after it. `tools/release/play.py notes`
+reads the code from Play, finds that commit on main, and lists everything since. For a
+testing track it measures from the higher of that track's code and production's, because
+testers are production users too and Play gives them whichever is newer.
+
+Typed into the whats_new box, the text is used as it is (`\n` between lines). Left empty,
+Gemini drafts it on the API's free tier, in at most 450 characters, from the commits that
+changed what ships in the Android bundle: `android/*`, `shared/*` and the build
+configuration (`gradle/`, `gradle.properties`, `build-logic/`, the root build and settings
+scripts), with test, debug and iOS
+source sets aside. Commits that touched only docs,
+results, tests, `jvm/` or tooling are listed on the summary but never shown to the model.
+Each draft tries `gemini-3.8-flash`, then `gemini-3.5-flash`, then `gemini-2.5-flash-lite`,
+three times each with backoff, and the summary names the one that wrote it. That needs a
+`GEMINI_API_KEY` secret; without one an empty box stops the run with a message. What is sent
+is commit messages that are already public in this repository, and nothing else. Either way
+the text is held to Play's 500-character limit and the house style (no em or en dashes), and a
+production release waits for the approval, so a bad draft is rejected there and the run started
+again with the text typed in.
+
+### Choices made on purpose
+
+- **Main only.** A branch builds a lower commit count, and Play refuses a code that goes down.
+- **Nothing already in review is cancelled.** The edit is committed with `ERROR_IF_IN_REVIEW`,
+  so a listing change waiting in review stops the run instead of being resubmitted with it.
+- **No third-party action sees the Play key.** The upload is Google's own Python client,
+  pinned in `tools/release/requirements.txt`.
+- **A dry run uploads nothing.** It checks the secrets, Play access, the version code, the
+  notes, the build and the signature.
+- **One release at a time**, and a running one is never cancelled by the next.
+
+If a run fails after the upload with "version code has already been used", push any commit to
+main and run it again; the new count is a new code.
+
+### Setting it up, once
+
+1. **A service account with access to ExecuServe.** OpenWeights already releases with one. In
+   the Play Console, *Users and permissions*, open that service account (or invite a new one)
+   and under *App permissions* add ExecuServe, with *View app information (read-only)*,
+   *Release apps to testing tracks* and *Release to production, exclude devices, and use Play
+   App Signing*. Nothing account-wide. Its JSON key is not kept anywhere once it is a secret,
+   so create a new key for it in the Google Cloud Console (*IAM*, *Service accounts*, *Keys*).
+2. **The secrets.** On the machine that signs releases, with `keystore.properties` in place:
+
+   ```sh
+   GEMINI_API_KEY=... tools/release/set_play_secrets.sh ~/Downloads/<the key>.json
+   ```
+
+   It sets `EXECUSERVE_KEYSTORE_BASE64`, `EXECUSERVE_KEYSTORE_PASSWORD`,
+   `EXECUSERVE_KEY_ALIAS` and `EXECUSERVE_KEY_PASSWORD` from `keystore.properties` and the
+   keystore it names, `PLAY_SERVICE_ACCOUNT_JSON` from the key, and `GEMINI_API_KEY` if one is
+   exported. Every value goes from its file into `gh secret set` on stdin and is never
+   printed. Delete the downloaded key after.
+3. **A dry run** on the internal track, then a real one there, before the first production
+   release from the workflow.
+
+The same script runs from a laptop, with the key's JSON in `PLAY_SERVICE_ACCOUNT_JSON`:
+`python3 tools/release/play.py notes --track production` prints what the next release would
+say, and `--base-code <code>` measures from a code of your choosing without asking Play.
 
 ## In the Play Console, by hand
 

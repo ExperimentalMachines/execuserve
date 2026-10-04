@@ -1,0 +1,193 @@
+name: Release
+
+# Builds the signed bundle from main and releases it on Google Play, when somebody asks for
+# it from the Actions tab. What goes out, what the notes say and the one-time setup (a Play
+# service account, the upload key as secrets) are in docs/RELEASING.md. The same workflow,
+# and the same tools/release/play.py, release OpenWeights.
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Play track: internal testing, closed testing (alpha), open testing (beta) or production'
+        type: choice
+        options: [internal, alpha, beta, production]
+        default: internal
+      rollout:
+        description: 'Percent of the track to release to. Below 100 is a staged rollout; internal takes 100 only'
+        type: number
+        default: 100
+      whats_new:
+        description: "What's new, at most 500 characters, \\n between lines. Empty: Gemini drafts it from the commits since the version on the track"
+        type: string
+        required: false
+      version_code:
+        description: 'Release a version Play already has, such as one tested on internal testing, instead of building main'
+        type: string
+        required: false
+      dry_run:
+        description: 'Build, sign and write the notes, and check Play access, but upload nothing'
+        type: boolean
+        default: false
+
+# One release at a time, and never cancelled halfway: a cancelled upload can leave Play
+# holding a version code that no release uses.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    # The version code is the commit count on the branch built, and only main's count is the
+    # one Play has been receiving. Anything else builds a lower code, which Play refuses.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      version_code: ${{ steps.notes.outputs.version_code }}
+      release_name: ${{ steps.notes.outputs.release_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The full history, for the same reason as in ci.yml: the version code is the
+          # commit count, and the notes are the commits since the one Play is serving.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install the release tools
+        run: |
+          pip install --quiet -r tools/release/requirements.txt
+          python3 -m unittest tools/release/test_play.py
+
+      - name: Check the secrets are set
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          EXECUSERVE_KEYSTORE_BASE64: ${{ secrets.EXECUSERVE_KEYSTORE_BASE64 }}
+          EXECUSERVE_KEYSTORE_PASSWORD: ${{ secrets.EXECUSERVE_KEYSTORE_PASSWORD }}
+          EXECUSERVE_KEY_ALIAS: ${{ secrets.EXECUSERVE_KEY_ALIAS }}
+          EXECUSERVE_KEY_PASSWORD: ${{ secrets.EXECUSERVE_KEY_PASSWORD }}
+        # bundleRelease refuses to run without the upload key, but only after the build has
+        # started; this says which secret is missing in seconds instead.
+        run: |
+          missing=""
+          for name in PLAY_SERVICE_ACCOUNT_JSON EXECUSERVE_KEYSTORE_BASE64 EXECUSERVE_KEYSTORE_PASSWORD \
+                      EXECUSERVE_KEY_ALIAS EXECUSERVE_KEY_PASSWORD; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing. See docs/RELEASING.md, Releasing from GitHub Actions."
+            exit 1
+          fi
+
+      # First, because it is the step that can say no in seconds: Play already has this
+      # version code, or nothing changed, or there is no text for the notes.
+      - name: What changed since the version on the track
+        id: notes
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          WHATS_NEW: ${{ inputs.whats_new }}
+          TRACK: ${{ inputs.track }}
+          VERSION_CODE: ${{ inputs.version_code }}
+        run: python3 tools/release/play.py notes --track "$TRACK" --out release ${VERSION_CODE:+--version-code "$VERSION_CODE"}
+
+      # Promoting a bundle Play already has builds nothing: the point is that production gets
+      # the exact bundle that was tested, not a rebuild of the same commit.
+
+      - uses: actions/setup-java@v4
+        if: inputs.version_code == ''
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: inputs.version_code == ''
+
+      - name: Android SDK platform and NDK
+        if: inputs.version_code == ''
+        # The same platform and NDK as ci.yml.
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "ndk;29.0.14206865" > /dev/null
+
+      - name: Build the signed bundle
+        if: inputs.version_code == ''
+        env:
+          EXECUSERVE_KEYSTORE_BASE64: ${{ secrets.EXECUSERVE_KEYSTORE_BASE64 }}
+          EXECUSERVE_KEYSTORE: ${{ runner.temp }}/upload.jks
+          EXECUSERVE_KEYSTORE_PASSWORD: ${{ secrets.EXECUSERVE_KEYSTORE_PASSWORD }}
+          EXECUSERVE_KEY_ALIAS: ${{ secrets.EXECUSERVE_KEY_ALIAS }}
+          EXECUSERVE_KEY_PASSWORD: ${{ secrets.EXECUSERVE_KEY_PASSWORD }}
+        # The store build: -PcatalogUncensored is never passed, so the catalog leaves out the
+        # abliterated derivatives (android/app/build.gradle.kts, docs/RELEASING.md).
+        run: |
+          echo "$EXECUSERVE_KEYSTORE_BASE64" | base64 --decode > "$EXECUSERVE_KEYSTORE"
+          ./gradlew :android:app:bundleRelease
+          rm -f "$EXECUSERVE_KEYSTORE"
+
+      - name: Check the bundle is signed with the upload key
+        if: inputs.version_code == ''
+        run: |
+          cp android/app/build/outputs/bundle/release/app-release.aab android/app/build/outputs/mapping/release/mapping.txt release/
+          keytool -printcert -jarfile release/app-release.aab > release/signature.txt || true
+          fingerprint=$(grep -m1 'SHA256:' release/signature.txt | sed 's/.*SHA256: *//')
+          if [ -z "$fingerprint" ]; then
+            cat release/signature.txt
+            echo "::error::The bundle is not signed."
+            exit 1
+          fi
+          {
+            echo "### The bundle"
+            echo
+            echo "$(du -h release/app-release.aab | cut -f1) AAB, signed by the certificate with SHA-256 \`$fingerprint\`."
+            echo "It must match the upload certificate in the Play Console (Test and release, App integrity)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.notes.outputs.version_code }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: prepare
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # play-production requires an approval before this job starts, so a production release
+    # waits here until somebody has read the notes and the commits on the run's summary.
+    # Testing tracks go straight through.
+    environment: ${{ inputs.track == 'production' && 'play-production' || 'play-testing' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install --quiet -r tools/release/requirements.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ needs.prepare.outputs.version_code }}
+          path: release
+
+      - name: Upload to Play and release
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          TRACK: ${{ inputs.track }}
+          ROLLOUT: ${{ inputs.rollout }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          RELEASE_NAME: ${{ needs.prepare.outputs.release_name }}
+        run: |
+          if [ -n "$VERSION_CODE" ]; then
+            source=(--version-code "$VERSION_CODE")
+          else
+            source=(--bundle release/app-release.aab --mapping release/mapping.txt)
+          fi
+          python3 tools/release/play.py publish --track "$TRACK" --rollout "$ROLLOUT" --name "$RELEASE_NAME" \
+            "${source[@]}" --notes release/whats-new.txt
