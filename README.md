@@ -13,7 +13,7 @@ An OpenAI- and Anthropic-compatible server for compiled `.pte` models, running i
 [![License](https://img.shields.io/badge/license-Apache--2.0-262626?style=flat-square)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-12%2B%20·%20arm64--v8a-262626?style=flat-square)](#requirements)
 [![APIs](https://img.shields.io/badge/APIs-OpenAI%20·%20Anthropic-262626?style=flat-square)](#http-api)
-[![Runtime](https://img.shields.io/badge/runtime-ExecuTorch%201.4-EE4C2C?style=flat-square)](https://github.com/pytorch/executorch)
+[![Runtime](https://img.shields.io/badge/runtime-ExecuTorch%201.5-EE4C2C?style=flat-square)](https://github.com/pytorch/executorch)
 [![Kotlin Multiplatform](https://img.shields.io/badge/core-Kotlin%20Multiplatform-262626?style=flat-square)](#architecture)
 
 </div>
@@ -336,7 +336,7 @@ cd execuserve
 |---|---|
 | Toolchain | JDK 21 (compiling to Java 17), Android SDK platform 37, NDK 29 |
 | Targets | minSdk 31, targetSdk 36, compileSdk 37, `arm64-v8a` only |
-| Stack | Kotlin 2.3.21, Ktor 3.6 (CIO), kotlinx.coroutines and serialization, Jetpack Compose, DataStore, ExecuTorch 1.4 |
+| Stack | Kotlin 2.3.21, Ktor 3.6 (CIO), kotlinx.coroutines and serialization, Jetpack Compose, DataStore, ExecuTorch 1.5 |
 | Checks | `./gradlew verify` runs ktlint, detekt and Android lint, every JVM and Android host test, assembles the debug build and compiles the shared modules for iOS; every Kotlin warning fails the build |
 | Without a phone | `./gradlew :jvm:devserver:installDist` builds the real server over a scripted model; `tools/compat/` holds the OpenAI, Anthropic and edge-case suites to run against it or a phone |
 | On a phone | [docs/TESTING-ON-A-PHONE.md](docs/TESTING-ON-A-PHONE.md) |

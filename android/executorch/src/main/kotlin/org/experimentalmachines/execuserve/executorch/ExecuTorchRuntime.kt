@@ -15,8 +15,10 @@ import org.pytorch.executorch.extension.llm.LlmModule
 import java.io.File
 
 /**
- * ExecuTorch 1.4.0 on XNNPACK. Everything below was measured in OpenWeights, which has run
- * these exports on phones since 2026-08; the comments say what each line works around.
+ * ExecuTorch 1.5.1 on XNNPACK. Everything below was measured in OpenWeights on 1.4.0, which has
+ * run these exports on phones since 2026-08; the comments say what each line works around.
+ * 1.5.1 left the JNI LLM layer (jni_layer_llama.cpp) and the threadpool unchanged, so the
+ * BOS, token-budget and stop behaviour described here carries over.
  */
 class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { true }) : LlmRuntime {
 

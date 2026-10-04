@@ -2,6 +2,7 @@ package org.experimentalmachines.execuserve.catalog
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -153,5 +154,21 @@ class HubUrlTest {
         kotlin.test.assertTrue(Uncensored.isUncensored("someone/Llama-3.2-3B-Instruct-abliterated"))
         kotlin.test.assertTrue(Uncensored.isUncensored("someone/Qwen3-4B-Uncensored"))
         kotlin.test.assertFalse(Uncensored.isUncensored("experimentalmachines/LFM2.5-1.2B-Instruct-ExecuTorch"))
+    }
+
+    @Test
+    fun runtimeWarningsFollowExecuTorchsCompatibilityPolicy() {
+        // Same release, and the previous minor one: promised to load, no warning.
+        assertFalse(runtimeMismatch("1.5.1", "1.5.1"))
+        assertFalse(runtimeMismatch("1.5.0", "1.5.1"))
+        assertFalse(runtimeMismatch("1.4.0", "1.5.1"))
+        // Newer than the runtime, two minors older, or another major: nothing is promised.
+        assertTrue(runtimeMismatch("1.6.0", "1.5.1"))
+        assertTrue(runtimeMismatch("1.5.2", "1.5.1"))
+        assertTrue(runtimeMismatch("1.3.1", "1.5.1"))
+        assertTrue(runtimeMismatch("2.0.0", "1.5.1"))
+        // Missing or unreadable versions say nothing either way.
+        assertFalse(runtimeMismatch(null, "1.5.1"))
+        assertFalse(runtimeMismatch("main", "1.5.1"))
     }
 }

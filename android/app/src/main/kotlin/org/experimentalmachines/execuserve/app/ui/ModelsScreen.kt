@@ -35,6 +35,7 @@ import org.experimentalmachines.execuserve.app.models.DownloadState
 import org.experimentalmachines.execuserve.app.text.Format
 import org.experimentalmachines.execuserve.catalog.CatalogVariant
 import org.experimentalmachines.execuserve.catalog.Labs
+import org.experimentalmachines.execuserve.catalog.runtimeMismatch
 import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.executorch.ExecuTorchRuntime
@@ -329,8 +330,9 @@ private fun VariantRow(variant: CatalogVariant, installed: Boolean, download: Do
             if (variant.fitsPhoneBudget == false) {
                 Text(stringResource(R.string.catalog_over_budget), style = MaterialTheme.typography.bodySmall, color = tones.attention.color)
             }
-            // An export for another runtime may load and misbehave; say so before the download.
-            variant.runtimeVersion?.takeIf { it != ExecuTorchRuntime.VERSION }?.let {
+            // An export outside what this runtime is promised to load may load and misbehave;
+            // say so before the download. Files from the previous minor release are covered.
+            variant.runtimeVersion?.takeIf { runtimeMismatch(it, ExecuTorchRuntime.VERSION) }?.let {
                 Text(
                     stringResource(R.string.catalog_runtime, it, ExecuTorchRuntime.VERSION),
                     style = MaterialTheme.typography.bodySmall,

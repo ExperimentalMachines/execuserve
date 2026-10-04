@@ -158,3 +158,26 @@ object HfCatalog {
         ),
     )
 }
+
+/**
+ * Whether a file exported with ExecuTorch [exported] is outside what a runtime at [runtime]
+ * is promised to load. ExecuTorch's runtime compatibility policy (runtime/COMPATIBILITY.md):
+ * a file loads on its own release and at least the next minor one, and nothing is promised
+ * for a file newer than the runtime, down to the patch. So 1.4.x files on a 1.5.x runtime
+ * need no warning; a 1.5.2 or 1.6 file on 1.5.1, or a 1.3 file on 1.5, does. Unparseable
+ * versions say nothing.
+ */
+fun runtimeMismatch(exported: String?, runtime: String): Boolean {
+    val file = exported?.let(::parseVersion)
+    val app = parseVersion(runtime)
+    if (file == null || app == null) return false
+    val newer = compareValuesBy(file, app, { it[0] }, { it[1] }, { it[2] }) > 0
+    return newer || file[0] != app[0] || app[1] - file[1] > 1
+}
+
+private fun parseVersion(version: String): List<Int>? {
+    val parts = version.trim().split('.').map { it.toIntOrNull() }
+    val major = parts.getOrNull(0) ?: return null
+    val minor = parts.getOrNull(1) ?: return null
+    return listOf(major, minor, parts.getOrNull(2) ?: 0)
+}
