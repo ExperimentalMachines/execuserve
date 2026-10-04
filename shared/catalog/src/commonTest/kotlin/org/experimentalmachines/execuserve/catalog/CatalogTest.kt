@@ -64,6 +64,36 @@ class CatalogTest {
     }
 
     @Test
+    fun vulkanExportsAreOfferedOnlyWhereTheRuntimeCanRunThem() {
+        val gpuRepo = HfRepo(
+            id = "experimentalmachines/Qwen3-0.6B-ExecuTorch",
+            sha = "def456",
+            siblings = listOf("tokenizer.json", "vulkan/config.json", "vulkan/Qwen3-0.6B-vulkan-8da4w-2k.pte", "xnnpack/config.json")
+                .map(::HfSibling),
+        )
+        val gpuConfig = HfCatalog.parseConfig(
+            """{"runtime":"executorch","runtime_version":"1.4.0","backend":"vulkan",
+               "variants":[{"file":"Qwen3-0.6B-vulkan-8da4w-2k.pte","size_bytes":616404352,"context":2048}]}""",
+        )
+        // A CPU-only phone sees only the XNNPACK folder, and is never handed the GPU file.
+        assertEquals(listOf("xnnpack/config.json"), HfCatalog.configPaths(gpuRepo))
+        assertTrue(HfCatalog.variants(gpuRepo, "vulkan/config.json", gpuConfig).isEmpty())
+        // A phone that can run Vulkan sees both, and the GPU variant says which it is.
+        val both = setOf(HfCatalog.BACKEND, HfCatalog.VULKAN)
+        assertEquals(listOf("vulkan/config.json", "xnnpack/config.json"), HfCatalog.configPaths(gpuRepo, both))
+        val gpu = HfCatalog.variants(gpuRepo, "vulkan/config.json", gpuConfig, both).single()
+        assertEquals("vulkan", gpu.backend)
+        assertEquals("vulkan/Qwen3-0.6B-vulkan-8da4w-2k.pte", gpu.path)
+        // Its install never collides with the CPU build of the same window.
+        assertEquals("qwen3-0.6b-vulkan-8da4w-2k", gpu.installId)
+        // Nor does a GPU file that shares its CPU twin's name exactly, while CPU ids stay as they were.
+        val twin = gpu.copy(path = "vulkan/Qwen3-0.6B-8da4w-2k.pte")
+        val cpu = twin.copy(path = "xnnpack/Qwen3-0.6B-8da4w-2k.pte", backend = HfCatalog.BACKEND)
+        assertEquals("qwen3-0.6b-8da4w-2k", cpu.installId)
+        assertTrue(twin.installId != cpu.installId)
+    }
+
+    @Test
     fun otherBackendsAreNotOffered() {
         val mtk = HfCatalog.parseConfig("""{"runtime":"executorch","backend":"neuropilot","variants":[]}""")
         assertTrue(HfCatalog.variants(repo, "xnnpack/config.json", mtk).isEmpty())

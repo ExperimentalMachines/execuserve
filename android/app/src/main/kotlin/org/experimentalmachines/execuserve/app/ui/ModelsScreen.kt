@@ -34,6 +34,7 @@ import org.experimentalmachines.execuserve.app.models.CatalogRepo
 import org.experimentalmachines.execuserve.app.models.DownloadState
 import org.experimentalmachines.execuserve.app.text.Format
 import org.experimentalmachines.execuserve.catalog.CatalogVariant
+import org.experimentalmachines.execuserve.catalog.HfCatalog
 import org.experimentalmachines.execuserve.catalog.Labs
 import org.experimentalmachines.execuserve.catalog.runtimeMismatch
 import org.experimentalmachines.execuserve.engine.EngineStatus
@@ -158,7 +159,11 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
                         )
                     }
                 }
-                items(state.repos, key = { "r-" + it.repo }) { repo ->
+                // Read each time the list is drawn: a GPU refusal recorded since the catalog
+                // loaded takes this phone's GPU builds off the screen without a reload.
+                val runnable = state.repos.map { repo -> repo.copy(variants = repo.variants.filter(model::runnableHere)) }
+                    .filter { it.variants.isNotEmpty() }
+                items(runnable, key = { "r-" + it.repo }) { repo ->
                     RepoPanel(model, repo, installed, downloads, model::download)
                 }
             }
@@ -325,7 +330,9 @@ private fun VariantRow(variant: CatalogVariant, installed: Boolean, download: Do
                 style = MaterialTheme.typography.bodyLarge,
             )
             variant.quantization?.substringBefore(',')?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // A GPU build says so: it is a separate download that runs on the phone's GPU.
+                val label = if (variant.backend == HfCatalog.VULKAN) stringResource(R.string.catalog_gpu, it) else it
+                Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (variant.fitsPhoneBudget == false) {
                 Text(stringResource(R.string.catalog_over_budget), style = MaterialTheme.typography.bodySmall, color = tones.attention.color)

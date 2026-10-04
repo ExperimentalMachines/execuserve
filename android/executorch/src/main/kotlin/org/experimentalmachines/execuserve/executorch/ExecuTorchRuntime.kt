@@ -157,9 +157,27 @@ private class ExecuTorchSession(
                 throw failure
             }
         } catch (failure: Throwable) {
+            val detail = failure.message ?: failure::class.java.simpleName
+            gpuRefusal(failure)?.let { throw it }
             // Link failures are Errors, not Exceptions; surface them as model load failures.
-            throw RuntimeFailure("ExecuTorch could not open ${File(files.model).name}: ${failure.message ?: failure::class.java.simpleName}", failure)
+            throw RuntimeFailure("ExecuTorch could not open ${File(files.model).name}: $detail", failure)
         }
+    }
+
+    /**
+     * This phone's GPU cannot run a Vulkan export at all: the runtime said so in its own words
+     * (see [VulkanSupport.recordIfIncompatible]). Recorded, so the catalog stops listing GPU
+     * builds here, and reported with the way out. Any other failure returns null and is left
+     * to the caller: a bad file, a full window or an allocation never costs the phone its GPU
+     * builds, and no file name has to be trusted to say which delegate a model uses.
+     */
+    private fun gpuRefusal(failure: Throwable): RuntimeFailure? {
+        val reason = VulkanSupport.recordIfIncompatible(failure) ?: return null
+        return RuntimeFailure(
+            "This phone's GPU cannot run this Vulkan build ($reason). GPU builds will not be listed on this phone " +
+                "again; the same model's CPU build runs anywhere.",
+            failure,
+        )
     }
 
     override fun prefill(text: String) {
@@ -167,7 +185,7 @@ private class ExecuTorchSession(
         try {
             module.prefillPrompt(text)
         } catch (failure: Throwable) {
-            throw failure.asOverflow() ?: RuntimeFailure("ExecuTorch could not prefill: ${failure.message}", failure)
+            throw gpuRefusal(failure) ?: failure.asOverflow() ?: RuntimeFailure("ExecuTorch could not prefill: ${failure.message}", failure)
         }
     }
 
@@ -201,9 +219,12 @@ private class ExecuTorchSession(
                 },
             )
         } catch (failure: Throwable) {
-            throw failure.asOverflow() ?: RuntimeFailure("ExecuTorch failed while generating: ${failure.message}", failure)
+            throw gpuRefusal(failure) ?: failure.asOverflow() ?: RuntimeFailure("ExecuTorch failed while generating: ${failure.message}", failure)
         }
-        error?.let { message -> throw RuntimeFailure(message).asOverflow() ?: RuntimeFailure(message) }
+        error?.let { message ->
+            val failure = RuntimeFailure(message)
+            throw gpuRefusal(failure) ?: failure.asOverflow() ?: failure
+        }
         return outcomeFrom(reported)
     }
 
@@ -232,7 +253,11 @@ private class ExecuTorchSession(
     /** The one failure a full window produces, whichever call it lands in. */
     private fun Throwable.asOverflow(): ContextOverflow? {
         val text = message.orEmpty()
-        if ("Max seq length exceeded" !in text && "max_context_len" !in text) return null
+        // The runner's own two diagnostics only (text_llm_runner.cpp: the conversation so far,
+        // and a single prompt, past the window). The wrapper appends recent runtime log lines
+        // to its messages, and those mention max_context_len in passing, so the name alone
+        // would turn an unrelated failure into a full window (codex QA).
+        if ("Max seq length exceeded" !in text && "Prompt exceeds KV cache capacity" !in text) return null
         return ContextOverflow("The prompt does not fit ${File(files.model).name}'s exported window of ${facts.contextLength ?: "unknown"} tokens.")
     }
 

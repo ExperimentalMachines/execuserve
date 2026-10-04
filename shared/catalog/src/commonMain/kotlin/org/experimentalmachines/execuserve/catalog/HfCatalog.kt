@@ -47,8 +47,22 @@ data class CatalogVariant(
     val runtimeVersion: String?,
     val sourceModel: String? = null,
     val lab: String? = null,
+    /** The export's delegate folder: [HfCatalog.BACKEND] (CPU) or [HfCatalog.VULKAN] (GPU). */
+    val backend: String = HfCatalog.BACKEND,
 ) {
-    val installId: String get() = ModelIds.idFor(path.substringAfterLast('/').substringBeforeLast('.'))
+    val installId: String get() = ModelIds.idFor(installStem)
+
+    /**
+     * The file's own name, plus `-vulkan` for a GPU build whose name does not already say so:
+     * the folder is not part of the id, and two backends' files can share a name (codex QA).
+     * CPU builds keep the id every installed copy already has.
+     */
+    private val installStem: String
+        get() {
+            val stem = path.substringAfterLast('/').substringBeforeLast('.')
+            val unmarkedGpu = backend == HfCatalog.VULKAN && !stem.contains(HfCatalog.VULKAN, ignoreCase = true)
+            return if (unmarkedGpu) "$stem-${HfCatalog.VULKAN}" else stem
+        }
 }
 
 /** A file to fetch, and what it must hash to when the publisher said. */
@@ -65,6 +79,9 @@ data class InstallPlan(val id: String, val files: List<RemoteFile>, val manifest
 object HfCatalog {
     const val ORG = "experimentalmachines"
     const val BACKEND = "xnnpack"
+
+    /** The GPU folder: listed only where the runtime says the phone can run it. */
+    const val VULKAN = "vulkan"
 
     /** The Hub's host and base URL: the only place either is written. */
     const val HUB_HOST = "huggingface.co"
@@ -97,8 +114,9 @@ object HfCatalog {
 
     fun parseConfig(json: String): ExportConfig = Manifest.JSON.decodeFromString(ExportConfig.serializer(), json)
 
-    /** The `config.json` files in [repo] that describe exports for [backend]. */
-    fun configPaths(repo: HfRepo, backend: String = BACKEND): List<String> = repo.siblings.map { it.rfilename }.filter { it == "$backend/config.json" }
+    /** The `config.json` files in [repo] that describe exports for any of [backends]. */
+    fun configPaths(repo: HfRepo, backends: Set<String> = setOf(BACKEND)): List<String> =
+        repo.siblings.map { it.rfilename }.filter { path -> backends.any { path == "$it/config.json" } }
 
     /**
      * The variants [config] (found at [configPath] in [repo]) offers to this runtime.
@@ -106,10 +124,10 @@ object HfCatalog {
      * The tokenizer path is relative to the repository root in every export so far; a
      * tokenizer inside the backend folder wins when one is there.
      */
-    fun variants(repo: HfRepo, configPath: String, config: ExportConfig): List<CatalogVariant> {
-        if (config.runtime != null && config.runtime != "executorch") return emptyList()
-        if (config.backend != null && config.backend != BACKEND) return emptyList()
-        val revision = repo.sha ?: return emptyList()
+    fun variants(repo: HfRepo, configPath: String, config: ExportConfig, backends: Set<String> = setOf(BACKEND)): List<CatalogVariant> {
+        val backend = config.backend ?: configPath.substringBefore('/', BACKEND)
+        val runnable = (config.runtime == null || config.runtime == "executorch") && backend in backends
+        val revision = repo.sha?.takeIf { runnable } ?: return emptyList()
         val folder = configPath.substringBeforeLast('/', "")
         val files = repo.siblings.map { it.rfilename }.toSet()
         val tokenizerName = config.tokenizer ?: "tokenizer.json"
@@ -133,6 +151,7 @@ object HfCatalog {
                 runtimeVersion = config.runtimeVersion,
                 sourceModel = config.sourceModel,
                 lab = Labs.of(config.sourceModel, family),
+                backend = backend,
             )
         }
     }

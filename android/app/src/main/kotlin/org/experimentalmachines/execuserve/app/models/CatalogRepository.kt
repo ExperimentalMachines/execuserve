@@ -22,17 +22,22 @@ data class CatalogRepo(val repo: String, val variants: List<CatalogVariant>)
  * policy on generated content asks apps to guard against it, so the store build leaves them
  * out (`-PcatalogUncensored=true` builds one that lists them).
  */
-class CatalogRepository(private val includeUncensored: Boolean = false) {
+class CatalogRepository(
+    private val includeUncensored: Boolean = false,
+    /** The export folders this phone can run, asked each load: Vulkan can be ruled out at runtime. */
+    private val backends: () -> Set<String> = { setOf(HfCatalog.BACKEND) },
+) {
 
     suspend fun load(): List<CatalogRepo> = withContext(Dispatchers.IO) {
         val repos = HfCatalog.parseRepos(get(HfCatalog.listUrl())).filter { includeUncensored || !Uncensored.isUncensored(it.id) }
         coroutineScope {
             repos.map { repo ->
                 async {
-                    val variants = HfCatalog.configPaths(repo).flatMap { path ->
+                    val runnable = backends()
+                    val variants = HfCatalog.configPaths(repo, runnable).flatMap { path ->
                         val revision = repo.sha ?: return@flatMap emptyList()
                         runCatching {
-                            HfCatalog.variants(repo, path, HfCatalog.parseConfig(get(HfCatalog.fileUrl(repo.id, revision, path))))
+                            HfCatalog.variants(repo, path, HfCatalog.parseConfig(get(HfCatalog.fileUrl(repo.id, revision, path))), runnable)
                         }.getOrDefault(emptyList())
                     }
                     CatalogRepo(repo.id, variants.sortedBy { it.context ?: 0 })
@@ -48,10 +53,15 @@ class CatalogRepository(private val includeUncensored: Boolean = false) {
     suspend fun variant(repo: String, file: String): CatalogVariant = withContext(Dispatchers.IO) {
         val info = HfCatalog.parseRepos("[" + get(HfCatalog.modelUrl(repo)) + "]").single()
         val revision = info.sha ?: error("$repo has no commit")
-        HfCatalog.configPaths(info).flatMap { path ->
-            HfCatalog.variants(info, path, HfCatalog.parseConfig(get(HfCatalog.fileUrl(repo, revision, path))))
-        }.firstOrNull { it.path.substringAfterLast('/') == file.substringAfterLast('/') }
-            ?: error("$repo has no XNNPACK export named $file")
+        val runnable = backends()
+        val variants = HfCatalog.configPaths(info, runnable).flatMap { path ->
+            HfCatalog.variants(info, path, HfCatalog.parseConfig(get(HfCatalog.fileUrl(repo, revision, path))), runnable)
+        }
+        // A path names one backend's file exactly; a bare name is accepted only when one file
+        // has it, so `vulkan/x.pte` is never answered with `xnnpack/x.pte` (codex QA).
+        variants.firstOrNull { it.path == file }
+            ?: variants.filter { it.path.substringAfterLast('/') == file }.singleOrNull()
+            ?: error("$repo has no export at $file that this phone can run")
     }
 
     private fun get(url: String): String {

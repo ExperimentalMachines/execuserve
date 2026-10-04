@@ -26,6 +26,7 @@ import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.engine.JobRecord
 import org.experimentalmachines.execuserve.engine.Metrics
 import org.experimentalmachines.execuserve.engine.ModelEntry
+import org.experimentalmachines.execuserve.executorch.VulkanSupport
 import org.experimentalmachines.execuserve.host.CONSOLE_KEY
 import org.experimentalmachines.execuserve.host.ConsoleChat
 import org.experimentalmachines.execuserve.host.ConsoleTest
@@ -285,9 +286,14 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     }
 
     fun download(variant: CatalogVariant) {
+        // A GPU build listed before this phone's GPU refused one is not downloaded after it.
+        if (!runnableHere(variant)) return
         graph.downloader.enqueue(HfCatalog.plan(variant, System.currentTimeMillis()))
         ServeService.keepAlive(app)
     }
+
+    /** Whether this phone can run [variant] now: CPU builds always, GPU builds while Vulkan is usable. */
+    fun runnableHere(variant: CatalogVariant): Boolean = variant.backend != HfCatalog.VULKAN || VulkanSupport.usable
 
     fun cancelDownload(id: String) = graph.downloader.cancel(id)
 
