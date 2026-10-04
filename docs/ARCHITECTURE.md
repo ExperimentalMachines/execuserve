@@ -121,8 +121,10 @@ interface LlmSession : AutoCloseable {               // one KV cache, one sequen
 ```
 
 It is the ExecuTorch Java API reduced to what a server needs, and deliberately
-backend-general: Vulkan, QNN and MediaTek are other implementations of the same two
-interfaces, and so is the iOS binding. Everything above it (templating, streaming, stop
+backend-general: QNN and MediaTek are other implementations of the same two interfaces, and
+so is the iOS binding. Vulkan needed no second implementation: the Android runtime links
+`executorch-android-vulkan`, which carries XNNPACK and Vulkan, and a `.pte` runs on the
+delegate it was exported for (see "GPU exports" under Storage and the catalog). Everything above it (templating, streaming, stop
 discipline, cache bookkeeping) is ordinary Kotlin tested on a laptop against a scripted
 fake.
 
@@ -415,13 +417,13 @@ works without root and uninstalling removes them. A model is a folder:
 models/qwen3-1.7b-8da4w-gptq-2k/
   model.pte
   tokenizer.json
-  execuserve.json      id, family, source repo and revision, window, sha256
+  execuserve.json      id, family, source repo and revision, window, sha256, backend
 ```
 
 A bare `Name.pte` with `Name.tokenizer.json` or `tokenizer.json` beside it is also picked
 up, with its family read from the name. The catalog reads the
-`experimentalmachines/*-ExecuTorch` repos' `xnnpack/config.json` (variants, window, size,
-sha256) at one pinned repository commit, so the manifest, the hash and the file are one
+`experimentalmachines/*-ExecuTorch` repos' `xnnpack/config.json`, and `vulkan/config.json`
+where the GPU can run it (variants, window, size, sha256), at one pinned repository commit, so the manifest, the hash and the file are one
 snapshot. The service downloads with HTTP range resume into a staging name, hashes while
 writing, and renames into place only on a match. This checks transport, not provenance: a
 compromised repository could publish a matching hash, and a signed manifest is on the
@@ -431,6 +433,24 @@ roadmap. The system `DownloadManager` was the first choice and was dropped becau
 Ids: the folder name is the id (`qwen3-1.7b-8da4w-gptq-2k`). A shorter alias
 (`qwen3-1.7b`) resolves when exactly one installed model matches it, so
 `execuserve --model qwen3-1.7b` does what it says.
+
+### GPU exports
+
+`vulkan/` files are offered only where `VulkanSupport` says the GPU can run them: Android
+reports Vulkan 1.1 (`FEATURE_VULKAN_HARDWARE_VERSION`), and no refusal is on record. Android
+has no Java API for the extensions a shader needs, so the rest is learned: the first time the
+runtime says this device cannot run its shaders ("not compatible with device",
+`VK_ERROR_FEATURE_NOT_PRESENT` and the like, matched in the exception chain, which the
+wrapper fills with the runtime's log), the refusal is stored per runtime release, the Models
+screen drops its GPU rows through a `StateFlow`, and the downloader turns GPU plans away at
+enqueue and again at start, so `tools/execuserve pull` cannot fetch one either. Out of device
+memory, a bad file or a full window record nothing. GPU install ids always contain `vulkan`
+and CPU ids never do (a CPU file named for Vulkan is not listed), so the two builds of one
+model install side by side, and `execuserve.json` records `"backend"`, which `/v1/models`
+reports as `executorch-vulkan` or `executorch-xnnpack`. Which is faster depends on the GPU:
+on the SM8850 the GPU wins long prompts and the CPU short exchanges, and on Mali the CPU
+build decodes about three times faster
+([docs/results/2026-10-04-vulkan.md](results/2026-10-04-vulkan.md)).
 
 ## HTTP API
 
@@ -660,7 +680,7 @@ skips, and the browser chat's checks.
 ## After the first release
 
 In order of what the architecture already allows: the iOS runtime binding and shell; the
-other ExecuTorch backends (Vulkan, QNN, MediaTek) as further `LlmRuntime`s; vision input
+other ExecuTorch backends (QNN, MediaTek) as further `LlmRuntime`s; vision input
 for exports that carry an encoder; configurable server-side tools; embeddings.
 
 ## Design review log
@@ -741,6 +761,21 @@ their units to clipping (rows now stack, with units, and the header hides), and 
 started from `tools/execuserve` was stored by its alias, so every screen that compares ids
 showed no startup model (the service now stores the installed id, and corrects an alias
 stored earlier).
+
+A sixth set of rounds (2026-10-04, codex `gpt-6.1-sol`, medium, read-only; outputs in
+`docs/results/2026-10-04-vulkan/codex/`) covered ExecuTorch 1.5.1 and GPU exports. On the
+runtime bump it found that a 1.5.2 file would not have warned (the check ignored the patch
+number) and that the README still said 1.4; both fixed, and the re-review was clean. On the
+Vulkan work, the first round found that any failure disabled GPU builds for good (now only
+the runtime's own incompatibility messages count), that a GPU failure became "context full"
+because the runtime's appended log mentions `max_context_len` on every run (now only the
+runner's two overflow messages count), that the catalog stayed stale after a refusal, and
+that the backend was read off arbitrary file names. The second found CPU and GPU builds of
+one file sharing an install id and `pull vulkan/x.pte` able to pick the `xnnpack/` file. The
+third, on the pushed commits, confirmed those fixes and found four narrow cases: GPU rows
+staying visible until a reload, ids still colliding for files named `…-vulkan`, a pull in
+flight enqueuing after a refusal, and `/v1/models` reading the backend from names. All were
+fixed (`f46833d`), and the fourth round found nothing.
 
 ## Bundled browser chat
 

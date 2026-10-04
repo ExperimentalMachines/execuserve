@@ -226,7 +226,7 @@ pinned runtime.
 
 | Way | How |
 |---|---|
-| In the app | Library → **Browse the catalog** lists the XNNPACK exports published at [huggingface.co/experimentalmachines](https://huggingface.co/experimentalmachines). Downloads resume after a drop, are pinned to one repository commit, and are checked against the publisher's SHA-256 |
+| In the app | Library → **Browse the catalog** lists the XNNPACK (CPU) exports, and the Vulkan (GPU) ones on phones whose GPU runs them, published at [huggingface.co/experimentalmachines](https://huggingface.co/experimentalmachines). Downloads resume after a drop, are pinned to one repository commit, and are checked against the publisher's SHA-256 |
 | From your computer | `tools/execuserve --model path/to/Model.pte` pushes it with its tokenizer and starts serving |
 | Ask the phone to fetch it | `tools/execuserve pull <hf-repo> <file.pte>`: the phone downloads it itself, verified |
 | By hand | `adb push Name.pte` and `Name.tokenizer.json` into `/sdcard/Android/data/org.experimentalmachines.execuserve/files/models/`. Push files, not folders: under Android 11+ storage a folder adb creates there belongs to the shell |
@@ -316,7 +316,9 @@ To report a vulnerability, see [SECURITY.md](SECURITY.md).
 ## Requirements
 
 - Android 12 (API 31) or newer, on a 64-bit Arm phone (`arm64-v8a`).
-- An ExecuTorch `.pte` exported for XNNPACK, with the tokenizer it was exported with.
+- An ExecuTorch `.pte` exported for XNNPACK (CPU) or Vulkan (GPU), with the tokenizer it was
+  exported with. A Vulkan file needs a GPU whose driver runs ExecuTorch's shaders; a phone
+  whose GPU refuses one stops being offered GPU files and is pointed at the CPU build.
 - Memory for the models you keep resident: each costs about its file size plus its window.
   The LFM2.5 exports are 761 MB (1.2B) and 1.7 GB (2.6B) at a 4k window.
 
@@ -385,11 +387,13 @@ backgrounding, exposure, every edge case and the design review log are in
 
 Alpha. Every test tier passes, and the app serves real models on an Android 16 emulator and
 on a POCO X8 Pro Max (Dimensity 9500s); results in
-[docs/results/2026-09-29-poco-x8-pro-max.md](docs/results/2026-09-29-poco-x8-pro-max.md).
+[docs/results/2026-09-29-poco-x8-pro-max.md](docs/results/2026-09-29-poco-x8-pro-max.md). GPU
+(Vulkan) exports are served on Mali and Adreno GPUs, with the CPU build the faster choice on
+Mali; results in [docs/results/2026-10-04-vulkan.md](docs/results/2026-10-04-vulkan.md).
 
 Next, in the order the architecture already allows: the iOS app (a runtime binding over
 ExecuTorch's Apple frameworks and a shell; the rest is shared), the other ExecuTorch backends
-(Vulkan, QNN, MediaTek) as further runtimes, server-side tools, vision input for exports that
+(QNN, MediaTek) as further runtimes, server-side tools, vision input for exports that
 carry an encoder, and TLS for network mode.
 
 ## Contributing and contact
