@@ -449,7 +449,7 @@ and CPU ids never do (a CPU file named for Vulkan is not listed), so the two bui
 model install side by side, and `execuserve.json` records `"backend"`, which `/v1/models`
 reports as `executorch-vulkan` or `executorch-xnnpack`. Which is faster depends on the GPU:
 on the SM8850 the GPU wins long prompts and the CPU short exchanges, and on Mali the CPU
-build decodes about three times faster
+build decodes 2.2 to 3.7 times faster at every length
 ([docs/results/2026-10-04-vulkan.md](results/2026-10-04-vulkan.md)).
 
 ## HTTP API
