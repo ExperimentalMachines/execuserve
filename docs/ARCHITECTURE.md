@@ -447,9 +447,10 @@ enqueue and again at start, so `tools/execuserve pull` cannot fetch one either. 
 memory, a bad file or a full window record nothing. GPU install ids always contain `vulkan`
 and CPU ids never do (a CPU file named for Vulkan is not listed), so the two builds of one
 model install side by side, and `execuserve.json` records `"backend"`, which `/v1/models`
-reports as `executorch-vulkan` or `executorch-xnnpack`. Which is faster depends on the GPU:
-on the SM8850 the GPU wins long prompts and the CPU short exchanges, and on Mali the CPU
-build decodes 2.2 to 3.7 times faster at every length
+reports as `executorch-vulkan` or `executorch-xnnpack` (a hand-copied file, or a manifest
+written before the field, falls back to the id's name). Which is faster depends on the GPU:
+with Qwen3-0.6B on the SM8850 the GPU wins long prompts and the CPU short exchanges, and on
+the POCO's Mali-G925 the CPU build decodes 2.2 to 3.9 times faster at both measured lengths
 ([docs/results/2026-10-04-vulkan.md](results/2026-10-04-vulkan.md)).
 
 ## HTTP API

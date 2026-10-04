@@ -388,8 +388,8 @@ backgrounding, exposure, every edge case and the design review log are in
 Alpha. Every test tier passes, and the app serves real models on an Android 16 emulator and
 on a POCO X8 Pro Max (Dimensity 9500s); results in
 [docs/results/2026-09-29-poco-x8-pro-max.md](docs/results/2026-09-29-poco-x8-pro-max.md). GPU
-(Vulkan) exports are served on Mali and Adreno GPUs, with the CPU build the faster choice on
-Mali; results in [docs/results/2026-10-04-vulkan.md](docs/results/2026-10-04-vulkan.md).
+(Vulkan) exports are served on Mali and Adreno GPUs; with Qwen3-0.6B the CPU build was the
+faster choice on the POCO's Mali-G925; results in [docs/results/2026-10-04-vulkan.md](docs/results/2026-10-04-vulkan.md).
 
 Next, in the order the architecture already allows: the iOS app (a runtime binding over
 ExecuTorch's Apple frameworks and a shell; the rest is shared), the other ExecuTorch backends
