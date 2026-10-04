@@ -132,8 +132,10 @@ class ServeService : LifecycleService() {
 
     /** A catalog download asked for over adb; the same downloader the Models screen uses. */
     private suspend fun pull(repo: String, file: String) {
-        runCatching { graph.catalog.variant(repo, file) }
-            .onSuccess { graph.downloader.enqueue(HfCatalog.plan(it, System.currentTimeMillis())) }
+        runCatching {
+            val plan = HfCatalog.plan(graph.catalog.variant(repo, file), System.currentTimeMillis())
+            check(graph.downloader.enqueue(plan)) { graph.downloader.state.value[plan.id]?.error.orEmpty() }
+        }
             .onFailure { failure ->
                 getSystemService(NotificationManager::class.java).notify(
                     ALERT_ID,

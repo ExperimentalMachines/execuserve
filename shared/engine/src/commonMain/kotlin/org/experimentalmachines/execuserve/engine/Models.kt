@@ -19,6 +19,11 @@ data class ModelEntry(
     val installedAtMs: Long = 0,
     /** The organisation that released the weights, for display; see the catalog's `Labs`. */
     val lab: String? = null,
+    /**
+     * The delegate folder the catalog installed this from (`xnnpack`, `vulkan`), or null for
+     * a file copied in by hand: a `.pte` does not say which delegates it holds.
+     */
+    val backend: String? = null,
 )
 
 /** Where the engine finds models. Implemented by the catalog over the models directory. */

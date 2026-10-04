@@ -40,7 +40,17 @@ data class DownloadState(val id: String, val bytes: Long, val total: Long, val p
  * `DownloadManager`, which Android 16 subjects to job quotas even while a foreground service
  * runs.
  */
-class Downloader(private val modelsDir: File, private val scope: CoroutineScope, private val onInstalled: suspend (String) -> Unit) {
+class Downloader(
+    private val modelsDir: File,
+    private val scope: CoroutineScope,
+    /**
+     * Why [InstallPlan] may not be installed now, or null when it may. Asked when a download
+     * is queued and again when it starts, so a GPU build is never fetched after this phone's
+     * GPU refused one, whichever screen or adb call asked for it (codex QA).
+     */
+    private val refuses: (InstallPlan) -> String? = { null },
+    private val onInstalled: suspend (String) -> Unit,
+) {
     private val _state = MutableStateFlow<Map<String, DownloadState>>(emptyMap())
     val state: StateFlow<Map<String, DownloadState>> = _state.asStateFlow()
 
@@ -62,14 +72,20 @@ class Downloader(private val modelsDir: File, private val scope: CoroutineScope,
 
     val busy: Boolean get() = _state.value.values.any { it.active }
 
+    /** Queues [plan]; false when [refuses] turned it away, which the state then reports. */
     @Synchronized
-    fun enqueue(plan: InstallPlan) {
-        if (_state.value[plan.id]?.active == true) return
+    fun enqueue(plan: InstallPlan): Boolean {
+        if (_state.value[plan.id]?.active == true) return true
+        refuses(plan)?.let { reason ->
+            set(DownloadState(plan.id, 0, 0, DownloadState.Phase.FAILED, reason))
+            return false
+        }
         val total = plan.files.sumOf { it.sizeBytes ?: 0 }
         set(DownloadState(plan.id, 0, total, DownloadState.Phase.QUEUED))
         jobs[plan.id] = scope.launch(Dispatchers.IO) {
             oneAtATime.withLock { install(plan, total) }
         }
+        return true
     }
 
     @Synchronized
@@ -87,6 +103,10 @@ class Downloader(private val modelsDir: File, private val scope: CoroutineScope,
     private class Progress(var done: Long, var total: Long)
 
     private suspend fun install(plan: InstallPlan, total: Long) {
+        refuses(plan)?.let { reason ->
+            set(DownloadState(plan.id, 0, total, DownloadState.Phase.FAILED, reason))
+            return
+        }
         val folder = modelsDir.resolve(plan.id).apply { mkdirs() }
         val progress = Progress(0, total)
         try {

@@ -50,6 +50,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
     val settings by model.settings.collectAsState()
     val status by model.status.collectAsState()
     val catalog by model.catalog.collectAsState()
+    val gpu by model.gpuUsable.collectAsState()
     var deleting by remember { mutableStateOf<ModelEntry?>(null) }
 
     // Files pushed with adb while the app was away appear on return, with no button to press.
@@ -159,9 +160,9 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
                         )
                     }
                 }
-                // Read each time the list is drawn: a GPU refusal recorded since the catalog
-                // loaded takes this phone's GPU builds off the screen without a reload.
-                val runnable = state.repos.map { repo -> repo.copy(variants = repo.variants.filter(model::runnableHere)) }
+                // Collected, so a GPU refusal recorded since the catalog loaded takes this
+                // phone's GPU builds off the screen without a reload (codex QA).
+                val runnable = state.repos.map { repo -> repo.copy(variants = repo.variants.filter { model.runnableHere(it, gpu) }) }
                     .filter { it.variants.isNotEmpty() }
                 items(runnable, key = { "r-" + it.repo }) { repo ->
                     RepoPanel(model, repo, installed, downloads, model::download)

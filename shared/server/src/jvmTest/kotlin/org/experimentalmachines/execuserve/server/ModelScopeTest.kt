@@ -39,30 +39,35 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ModelScopeTest {
-    private fun serve(runtime: FakeRuntime = FakeRuntime(), config: EngineConfig = EngineConfig(), block: suspend (HttpClient, Engine) -> Unit) =
-        testApplication {
-            val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
-            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-            val models = listOf(
-                ModelEntry("alpha", ModelFiles("/alpha.pte", "/alpha.json"), "qwen3", 1, 4096, setOf("first")),
-                ModelEntry("vendor/beta", ModelFiles("/beta.pte", "/beta.json"), "qwen3", 1, 4096, setOf("second")),
-            )
-            val engine = Engine(runtime, StaticModelSource(models), dispatcher, scope, config)
-            engine.start()
-            val ctx =
-                ServerContext(engine, ServerSettings(), StaticKeys(listOf(ApiKey("one", "One", "sk-one"), ApiKey("two", "Two", "sk-two"))), {
-                    emptySet()
-                }, "test", { 1_700_000_000 })
-            application { execuServe(ctx) }
-            val http = createClient { defaultRequest { if (HttpHeaders.Host !in headers) header(HttpHeaders.Host, "localhost:8080") } }
-            try {
-                block(http, engine)
-            } finally {
-                engine.stop(0)
-                scope.cancel()
-                dispatcher.close()
-            }
+    private val twoModels = listOf(
+        ModelEntry("alpha", ModelFiles("/alpha.pte", "/alpha.json"), "qwen3", 1, 4096, setOf("first")),
+        ModelEntry("vendor/beta", ModelFiles("/beta.pte", "/beta.json"), "qwen3", 1, 4096, setOf("second")),
+    )
+
+    private fun serve(
+        runtime: FakeRuntime = FakeRuntime(),
+        config: EngineConfig = EngineConfig(),
+        models: List<ModelEntry> = twoModels,
+        block: suspend (HttpClient, Engine) -> Unit,
+    ) = testApplication {
+        val dispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val engine = Engine(runtime, StaticModelSource(models), dispatcher, scope, config)
+        engine.start()
+        val ctx =
+            ServerContext(engine, ServerSettings(), StaticKeys(listOf(ApiKey("one", "One", "sk-one"), ApiKey("two", "Two", "sk-two"))), {
+                emptySet()
+            }, "test", { 1_700_000_000 })
+        application { execuServe(ctx) }
+        val http = createClient { defaultRequest { if (HttpHeaders.Host !in headers) header(HttpHeaders.Host, "localhost:8080") } }
+        try {
+            block(http, engine)
+        } finally {
+            engine.stop(0)
+            scope.cancel()
+            dispatcher.close()
         }
+    }
 
     private suspend fun HttpClient.getKey(path: String) = get(path) { header(HttpHeaders.Authorization, "Bearer sk-one") }
     private suspend fun HttpClient.send(path: String, body: String, anthropic: Boolean = false) = post(path) {
@@ -72,6 +77,24 @@ class ModelScopeTest {
     }
     private fun json(text: String) = Json.parseToJsonElement(text).jsonObject
     private fun body(model: String) = """{"model":"$model","messages":[{"role":"user","content":"Hi"}],"max_tokens":20}"""
+
+    @Test
+    fun modelsReportTheDelegateTheInstallRecorded() = serve(
+        models = listOf(
+            ModelEntry("qwen3-0.6b-8da4w-2k-vulkan", ModelFiles("/g.pte", "/g.json"), "qwen3", backend = "vulkan"),
+            ModelEntry("qwen3-0.6b-8da4w-2k", ModelFiles("/c.pte", "/c.json"), "qwen3", backend = "xnnpack"),
+            // Copied in by hand: no record, so the name is all there is.
+            ModelEntry("pushed-vulkan", ModelFiles("/p.pte", "/p.json"), "qwen3"),
+            ModelEntry("pushed", ModelFiles("/q.pte", "/q.json"), "qwen3"),
+        ),
+    ) { http, engine ->
+        val backends = json(http.getKey("/v1/models").bodyAsText())["data"]!!.jsonArray
+            .associate { it.jsonObject["id"]!!.jsonPrimitive.content to it.jsonObject["backend"]!!.jsonPrimitive.content }
+        assertEquals("executorch-vulkan", backends["qwen3-0.6b-8da4w-2k-vulkan"])
+        assertEquals(engine.runtimeId, backends["qwen3-0.6b-8da4w-2k"])
+        assertEquals("executorch-vulkan", backends["pushed-vulkan"])
+        assertEquals(engine.runtimeId, backends["pushed"])
+    }
 
     @Test
     fun scopedDiscoveryAndBrowserAcceptEncodedIdsWithoutExposingOtherModels() = serve { http, _ ->

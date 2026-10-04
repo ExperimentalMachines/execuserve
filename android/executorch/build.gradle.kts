@@ -16,6 +16,8 @@ android {
 
 dependencies {
     api(project(":shared:engine"))
-    // The XNNPACK build, which every export in the experimentalmachines catalog targets.
+    // The AAR with both the XNNPACK (CPU) and Vulkan (GPU) delegates registered.
     implementation(libs.executorch.android)
+    // VulkanSupport.usableState, which the Models screen collects.
+    api(libs.kotlinx.coroutines.core)
 }

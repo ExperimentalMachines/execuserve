@@ -25,6 +25,12 @@ data class Manifest(
     val revision: String? = null,
     val quantization: String? = null,
     @SerialName("installed_at_ms") val installedAtMs: Long = 0,
+    /**
+     * The export's delegate folder ([HfCatalog.BACKEND] or [HfCatalog.VULKAN]), kept so the
+     * server reports what the file was exported for without reading it off the name. Null in
+     * manifests written before it existed.
+     */
+    val backend: String? = null,
 ) {
     fun encode(): String = JSON.encodeToString(serializer(), this)
 

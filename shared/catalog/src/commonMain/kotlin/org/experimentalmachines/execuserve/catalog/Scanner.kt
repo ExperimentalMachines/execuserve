@@ -83,6 +83,7 @@ class ModelScanner(private val fs: FileSystemView, private val root: String) : M
                 source = manifest.source,
                 installedAtMs = manifest.installedAtMs.takeIf { it > 0 } ?: fs.modifiedMs(model),
                 lab = manifest.lab ?: Labs.of(manifest.sourceModel, manifest.family ?: Families.detect(manifest.id)),
+                backend = manifest.backend,
             )
         }
         val ptes = fs.list(path).filter { it.endsWith(PTE, ignoreCase = true) }

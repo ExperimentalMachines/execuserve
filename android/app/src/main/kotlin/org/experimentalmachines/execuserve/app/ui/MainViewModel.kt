@@ -286,14 +286,15 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     }
 
     fun download(variant: CatalogVariant) {
-        // A GPU build listed before this phone's GPU refused one is not downloaded after it.
-        if (!runnableHere(variant)) return
-        graph.downloader.enqueue(HfCatalog.plan(variant, System.currentTimeMillis()))
-        ServeService.keepAlive(app)
+        // The downloader refuses a GPU build once this phone's GPU has refused one.
+        if (graph.downloader.enqueue(HfCatalog.plan(variant, System.currentTimeMillis()))) ServeService.keepAlive(app)
     }
 
-    /** Whether this phone can run [variant] now: CPU builds always, GPU builds while Vulkan is usable. */
-    fun runnableHere(variant: CatalogVariant): Boolean = variant.backend != HfCatalog.VULKAN || VulkanSupport.usable
+    /** Whether Vulkan builds can run here; drops to false the moment one is refused. */
+    val gpuUsable: StateFlow<Boolean> = VulkanSupport.usableState
+
+    /** Whether this phone can run [variant]: CPU builds always, GPU builds while [gpu] is true. */
+    fun runnableHere(variant: CatalogVariant, gpu: Boolean = VulkanSupport.usable): Boolean = variant.backend != HfCatalog.VULKAN || gpu
 
     fun cancelDownload(id: String) = graph.downloader.cancel(id)
 

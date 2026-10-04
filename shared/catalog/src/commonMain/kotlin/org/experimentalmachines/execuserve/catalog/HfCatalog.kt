@@ -55,7 +55,9 @@ data class CatalogVariant(
     /**
      * The file's own name, plus `-vulkan` for a GPU build whose name does not already say so:
      * the folder is not part of the id, and two backends' files can share a name (codex QA).
-     * CPU builds keep the id every installed copy already has.
+     * CPU builds keep the id every installed copy already has. Every GPU id says `vulkan` and
+     * no CPU id does ([HfCatalog.variants] does not list a CPU file named for Vulkan), so a
+     * CPU and a GPU install can never share a folder.
      */
     private val installStem: String
         get() {
@@ -137,6 +139,9 @@ object HfCatalog {
         return config.variants.mapNotNull { variant ->
             val path = if (folder.isEmpty()) variant.file else "$folder/${variant.file}"
             if (path !in files) return@mapNotNull null
+            // A CPU file whose name says Vulkan would take a GPU build's install id and be
+            // reported as one; the exporter never writes one, so it is not listed (codex QA).
+            if (backend != VULKAN && variant.file.contains(VULKAN, ignoreCase = true)) return@mapNotNull null
             CatalogVariant(
                 repo = repo.id,
                 revision = revision,
@@ -174,6 +179,7 @@ object HfCatalog {
             revision = variant.revision,
             quantization = variant.quantization,
             installedAtMs = nowMs,
+            backend = variant.backend,
         ),
     )
 }

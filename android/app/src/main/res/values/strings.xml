@@ -247,6 +247,7 @@
     <string name="catalog_installed">Installed</string>
     <string name="catalog_over_budget">Over the exporter\'s phone budget</string>
     <string name="catalog_gpu">%1$s · GPU (Vulkan)</string>
+    <string name="gpu_refused">This phone\'s GPU cannot run Vulkan builds. The same model\'s CPU build runs anywhere.</string>
     <string name="catalog_runtime">Exported for ExecuTorch %1$s; this app runs %2$s</string>
     <string name="delete_title">Delete %1$s?</string>
     <string name="delete_body">Frees %1$s. Clients asking for it will get model_not_found.</string>

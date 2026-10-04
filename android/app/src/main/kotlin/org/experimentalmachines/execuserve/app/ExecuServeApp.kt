@@ -37,7 +37,13 @@ class AppGraph(context: Context) {
     }
     val history = RunHistory(FileRunStore(context.filesDir.resolve("runs.jsonl")), scope, System::currentTimeMillis)
     val host = ServeHost(AndroidPlatform(context), settings, models, history, scope)
-    val downloader = Downloader(models.directory, scope) { models.rescan() }
+    val downloader = Downloader(
+        models.directory,
+        scope,
+        refuses = { plan ->
+            context.getString(R.string.gpu_refused).takeIf { plan.manifest.backend == HfCatalog.VULKAN && !VulkanSupport.usable }
+        },
+    ) { models.rescan() }
     val labs = LabImages(context.cacheDir, scope)
 }
 

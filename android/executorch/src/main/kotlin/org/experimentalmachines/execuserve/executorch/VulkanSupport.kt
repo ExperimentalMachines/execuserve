@@ -4,6 +4,9 @@ package org.experimentalmachines.execuserve.executorch
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Whether this phone can run a Vulkan export, decided twice.
@@ -35,6 +38,11 @@ object VulkanSupport {
 
     @Volatile private var prefs: SharedPreferences? = null
 
+    private val _usable = MutableStateFlow(false)
+
+    /** [usable] as a flow, so a screen listing GPU builds drops them the moment a refusal lands. */
+    val usableState: StateFlow<Boolean> = _usable.asStateFlow()
+
     /** Reads the device's Vulkan level and any earlier refusal. Called once at startup. */
     fun init(context: Context) {
         hardware = context.packageManager
@@ -42,6 +50,7 @@ object VulkanSupport {
         val stored = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs = stored
         refusal = stored.getString(KEY_REFUSED, null)
+        _usable.value = usable
     }
 
     /** True when GPU files should be offered: Vulkan 1.1 hardware and no refusal on record. */
@@ -53,6 +62,7 @@ object VulkanSupport {
     /** Records that a Vulkan model would not open or run here, so GPU files stop being offered. */
     fun markUnusable(reason: String) {
         refusal = reason
+        _usable.value = false
         prefs?.edit()?.putString(KEY_REFUSED, reason)?.apply()
     }
 

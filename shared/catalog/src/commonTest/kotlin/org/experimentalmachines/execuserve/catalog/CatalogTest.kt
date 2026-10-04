@@ -91,6 +91,26 @@ class CatalogTest {
         val cpu = twin.copy(path = "xnnpack/Qwen3-0.6B-8da4w-2k.pte", backend = HfCatalog.BACKEND)
         assertEquals("qwen3-0.6b-8da4w-2k", cpu.installId)
         assertTrue(twin.installId != cpu.installId)
+        // The install records which it is, so the server need not read it off the name.
+        assertEquals("vulkan", HfCatalog.plan(gpu, 1).manifest.backend)
+        assertEquals("xnnpack", HfCatalog.plan(cpu, 1).manifest.backend)
+    }
+
+    @Test
+    fun aCpuFileNamedForVulkanIsNotListed() {
+        // It would take the GPU build's install id, so the two could overwrite each other.
+        val repo = HfRepo(
+            id = "experimentalmachines/Qwen3-0.6B-ExecuTorch",
+            sha = "def456",
+            siblings = listOf("tokenizer.json", "xnnpack/config.json", "xnnpack/Qwen3-0.6B-vulkan-8da4w-2k.pte", "xnnpack/Qwen3-0.6B-8da4w-2k.pte")
+                .map(::HfSibling),
+        )
+        val config = HfCatalog.parseConfig(
+            """{"runtime":"executorch","backend":"xnnpack","variants":[
+               {"file":"Qwen3-0.6B-vulkan-8da4w-2k.pte","size_bytes":1,"context":2048},
+               {"file":"Qwen3-0.6B-8da4w-2k.pte","size_bytes":1,"context":2048}]}""",
+        )
+        assertEquals(listOf("xnnpack/Qwen3-0.6B-8da4w-2k.pte"), HfCatalog.variants(repo, "xnnpack/config.json", config).map { it.path })
     }
 
     @Test
@@ -113,7 +133,7 @@ class CatalogTest {
 
     @Test
     fun theScannerFindsEveryLayoutAndSkipsHalfInstalledOnes() {
-        val manifest = Manifest(id = "qwen3-1.7b-8da4w-gptq-2k", family = "qwen3", contextLength = 2048).encode()
+        val manifest = Manifest(id = "qwen3-1.7b-8da4w-gptq-2k", family = "qwen3", contextLength = 2048, backend = "xnnpack").encode()
         val fs = MemoryFs(
             mapOf(
                 "/m/qwen3-1.7b-8da4w-gptq-2k/model.pte" to "x",
@@ -132,6 +152,9 @@ class CatalogTest {
         val found = scanner.rescan().associateBy { it.id }
         assertEquals(setOf("qwen3-1.7b-8da4w-gptq-2k", "lfm2.5-1.2b-instruct-8da4w-gptq-2k", "pushed"), found.keys)
         assertEquals("qwen3", found.getValue("qwen3-1.7b-8da4w-gptq-2k").family)
+        assertEquals("xnnpack", found.getValue("qwen3-1.7b-8da4w-gptq-2k").backend)
+        // A file copied in by hand carries no record of its delegate.
+        assertEquals(null, found.getValue("pushed").backend)
         assertEquals(2048, found.getValue("lfm2.5-1.2b-instruct-8da4w-gptq-2k").contextLength)
         assertEquals("smollm2", found.getValue("pushed").family)
         assertEquals(4096, found.getValue("pushed").contextLength)
