@@ -1,0 +1,8 @@
+# Keeps the commit-pinned actions in .github/workflows current. Release.yml pins every action to
+# a SHA because its build job holds the upload key; this is what moves those pins forward.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
