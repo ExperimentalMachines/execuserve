@@ -9,75 +9,65 @@
   @font-face { font-family: PlexMono; src: url(assets/fonts/ibm_plex_mono_medium.ttf); font-weight: 500; }
   :root {
     --paper: #F3F4F7; --ink: #262626; --ink-2: #5B5F66; --line: #DADCE2; --ember: #EE4C2C;
-    --ember-soft: #FDE7E2; --night: #151517; --night-2: #1F1F22; --dim: rgba(243,244,247,0.56);
+    --night: #151517; --night-2: #1F1F22; --dim: rgba(243,244,247,0.62);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { width: 1920px; height: 1080px; overflow: hidden; background: #000; }
   body { font-family: Plex, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; font-kerning: normal; }
   #stage { position: absolute; inset: 0; overflow: hidden; background: var(--paper); }
-  .scene { position: absolute; inset: 0; overflow: hidden; visibility: hidden; transform-origin: 50% 50%; }
+  .scene { position: absolute; inset: 0; overflow: hidden; visibility: hidden; }
   .abs { position: absolute; left: 0; top: 0; will-change: transform, opacity; }
-  .dark { background: radial-gradient(1400px 900px at 28% 30%, #232326 0%, var(--night) 70%); color: var(--paper); }
+  .dark { background: radial-gradient(1500px 1000px at 35% 25%, #26262A 0%, var(--night) 70%); color: var(--paper); }
   .paper { background: var(--paper); }
-  .h1 { font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
+  .h1 { font-weight: 600; letter-spacing: -0.035em; line-height: 1.02; }
   .mask { overflow: hidden; display: block; white-space: nowrap; }
   .mask > span { display: block; will-change: transform; }
   .sub { font-weight: 500; letter-spacing: -0.01em; }
-  .mono { font-family: PlexMono, monospace; }
   .dimtext { color: var(--dim); }
   .grey { color: var(--ink-2); }
-
-  /* An isometric dot lattice behind the paper scenes: the mark's own 30-degree grid. */
   .lattice { position: absolute; inset: -200px; opacity: 0.55;
     background-image: radial-gradient(circle, #C9CCD3 1.6px, transparent 2px), radial-gradient(circle, #C9CCD3 1.6px, transparent 2px);
     background-size: 64px 37px; background-position: 0 0, 32px 18.5px; }
 
+  /* devices */
+  .phone { position: absolute; border-radius: 58px; background: #0E0E10; padding: 12px; box-shadow: 0 50px 120px rgba(0,0,0,0.38), 0 0 0 2px #303035 inset; }
+  .phone .screen { position: relative; overflow: hidden; border-radius: 46px; background: #fff; }
+  .phone .screen img { position: absolute; left: 0; top: 0; width: 100%; display: block; }
+  .phone .off { position: absolute; inset: 0; background: #050506; opacity: 0; }
+  .laptop { position: absolute; }
+  .laptop .lid { position: relative; border-radius: 26px 26px 10px 10px; background: #111113; padding: 16px 16px 18px; box-shadow: 0 50px 120px rgba(0,0,0,0.45), 0 0 0 2px #2C2C31 inset; }
+  .laptop .bar { height: 44px; display: flex; align-items: center; gap: 9px; padding: 0 18px; background: #E7E8EC; border-radius: 10px 10px 0 0; }
+  .laptop .bar i { width: 12px; height: 12px; border-radius: 50%; display: block; background: #C3C6CD; }
+  .laptop .bar .url { margin-left: 18px; height: 28px; padding: 0 16px; border-radius: 8px; background: #fff; display: flex; align-items: center; font: 400 17px PlexMono, monospace; color: var(--ink-2); }
+  .laptop .view { position: relative; overflow: hidden; background: #fff; border-radius: 0 0 4px 4px; }
+  .laptop .view img { position: absolute; left: 0; top: 0; width: 100%; display: block; }
+  .laptop .base { height: 26px; margin: 0 -70px; border-radius: 4px 4px 22px 22px; background: linear-gradient(#3A3A40, #1C1C20); box-shadow: 0 30px 60px rgba(0,0,0,0.4); }
+  .laptop .base::after { content: ''; display: block; width: 180px; height: 9px; margin: 0 auto; border-radius: 0 0 10px 10px; background: #111113; }
+  .ripple { position: absolute; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%; border: 6px solid var(--ember); z-index: 9; }
+  .ring { position: absolute; border: 5px solid var(--ember); box-shadow: 0 0 0 10px rgba(238,76,44,0.15); z-index: 8; }
+
   /* code */
   .win { position: absolute; border-radius: 22px; background: var(--night-2); box-shadow: 0 40px 100px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08) inset; overflow: hidden; }
-  .win .bar { height: 54px; display: flex; align-items: center; gap: 10px; padding: 0 22px; background: #29292D; font: 500 21px PlexMono, monospace; color: var(--dim); }
-  .win .bar i { width: 14px; height: 14px; border-radius: 50%; background: #45454B; display: block; }
-  .win .bar span { margin-left: 18px; }
-  .code { font: 400 34px/1.72 PlexMono, monospace; color: #E9EAEE; white-space: pre; padding: 34px 40px; }
-  .code .ln { position: relative; display: block; padding-left: 64px; }
-  .code .gut { position: absolute; left: 0; width: 40px; text-align: right; color: rgba(243,244,247,0.28); }
-  .k { color: #F2836B; } .s { color: #E9EAEE; } .f { color: #A9C2FF; } .c { color: rgba(243,244,247,0.4); }
-  .sel { background: rgba(238,76,44,0.42); border-radius: 4px; }
-  .caret { display: inline-block; width: 3px; height: 38px; background: var(--ember); vertical-align: -7px; margin-left: 1px; }
-  .term { font: 400 30px/1.6 PlexMono, monospace; color: #E9EAEE; white-space: pre-wrap; padding: 30px 38px; }
-  .term .p { color: var(--ember); } .term .o { color: var(--dim); } .term .ok { color: #9BE3B0; }
-
-  /* devices */
-  .phone { position: absolute; border-radius: 62px; background: #0E0E10; padding: 13px; box-shadow: 0 50px 120px rgba(0,0,0,0.32), 0 0 0 2px #2E2E33 inset; }
-  .phone .screen { position: relative; overflow: hidden; border-radius: 50px; background: #fff; }
-  .phone .screen img { position: absolute; left: 0; top: 0; width: 100%; display: block; }
-  .browser { position: absolute; border-radius: 18px; overflow: hidden; background: #1A1A1C; box-shadow: 0 50px 120px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1) inset; }
-  .browser .chrome { height: 50px; display: flex; align-items: center; gap: 9px; padding: 0 20px; background: #2A2A2E; }
-  .browser .chrome i { width: 13px; height: 13px; border-radius: 50%; display: block; background: #4A4A50; }
-  .browser .chrome .url { margin-left: 22px; height: 32px; padding: 0 18px; border-radius: 9px; background: #1E1E21; display: flex; align-items: center; font: 400 18px PlexMono, monospace; color: var(--dim); }
-  .browser .view { position: relative; overflow: hidden; }
-  .browser .view img { position: absolute; left: 0; top: 0; width: 100%; display: block; }
+  .win .bar { height: 50px; display: flex; align-items: center; gap: 10px; padding: 0 22px; background: #29292D; font: 500 20px PlexMono, monospace; color: var(--dim); }
+  .win .bar i { width: 13px; height: 13px; border-radius: 50%; background: #45454B; display: block; }
+  .win .bar span { margin-left: 16px; }
+  .code { font: 400 25px/1.5 PlexMono, monospace; color: #E9EAEE; white-space: pre; padding: 28px 36px; }
+  .k { color: #F2836B; } .f { color: #A9C2FF; } .str { color: #E9C29A; }
+  .term { font: 400 26px/1.5 PlexMono, monospace; color: #E9EAEE; white-space: pre-wrap; padding: 26px 36px; }
+  .term .p { color: var(--ember); } .term .out { color: #FFFFFF; font-weight: 500; }
 
   /* bits */
-  .chip { position: absolute; display: inline-flex; align-items: center; gap: 14px; height: 72px; padding: 0 32px; border-radius: 999px; font-weight: 600; font-size: 32px; white-space: nowrap; letter-spacing: -0.01em; }
-  .chip.ink { background: var(--ink); color: var(--paper); }
-  .chip.outline { box-shadow: 0 0 0 2px rgba(243,244,247,0.22) inset; color: var(--paper); font-family: PlexMono, monospace; font-weight: 500; font-size: 30px; }
+  .chip { position: absolute; display: inline-flex; align-items: center; gap: 14px; height: 72px; padding: 0 32px; border-radius: 999px; font-weight: 600; font-size: 32px; white-space: nowrap; letter-spacing: -0.01em; background: var(--ink); color: var(--paper); }
   .chip svg { color: var(--ember); }
-  .route { position: absolute; display: flex; align-items: center; gap: 22px; font: 500 36px PlexMono, monospace; color: var(--paper); white-space: nowrap; }
-  .route b { display: inline-grid; place-items: center; width: 104px; height: 48px; border-radius: 10px; font: 500 22px PlexMono, monospace; letter-spacing: 0.04em; }
-  .route b.post { background: var(--ember); color: #fff; }
-  .route b.get { background: rgba(243,244,247,0.14); color: var(--paper); }
-  .stat { position: absolute; }
-  .stat b { display: block; font-size: 128px; font-weight: 600; letter-spacing: -0.045em; line-height: 0.9; font-variant-numeric: tabular-nums; }
-  .stat span { display: block; font-size: 30px; font-weight: 500; margin-top: 16px; color: var(--dim); }
-  .meter { position: absolute; height: 92px; border-radius: 14px; }
-  .note { position: absolute; font: 400 24px/1.5 PlexMono, monospace; white-space: nowrap; }
-  .dark .note.dimtext { color: rgba(243,244,247,0.7); }
-  .tagline { position: absolute; font: 400 22px PlexMono, monospace; color: var(--dim); white-space: nowrap; }
+  .note { position: absolute; font: 400 22px/1.5 PlexMono, monospace; white-space: nowrap; }
+  .tag { position: absolute; display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: 999px; font: 500 22px PlexMono, monospace; white-space: nowrap; }
+  .tag.ondark { background: rgba(243,244,247,0.12); color: var(--paper); }
+  .tag.light { background: rgba(38,38,38,0.08); color: var(--ink-2); }
   .urlpill { position: absolute; display: inline-flex; align-items: center; height: 96px; padding: 0 46px; border-radius: 999px; background: var(--ink); color: var(--paper); font-weight: 600; font-size: 44px; letter-spacing: -0.015em; white-space: nowrap; }
   .qrcard { position: absolute; width: 380px; padding: 38px; border-radius: 30px; background: #fff; box-shadow: 0 30px 70px rgba(38,38,38,0.12), 0 0 0 2px var(--line) inset; text-align: center; }
   .qrcard img { width: 304px; height: 304px; display: block; }
   .qrcard p { margin-top: 20px; font-size: 26px; font-weight: 600; }
-  .fine { position: absolute; font-size: 29px; line-height: 1.4; color: #4A4E55; font-weight: 400; white-space: nowrap; }
+  .fine { position: absolute; font-size: 28px; line-height: 1.4; color: #4A4E55; white-space: nowrap; }
   .wipe { position: absolute; inset: 0; z-index: 90; pointer-events: none; }
   .flash { position: absolute; inset: 0; background: #fff; z-index: 95; opacity: 0; }
   .black { position: absolute; inset: 0; background: #000; z-index: 96; opacity: 0; }
@@ -88,9 +78,9 @@
 <script src="assets/data.js"></script>
 <script>
 // ---------------------------------------------------------------------------------------
-// Time: 124 BPM, cuts on bar lines; music.py writes the same grid.
-const BEAT = 60 / 124, BAR = 4 * BEAT, bar = (n, beat = 0) => (n * 4 + beat) * BEAT;
-const LENGTH = 25 * BAR + 2.4;
+// Time: 112 BPM, scenes on bar lines; music.py writes the same grid and the same moments.
+const BEAT = 60 / 112, BAR = 4 * BEAT, bar = (n, beat = 0) => (n * 4 + beat) * BEAT;
+const LENGTH = 27 * BAR + 2.6;
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const prog = (t, a, b) => clamp((t - a) / (b - a));
 const lerp = (a, b, x) => a + (b - a) * x;
@@ -100,11 +90,12 @@ const E = {
   inCubic: (x) => x * x * x,
   inOutCubic: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
   // Exactly 0 at the start: the formula leaves a float crumb there, which reads as visible.
-  outBack: (x) => { if (x <= 0) return 0; const c1 = 1.8, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); },
+  outBack: (x) => { if (x <= 0) return 0; const c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); },
 };
-const shake = (t, amp) => ({ x: amp * (Math.sin(t * 91.7) * 0.6 + Math.sin(t * 57.3 + 1.3) * 0.4), y: amp * (Math.sin(t * 73.1 + 2.1) * 0.6 + Math.sin(t * 43.9) * 0.4) });
-const kickPulse = (t, from) => (t < from ? 0 : Math.exp(-((t - from) % BEAT) * 9));
-const D = window.AD_DATA; // the phone's real recordings (record.py, capture.cjs), via data.js
+const pulse = (t, from, every = BEAT, k = 7) => (t < from ? 0 : Math.exp(-((t - from) % every) * k));
+const D = window.AD_DATA; // the recordings: stream.json and the clips (data.cjs)
+// The story's moments, as music.py has them.
+const SERVING = bar(9, 2), ANSWER = bar(13), WOKE = bar(17), CODE_STREAM = bar(19, 2) + 1.6;
 
 function el(tag, cls, parent, html) {
   const e = document.createElement(tag);
@@ -113,12 +104,10 @@ function el(tag, cls, parent, html) {
   (parent || stage).appendChild(e);
   return e;
 }
-function put(e, { x = 0, y = 0, s = 1, r = 0, o = 1, blur = 0, ry = 0 } = {}) {
-  e.style.transform = `translate(${x}px, ${y}px) perspective(1600px) rotateY(${ry}deg) rotate(${r}deg) scale(${s})`;
+function put(e, { x = 0, y = 0, s = 1, o = 1, ry = 0 } = {}) {
+  e.style.transform = `translate(${x}px, ${y}px) perspective(1800px) rotateY(${ry}deg) scale(${s})`;
   e.style.opacity = o;
-  e.style.filter = blur > 0.05 ? `blur(${blur}px)` : 'none';
 }
-// A line of type revealed from below through a mask.
 function line(parent, text, cls, x, y, size, extra = '') {
   const m = el('div', 'abs mask', parent);
   m.style.left = x + 'px'; m.style.top = y + 'px';
@@ -129,16 +118,29 @@ function line(parent, text, cls, x, y, size, extra = '') {
   return { m, s };
 }
 function centred(ln) { ln.m.style.left = '0'; ln.m.style.width = '1920px'; ln.s.style.textAlign = 'center'; return ln; }
-function reveal(ln, t, t0, dur = 0.45, out = null) {
+function reveal(ln, t, t0, dur = 0.5, out = null) {
   const p = E.outExpo(prog(t, t0, t0 + dur));
-  let y = (1 - p) * 130;
-  if (out !== null) y -= E.inCubic(prog(t, out, out + 0.28)) * 130;
+  let y = (1 - p) * 120;
+  if (out !== null) y -= E.inCubic(prog(t, out, out + 0.3)) * 120;
   ln.s.style.transform = `translateY(${y}%)`;
   ln.m.style.opacity = p > 0 ? 1 : 0;
 }
 
-// The mark, in its parts: lid, two faces, six pins, the ember die. Each part takes an offset
-// along the isometric axes and a scale, so the drop can build it.
+// Real footage, one frame at a time. renderAt waits for each frame to decode, so the page is
+// deterministic however fast the renderer asks.
+const pending = [];
+function frame(img, clip, ct) {
+  const c = D.clips[clip];
+  const i = clamp(Math.round(ct * c.fps), 0, c.count - 1) + 1;
+  const src = `frames/clips/${clip}/${String(i).padStart(4, '0')}.jpg`;
+  if (img.dataset.src !== src) {
+    img.dataset.src = src;
+    img.src = src;
+    pending.push(img.decode().catch(() => { throw new Error('frame failed: ' + src); }));
+  }
+}
+
+// The mark, in its parts, so it can build itself.
 const PARTS = {
   lid: 'M50 6.58L96.22 32.26L50 57.93L3.78 32.26Z',
   left: 'M2 35.23L48.27 60.94L48.27 85.62L2 59.92Z',
@@ -148,22 +150,54 @@ const PARTS = {
   die: 'M50 19.92L74 33.25L50 46.58L26 33.25Z',
 };
 function mark(size, st = {}, ink = '#262626') {
-  const { lid = [0, 0], left = [0, 0], right = [0, 0], pins = [1, 1, 1, 1, 1, 1], die = 1, dieGlow = 0, o = [1, 1, 1] } = st;
-  const g = (d, [dx, dy], op = 1, fill = ink) => `<path d="${d}" fill="${fill}" transform="translate(${dx} ${dy})" opacity="${op}"/>`;
+  const { lid = [0, 0], left = [0, 0], right = [0, 0], pins = [1, 1, 1, 1, 1, 1], die = 1, glow = 0, o = [1, 1, 1] } = st;
+  const g = (d, [dx, dy], op) => `<path d="${d}" fill="${ink}" transform="translate(${dx} ${dy})" opacity="${op}"/>`;
   const pinPaths = PARTS.pins.map((d, i) => `<path d="${d}" fill="${ink}" style="transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(${pins[i]})"/>`).join('');
-  const glow = dieGlow > 0 ? `<path d="${PARTS.die}" fill="none" stroke="#EE4C2C" stroke-width="${2 + 6 * dieGlow}" stroke-opacity="${0.5 * dieGlow}" style="transform-box: fill-box; transform-origin: center; transform: scale(${1 + 0.5 * dieGlow})"/>` : '';
+  const halo = glow > 0 ? `<path d="${PARTS.die}" fill="none" stroke="#EE4C2C" stroke-width="${2 + 6 * glow}" stroke-opacity="${0.5 * glow}" style="transform-box: fill-box; transform-origin: center; transform: scale(${1 + 0.5 * glow})"/>` : '';
   return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" overflow="visible">${pinPaths}${g(PARTS.left, left, o[1])}${g(PARTS.right, right, o[2])}${g(PARTS.lid, lid, o[0])}` +
-    `<path d="${PARTS.die}" fill="#EE4C2C" style="transform-box: fill-box; transform-origin: center; transform: scale(${die})"/>${glow}</svg>`;
+    `<path d="${PARTS.die}" fill="#EE4C2C" style="transform-box: fill-box; transform-origin: center; transform: scale(${die})"/>${halo}</svg>`;
+}
+// The ember: the mark's die, glowing above the phone. Where it is, the model is.
+function ember(size, glow) {
+  return `<svg width="${size}" height="${size * 0.56}" viewBox="24 18 52 30" overflow="visible">` +
+    `<path d="${PARTS.die}" fill="#EE4C2C" opacity="${0.18 * glow}" style="transform-box: fill-box; transform-origin: center; transform: scale(${1.6 + 0.5 * glow})"/>` +
+    `<path d="${PARTS.die}" fill="#EE4C2C"/></svg>`;
 }
 const CHECK = (n = 30) => `<svg width="${n}" height="${n}" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-// A phone showing one capture (1280 x 2772 from the POCO).
-function phone(parent, src, w = 400) {
+// A phone at a given screen width; a capture's aspect ratio sets its height.
+function phone(parent, w, ratio, src) {
   const p = el('div', 'phone abs', parent);
   const sc = el('div', 'screen', p);
-  sc.style.width = w + 'px'; sc.style.height = Math.round(w * 2772 / 1280) + 'px';
-  const img = el('img', '', sc); img.src = src;
-  return { p, sc, img };
+  sc.style.width = w + 'px'; sc.style.height = Math.round(w * ratio) + 'px';
+  const img = el('img', '', sc); if (src) img.src = src;
+  const off = el('div', 'off', sc);
+  return { p, sc, img, off, w };
+}
+// The laptop: a browser showing the phone's own chat page, recorded at 1100 x 690 (browser.cjs).
+const LAP_W = 1180;
+function laptop(parent, address) {
+  const l = el('div', 'laptop abs', parent);
+  const lid = el('div', 'lid', l);
+  lid.innerHTML = `<div class="bar"><i></i><i></i><i></i><div class="url">${address}</div></div>`;
+  const view = el('div', 'view', lid); view.style.width = LAP_W + 'px'; view.style.height = Math.round(LAP_W * 690 / 1100) + 'px';
+  const img = el('img', '', view); img.style.transformOrigin = '88% 50%'; // keeps the conversation column in view when zoomed
+  el('div', 'base', l);
+  return { l, img };
+}
+// The answer's path from the phone to the laptop: small dots that flow while the phone answers.
+// The ember itself stays above the phone.
+function trace(svg, from, to, t, on) {
+  if (on <= 0) { svg.innerHTML = ''; return; }
+  const [x0, y0] = from, [x1, y1] = to, cx = (x0 + x1) / 2, cy = Math.min(y0, y1) - 160;
+  let dots = '';
+  for (let k = 0; k < 9; k++) {
+    const u = (t * 0.9 + k / 9) % 1;
+    const x = (1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * cx + u * u * x1;
+    const y = (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * cy + u * u * y1;
+    dots += `<circle cx="${x}" cy="${y}" r="5" fill="#EE4C2C" opacity="${(on * Math.sin(Math.PI * u)).toFixed(3)}"/>`;
+  }
+  svg.innerHTML = `<path d="M${x0} ${y0} Q ${cx} ${cy} ${x1} ${y1}" fill="none" stroke="#EE4C2C" stroke-width="2" stroke-dasharray="2 14" opacity="${0.5 * on}"/>${dots}`;
 }
 
 const stage = document.getElementById('stage');
@@ -173,355 +207,300 @@ function scene(start, end, cls, build, render) {
   scenes.push({ start, end, root, ctx: build(root), render });
 }
 
+// The laptop scenes share one arrangement: the laptop left, the phone serving it on the right,
+// the ember above the phone.
+const LAP = { x: 150, y: 215 }, PH = { x: 1500, y: 300, w: 290 };
+const EMBER_AT = [PH.x + 12 + PH.w / 2, PH.y - 70];
+const LAP_EDGE = [LAP.x + 16 + LAP_W - 40, LAP.y + 330];
+function serveRig(r, clipName, address) {
+  const lap = laptop(r, address);
+  const ph = phone(r, PH.w, 2772 / 1280, 'assets/phone-01-hosting.png');
+  const em = el('div', 'abs', r);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', 1920); svg.setAttribute('height', 1080);
+  svg.style.cssText = 'position:absolute;left:0;top:0;overflow:visible';
+  r.appendChild(svg);
+  return { lap, ph, em, svg, clipName };
+}
+function renderRig(c, t, { clipTime, inAt, flow, glow, off = 0, zoom = 0 }) {
+  // The camera leans into the conversation while it answers, so the reply can be read.
+  c.lap.img.style.transform = `scale(${1 + 0.32 * E.inOutCubic(zoom)})`;
+  const q = E.outExpo(prog(t, inAt, inAt + 0.8));
+  put(c.lap.l, { x: LAP.x, y: LAP.y + (1 - q) * 60, o: q });
+  put(c.ph.p, { x: PH.x + (1 - q) * 300, y: PH.y + Math.sin(t * 1.2) * 5, ry: -8, o: q });
+  c.ph.off.style.opacity = off;
+  frame(c.lap.img, c.clipName, clipTime);
+  c.em.innerHTML = ember(90, glow);
+  put(c.em, { x: EMBER_AT[0] - 45, y: EMBER_AT[1] - 25 + Math.sin(t * 2.1) * 4, o: q });
+  trace(c.svg, [EMBER_AT[0] - 20, EMBER_AT[1] + 4], LAP_EDGE, t, flow);
+}
+
 // ---------------------------------------------------------------------------------------
-// 1. The hook: the client a developer already has, and the one line that changes.
-const OLD_URL = 'https://api.openai.com/v1', NEW_URL = 'http://127.0.0.1:8080/v1';
-const TYPE_AT = bar(1), TYPE_STEP = BEAT / 8; // one character per 32nd note, as music.py clicks
-const TYPED_AT = TYPE_AT + NEW_URL.length * TYPE_STEP;
-scene(0, bar(4), 'dark', (r) => {
-  const cam = el('div', 'abs', r); cam.style.width = '1920px'; cam.style.height = '1080px'; cam.style.transformOrigin = '0 0';
-  const win = el('div', 'win abs', cam);
-  win.style.width = '1180px'; win.style.height = '580px';
-  win.innerHTML = '<div class="bar"><i></i><i></i><i></i><span>app.py</span></div><div class="code"></div>';
-  const head = line(r, 'Keep your SDK.', 'h1', 370, 120, 84, 'color:var(--paper)');
-  const sub = line(r, 'Point it at your phone.', 'sub dimtext', 374, 870, 40);
-  const head2 = line(r, 'That endpoint is a phone.', 'h1', 120, 760, 104, 'color:var(--paper)');
-  const sub2 = line(r, 'Running the model, serving it over HTTP.', 'sub dimtext', 126, 900, 40);
-  const ph = phone(r, 'assets/phone-01-hosting.png', 400);
-  const wire = el('div', 'abs', r);
-  return { cam, win, head, sub, head2, sub2, ph, wire, r };
+// 1. The hook: an answer arrives on a laptop, and the ember shows where it came from.
+const CH = D.chat.marks, AS = D.asleep.marks;
+scene(0, bar(3), 'dark', (r) => {
+  const rig = serveRig(r, 'chat', D.chat.address);
+  const h = line(r, 'This answer didn’t come from the cloud.', 'h1', 150, 48, 76, 'color:var(--paper)');
+  const h2 = line(r, 'It came from the phone next to it.', 'h1', 150, 48, 76, 'color:var(--paper)');
+  const ring = el('div', 'ring', r);
+  return { rig, h, h2, ring };
 }, (t, c) => {
-  // The editor.
-  const n = Math.floor(clamp((t - TYPE_AT) / TYPE_STEP, 0, NEW_URL.length));
-  const selected = t >= bar(0, 2.5) && t < TYPE_AT;
-  const deleted = t >= TYPE_AT;
-  const caret = (t >= bar(0, 2.5) && Math.floor(t * 4) % 2 === 0) || (t >= TYPE_AT && t < TYPED_AT + 0.3);
-  const url = deleted ? NEW_URL.slice(0, n) : (selected ? `<span class="sel">${OLD_URL}</span>` : OLD_URL);
-  const changed = t >= TYPED_AT;
-  const gut = (k, mark) => `<span class="gut">${mark || k}</span>`;
-  c.win.querySelector('.code').innerHTML = [
-    `<span class="ln">${gut(1)}<span class="k">from</span> openai <span class="k">import</span> OpenAI</span>`,
-    `<span class="ln">${gut(2)} </span>`,
-    `<span class="ln">${gut(3)}client = <span class="f">OpenAI</span>(</span>`,
-    ...(changed ? [`<span class="ln" style="background:rgba(238,76,44,0.14);">${gut(4, '<span class="k">+</span>')}    <span class="c"># the phone, its port forwarded over adb</span></span>`] : []),
-    `<span class="ln" style="${changed ? 'background:rgba(238,76,44,0.14);' : ''}">${gut(changed ? 5 : 4, changed ? '<span class="k">+</span>' : '')}    base_url=<span class="s">"${url}${caret && t < TYPED_AT + 0.3 ? '<span class="caret"></span>' : ''}"</span>,</span>`,
-    `<span class="ln">${gut(changed ? 6 : 5)}    api_key=phone_key,</span>`,
-    `<span class="ln">${gut(changed ? 7 : 6)})</span>`,
-  ].join('');
-  const inA = E.outExpo(prog(t, 0, 0.6));
-  // Scene two: the editor steps back to the left, and a wire runs from its URL to the phone.
-  const back = E.inOutCubic(prog(t, bar(2), bar(2, 1.2)));
-  const push = E.inCubic(prog(t, bar(2), bar(4)));
-  const sh = shake(t, 12 * push * push);
-  put(c.cam, { x: sh.x, y: sh.y, s: 1 + 0.03 * prog(t, 0, bar(2)) + 0.06 * push });
-  put(c.win, { x: lerp(370, 120, back), y: lerp(230 + (1 - inA) * 40, 150, back), s: lerp(1, 0.68, back), o: inA });
-  c.win.style.transformOrigin = '0 0';
-  reveal(c.head, t, bar(0, 0.5), 0.45, bar(2) - 0.3);
-  reveal(c.sub, t, TYPE_AT, 0.4, bar(2) - 0.3);
-  reveal(c.head2, t, bar(2, 2), 0.45);
-  reveal(c.sub2, t, bar(3), 0.45);
-  const pin = E.outExpo(prog(t, bar(2, 1), bar(2, 1) + 0.7));
-  put(c.ph.p, { x: 1300 + (1 - pin) * 700, y: 60 + Math.sin(t * 1.3) * 6, ry: -6, o: pin > 0 ? 1 : 0 });
-  // The wire: from the URL in the shrunken editor to the phone, drawn on the beat.
-  const w = E.inOutCubic(prog(t, bar(2, 1.5), bar(3)));
-  const x0 = 120 + 0.68 * (40 + 64 + 420), y0 = 150 + 0.68 * (54 + 34 + 4.5 * 58.5), x1 = 1300, y1 = 520;
-  const len = Math.hypot(x1 - x0, y1 - y0);
-  const dash = (t * 160) % 40;
-  c.wire.innerHTML = w > 0 ? `<svg width="1920" height="1080" style="position:absolute;left:0;top:0"><path d="M${x0} ${y0} C ${x0 + 300} ${y0}, ${x1 - 300} ${y1}, ${x1} ${y1}" fill="none" stroke="#EE4C2C" stroke-width="4" stroke-linecap="round" stroke-dasharray="14 26" stroke-dashoffset="${-dash}" pathLength="${len}" style="opacity:${w}"/><circle cx="${x1}" cy="${y1}" r="${10 + 4 * kickPulse(t, bar(3))}" fill="#EE4C2C" opacity="${w}"/></svg>` : '';
+  // The reply streams from the moment it was sent, at its recorded pace.
+  // It holds on the finished answer two seconds after the reply is done.
+  const clip = Math.min(CH.done + 2, CH.sent + 0.4 + Math.max(0, t - 0.25));
+  const streaming = clip >= CH.firstText && clip <= CH.done + 0.3;
+  renderRig(c.rig, t, { clipTime: clip, inAt: 0, flow: streaming ? 1 : 0, glow: pulse(t, 0, BEAT, 4), zoom: 1 });
+  reveal(c.h, t, 0.5, 0.55, bar(1, 2) - 0.35);
+  reveal(c.h2, t, bar(1, 2), 0.55);
+  // A ring settles round the phone as the second line lands.
+  const q = E.outBack(prog(t, bar(1, 2.5), bar(1, 2.5) + 0.5));
+  c.ring.style.width = PH.w + 64 + 'px'; c.ring.style.height = Math.round(PH.w * 2772 / 1280) + 64 + 'px';
+  c.ring.style.borderRadius = '70px';
+  put(c.ring, { x: PH.x - 20, y: PH.y - 20, s: q > 0 ? 0.92 + 0.08 * q : 1, o: q > 0 ? 1 : 0 });
 });
 
-// 2. The drop: the mark builds itself, piece by piece, on the beat.
-scene(bar(4), bar(6), 'paper', (r) => {
+// 2. The drop: the mark builds itself on the beat.
+scene(bar(3), bar(5), 'paper', (r) => {
   el('div', 'lattice', r);
-  const ring = el('div', 'abs', r);
-  const logo = el('div', 'abs', r); logo.style.left = '780px'; logo.style.top = '120px';
-  const word = centred(line(r, '<img src="assets/wordmark.svg" style="height:136px;display:inline-block">', '', 0, 530, 136));
-  const tag = centred(line(r, 'ExecuTorch models, served from your phone.', 'sub grey', 0, 730, 46));
-  const pills = ['Free', 'Open source', 'Apache-2.0'].map((w) => el('div', 'chip ink abs', r, CHECK(30) + w));
-  return { ring, logo, word, tag, pills };
+  const burst = el('div', 'abs', r);
+  const logo = el('div', 'abs', r); logo.style.left = '800px'; logo.style.top = '110px';
+  const word = centred(line(r, '<img src="assets/wordmark.svg" style="height:136px;display:inline-block">', '', 0, 500, 136));
+  const tag = centred(line(r, 'Turn your Android phone into an AI server.', 'sub grey', 0, 700, 50));
+  const pills = ['Free', 'Open source'].map((w) => el('div', 'chip abs', r, CHECK(30) + w));
+  return { burst, logo, word, tag, pills };
 }, (t, c) => {
-  const t0 = bar(4);
-  const k = (a, d = 0.42) => E.outBack(prog(t, t0 + a, t0 + a + d));
+  const t0 = bar(3);
+  const k = (a, d = 0.45) => E.outBack(prog(t, t0 + a, t0 + a + d));
   const lid = k(0), side = k(0.08);
   const pins = PARTS.pins.map((_, i) => Math.max(0, E.outBack(prog(t, t0 + 0.3 + i * BEAT / 4, t0 + 0.5 + i * BEAT / 4))));
-  const dieAt = bar(4, 2), die = Math.max(0, E.outBack(prog(t, dieAt, dieAt + 0.35)));
-  const glow = t > dieAt ? Math.exp(-(t - dieAt) * 4) : 0;
-  const pulse = kickPulse(t, bar(5));
-  c.logo.innerHTML = mark(360, {
-    lid: [0, (1 - lid) * -70], left: [(1 - side) * -60, (1 - side) * 34], right: [(1 - side) * 60, (1 - side) * 34],
-    pins, die, dieGlow: glow, o: [clamp(lid * 3), clamp(side * 3), clamp(side * 3)],
-  });
-  put(c.logo, { s: 1 + 0.025 * pulse });
-  // An isometric diamond bursts out of the die as it lands.
-  const b = prog(t, dieAt, dieAt + 0.9);
-  c.ring.innerHTML = b > 0 && b < 1 ? `<svg width="1920" height="1080"><path d="M960 ${238 - 300 * E.outCubic(b) * 0.577} L ${960 + 300 * E.outCubic(b)} 238 L 960 ${238 + 300 * E.outCubic(b) * 0.577} L ${960 - 300 * E.outCubic(b)} 238 Z" fill="none" stroke="#EE4C2C" stroke-width="${10 * (1 - b)}" opacity="${1 - b}"/></svg>` : '';
-  reveal(c.word, t, bar(4, 2.2), 0.5);
-  reveal(c.tag, t, bar(5), 0.5);
-  // The pills, centred as a group by their real widths.
-  const gap = 24, widths = c.pills.map((pl) => pl.offsetWidth);
-  let x = 960 - (widths.reduce((a, w) => a + w, 0) + gap * (widths.length - 1)) / 2;
-  c.pills.forEach((pl, i) => {
-    const q = E.outBack(prog(t, bar(5, 1.5 + i * 0.5), bar(5, 1.5 + i * 0.5) + 0.35));
-    put(pl, { x, y: 850 + (1 - q) * 40, s: Math.max(0.001, q), o: q > 0 ? 1 : 0 });
+  const dieAt = bar(3, 2), die = Math.max(0, E.outBack(prog(t, dieAt, dieAt + 0.4)));
+  const glow = t > dieAt ? Math.exp(-(t - dieAt) * 3.5) : 0;
+  c.logo.innerHTML = mark(320, { lid: [0, (1 - lid) * -70], left: [(1 - side) * -60, (1 - side) * 34], right: [(1 - side) * 60, (1 - side) * 34], pins, die, glow, o: [clamp(lid * 3), clamp(side * 3), clamp(side * 3)] });
+  const b = prog(t, dieAt, dieAt + 0.9), s = 280 * E.outCubic(b);
+  c.burst.innerHTML = b > 0 && b < 1 ? `<svg width="1920" height="1080"><path d="M960 ${215 - s * 0.577}L${960 + s} 215L960 ${215 + s * 0.577}L${960 - s} 215Z" fill="none" stroke="#EE4C2C" stroke-width="${10 * (1 - b)}" opacity="${1 - b}"/></svg>` : '';
+  reveal(c.word, t, bar(3, 2.2), 0.55);
+  reveal(c.tag, t, bar(4), 0.55);
+  const gap = 24, widths = c.pills.map((p) => p.offsetWidth);
+  let x = 960 - (widths[0] + widths[1] + gap) / 2;
+  c.pills.forEach((p, i) => {
+    const q = E.outBack(prog(t, bar(4, 0.5 + i * 0.5), bar(4, 0.5 + i * 0.5) + 0.4));
+    put(p, { x, y: 820 + (1 - q) * 40, s: Math.max(0.001, q), o: q > 0 ? 1 : 0 });
     x += widths[i] + gap;
   });
 });
 
-// 3. A server, not a chat app: the routes, and the SDK suites that pass against them.
-scene(bar(6), bar(9), 'dark', (r) => {
-  const h = line(r, 'A server,', 'h1', 140, 170, 118, 'color:var(--paper)');
-  const h2 = line(r, 'not a chat app.', 'h1', 140, 300, 118, 'color:var(--paper)');
-  const sub = line(r, 'OpenAI and Anthropic APIs, from your phone.', 'sub dimtext', 146, 460, 40);
-  const routes = [['post', 'POST', '/v1/chat/completions'], ['post', 'POST', '/v1/responses'], ['post', 'POST', '/v1/messages'], ['post', 'POST', '/v1/completions'], ['get', 'GET', '/v1/models'], ['get', 'GET', '/metrics']]
-    .map(([k, m, p]) => el('div', 'route abs', r, `<b class="${k}">${m}</b>${p}`));
-  const stats = [['16/16', 'OpenAI SDK checks'], ['8/8', 'Anthropic SDK checks'], ['28/28', 'edge-case checks']].map(([n, l]) => el('div', 'stat abs', r, `<b>${n}</b><span>${l}</span>`));
-  const fine = el('div', 'note abs dimtext', r, 'Our compatibility suites, run with the official SDKs against the release build on a phone.');
-  return { h, h2, sub, routes, stats, fine };
-}, (t, c) => {
-  const t0 = bar(6);
-  reveal(c.h, t, t0 + 0.05, 0.45);
-  reveal(c.h2, t, t0 + 0.2, 0.45);
-  reveal(c.sub, t, bar(6, 2.5), 0.45);
-  c.routes.forEach((ro, i) => {
-    const q = E.outExpo(prog(t, bar(6, 1 + i * 0.5), bar(6, 1 + i * 0.5) + 0.45));
-    put(ro, { x: 1110 + (1 - q) * 120, y: 190 + i * 76, o: q });
-  });
-  c.stats.forEach((s, i) => {
-    const q = E.outExpo(prog(t, bar(7, 2 + i), bar(7, 2 + i) + 0.5));
-    put(s, { x: 140 + i * 400, y: 640 + (1 - q) * 50, o: q });
-  });
-  const f = E.outCubic(prog(t, bar(8, 2), bar(8, 3)));
-  put(c.fine, { x: 146, y: 900, o: f });
-});
-
-// 4. Real tokens, at the moment each arrived from the phone; then the same phone in a browser.
-const S = D.stream, A = D.anthropic, W = D.web;
-const STREAM_AT = bar(9, 2); // music.py blips each token from here
-const lastTok = S.tokens[S.tokens.length - 1].t;
-scene(bar(9), bar(12), 'dark', (r) => {
-  const h = line(r, 'Real tokens. Real time.', 'h1', 140, 100, 92, 'color:var(--paper)');
-  const h2 = line(r, 'And a chat in your browser.', 'h1', 140, 100, 92, 'color:var(--paper)');
-  const label = el('div', 'tagline abs', r, `${S.model.replace('-8da4w-gptq-4k', '')} on a ${S.device}, through the OpenAI SDK`);
-  const win = el('div', 'win abs', r);
-  win.style.width = '1190px'; win.style.height = '640px';
-  win.innerHTML = '<div class="bar"><i></i><i></i><i></i><span>~/demo</span></div><div class="term"></div>';
-  const br = el('div', 'browser abs', r);
-  br.style.width = '1180px';
-  br.innerHTML = `<div class="chrome"><i></i><i></i><i></i><div class="url">${W.address}</div></div><div class="view" style="height:${Math.round(1180 * 900 / 1440)}px"></div>`;
-  const view = br.querySelector('.view');
-  const imgs = W.frames.map((f) => { const i = el('img', '', view); i.src = `assets/web/${f.name}`; i.style.opacity = 0; return i; });
-  const blabel = el('div', 'tagline abs', r, 'Served by the phone. Nothing to install.');
-  return { h, h2, label, win, br, imgs, blabel };
-}, (t, c) => {
-  const t0 = bar(9);
-  reveal(c.h, t, t0 + 0.05, 0.45, bar(11) - 0.3);
-  reveal(c.h2, t, bar(11), 0.45);
-  put(c.label, { x: 146, y: 222, o: E.outCubic(prog(t, t0 + 0.3, t0 + 0.8)) * (1 - prog(t, bar(11) - 0.3, bar(11))) });
-  // The terminal: the command, the stream, the server's own figures, then the Anthropic SDK.
-  const cmd1 = 'python stream.py', cmd2 = 'python hello.py   # the Anthropic SDK';
-  const n1 = Math.floor(clamp((t - t0 - 0.35) / 0.03, 0, cmd1.length));
-  let out = `<span class="p">$</span> ${cmd1.slice(0, n1)}`;
-  if (t >= STREAM_AT) {
-    const shown = S.tokens.filter((k) => k.t <= t - STREAM_AT).map((k) => k.text).join('');
-    out += '\n' + shown.replace(/\n+/g, ' ').replace(/</g, '&lt;');
-  }
-  const doneAt = STREAM_AT + lastTok + 0.15;
-  if (t >= doneAt) {
-    const ti = S.timings;
-    out += `\n<span class="ok">${ti.predicted_n} tokens · prefill ${Math.round(ti.prompt_per_second)} tok/s · decode ${ti.predicted_per_second.toFixed(1)} tok/s</span>`;
-  }
-  const a0 = bar(10, 3);
-  if (t >= a0) {
-    const n2 = Math.floor(clamp((t - a0) / 0.022, 0, cmd2.length));
-    out += `\n<span class="p">$</span> ${cmd2.slice(0, n2).replace('#', '<span class="o">#') + (n2 > 17 ? '</span>' : '')}`;
-  }
-  if (t >= a0 + 0.95) out += `\n${A.text}`;
-  c.win.querySelector('.term').innerHTML = out;
-  const inW = E.outExpo(prog(t, t0, t0 + 0.6));
-  const away = E.inOutCubic(prog(t, bar(11) - 0.2, bar(11) + 0.5));
-  put(c.win, { x: 140 - away * 80, y: 300 + (1 - inW) * 60 + away * 30, s: 1 - away * 0.12, o: inW * (1 - 0.75 * away) });
-  // The browser rises over it and plays the frames captured from the phone's chat, at their pace.
-  const inB = E.outExpo(prog(t, bar(11), bar(11) + 0.7));
-  put(c.br, { x: 600, y: 215 + (1 - inB) * 700, ry: -3, o: inB > 0 ? 1 : 0 });
-  const since = t - (bar(11) + 0.45);
-  let k = 0;
-  W.frames.forEach((f, i) => { if (since >= f.t) k = i; });
-  c.imgs.forEach((img, i) => { img.style.opacity = i === k ? 1 : 0; });
-  put(c.blabel, { x: 606, y: 1025, o: E.outCubic(prog(t, bar(11, 2), bar(11, 3))) });
-});
-
-// 5. The KV cache: a long conversation's first turn against its follow-up, measured on the phone.
-const C = D.cache, SPEEDUP = Math.round(C.cold.ttft_s / C.warm.ttft_s);
-scene(bar(12), bar(14), 'paper', (r) => {
+// 3. Pick a model: the app's catalog, a download, installed. The phone's own screen recording.
+const DL = D.download; // in the recording: its scene changes, and the Installed chip
+const DL_IN = DL.expand - 0.5, DL_FAST = 2, DL_RUN = 1.7; // start, the speed until the download, the download's screen time
+function dlClip(s) { // seconds into the scene -> seconds into the recording
+  const a = (s - 0.25) * DL_FAST + DL_IN, tapEnd = DL.get + 0.2;
+  if (a <= tapEnd) return Math.max(DL_IN, a);
+  const s1 = 0.25 + (tapEnd - DL_IN) / DL_FAST;
+  return Math.min(DL.installed + 1, tapEnd + (s - s1) * ((DL.installed + 0.2 - tapEnd) / DL_RUN));
+}
+const sceneOf = (clip) => 0.25 + (clip - DL_IN) / DL_FAST;
+scene(bar(5), bar(8), 'paper', (r) => {
   el('div', 'lattice', r);
-  const h = line(r, 'Follow-ups reuse the KV cache.', 'h1', 140, 140, 104);
-  const sub = line(r, `A ${C.cold.prompt_tokens.toLocaleString('en')}-token conversation, then its follow-up.`, 'sub grey', 146, 278, 40);
-  const rows = ['First turn, read cold', 'Follow-up, cache warm'].map((label, i) => {
-    const l = el('div', 'abs sub', r, label); l.style.cssText += 'font-size:32px;';
-    const track = el('div', 'meter abs', r); track.style.cssText += 'background:#E4E6EB;width:1020px;';
-    const fill = el('div', 'meter abs', r); fill.style.background = i ? 'var(--ember)' : 'var(--ink)';
-    const v = el('div', 'abs h1', r); v.style.fontSize = '64px';
-    return { l, track, fill, v };
-  });
-  const big = el('div', 'abs', r, `<div class="h1" style="font-size:150px;color:var(--ember)">${SPEEDUP}×</div><div class="sub" style="font-size:34px;margin-top:10px">faster to the first token</div>`);
-  const fine = el('div', 'note abs grey', r, `Time to first token, ${C.model.replace('-8da4w-gptq-4k', '')} on a ${C.device}. <br>The follow-up reused ${C.warm.cached_tokens.toLocaleString('en')} cached tokens. The cold turn is shown sped up.`);
-  return { h, sub, rows, big, fine };
+  const h = line(r, 'Pick a model.', 'h1', 150, 300, 118);
+  const sub = line(r, 'Open models, one tap from the catalog.', 'sub grey', 156, 460, 44);
+  const ph = phone(r, 600, 2400 / 1080);
+  const rip = el('div', 'ripple abs', ph.p);
+  const tag = el('div', 'tag light abs', r, 'Download sped up, joined at 95%');
+  return { h, sub, ph, rip, tag };
 }, (t, c) => {
-  const t0 = bar(12), hit = bar(13);
-  reveal(c.h, t, t0 + 0.05, 0.45);
-  reveal(c.sub, t, bar(12, 1.5), 0.45);
-  const full = 1020;
-  c.rows.forEach((row, i) => {
-    const y = 470 + i * 200;
-    const inR = E.outExpo(prog(t, bar(12, 1 + i), bar(12, 1 + i) + 0.4));
-    put(row.l, { x: 140, y: y - 52, o: inR });
-    put(row.track, { x: 140, y, o: inR * 0.9 });
-    // The cold turn fills over a bar and a half, its clock running; the warm one lands on the hit.
-    const p = i === 0 ? E.inOutCubic(prog(t, bar(12, 1.5), hit)) : E.outExpo(prog(t, hit, hit + 0.3));
-    const secs = i === 0 ? C.cold.ttft_s * p : C.warm.ttft_s * (p > 0 ? 1 : 0);
-    const w = Math.max(18, full * (secs / C.cold.ttft_s));
-    row.fill.style.width = w + 'px';
-    put(row.fill, { x: 140, y, o: p > 0 ? 1 : 0 });
-    row.v.textContent = secs.toFixed(2) + ' s';
-    row.v.style.color = i ? 'var(--ember)' : 'var(--ink)';
-    put(row.v, { x: 140 + w + 30, y: y + 12, o: p > 0 ? 1 : 0 });
-  });
-  const q = E.outBack(prog(t, hit + 0.1, hit + 0.55));
-  put(c.big, { x: 1460, y: 600 + (1 - q) * 60, s: Math.max(0.001, 0.9 + 0.1 * q) * (1 + 0.03 * kickPulse(t, hit)), o: q > 0 ? 1 : 0 });
-  put(c.fine, { x: 146, y: 920, o: E.outCubic(prog(t, bar(13, 2), bar(13, 3))) });
+  const t0 = bar(5), s = t - t0;
+  reveal(c.h, t, t0 + 0.2, 0.55);
+  reveal(c.sub, t, t0 + 0.6, 0.55);
+  const q = E.outExpo(prog(t, t0, t0 + 0.7));
+  put(c.ph.p, { x: 1110 + (1 - q) * 400, y: 70, ry: -6, o: q });
+  frame(c.ph.img, 'download', dlClip(s));
+  // Taps where they happened, in the recording's 1080-wide coordinates.
+  const k = c.ph.w / 1080, taps = [[DL.expand, 347, 990], [DL.get, 903, 1641]];
+  let shown = false;
+  for (const [at, x, y] of taps) {
+    const since = s - sceneOf(at);
+    if (since >= 0 && since < 0.45) {
+      put(c.rip, { x: 12 + x * k, y: 12 + y * k, s: 0.4 + since * 1.6, o: 1 - since / 0.45 });
+      shown = true;
+    }
+  }
+  if (!shown) c.rip.style.opacity = 0;
+  const running = dlClip(s) > DL.get + 0.3 && dlClip(s) < DL.installed;
+  put(c.tag, { x: 156, y: 560, o: running ? 1 : 0 });
 });
 
-// 6. The break: what already speaks to it.
-scene(bar(14), bar(16), 'dark', (r) => {
-  const h = line(r, 'Works with what', 'h1', 140, 170, 110, 'color:var(--paper)');
-  const h2 = line(r, 'you already use.', 'h1', 140, 290, 110, 'color:var(--paper)');
-  const chips = ['OpenAI SDKs', 'Anthropic SDKs', 'LangChain', 'Vercel AI SDK', 'Open WebUI', 'curl'].map((w) => el('div', 'chip outline abs', r, w));
-  const sub = line(r, 'Copy the base URL and key, or scan them.', 'sub dimtext', 146, 900, 38);
-  const ph = phone(r, 'assets/phone-05-qr.png', 380);
-  return { h, h2, chips, sub, ph };
-}, (t, c) => {
-  const t0 = bar(14);
-  reveal(c.h, t, t0 + 0.05, 0.45);
-  reveal(c.h2, t, t0 + 0.2, 0.45);
-  const pos = [[140, 500], [470, 500], [830, 500], [140, 600], [520, 600], [860, 600]];
-  c.chips.forEach((ch, i) => {
-    const q = E.outBack(prog(t, bar(14, 1 + i * 0.5), bar(14, 1 + i * 0.5) + 0.4));
-    put(ch, { x: pos[i][0], y: pos[i][1] + (1 - q) * 30, s: Math.max(0.001, q), o: q > 0 ? 1 : 0 });
-  });
-  reveal(c.sub, t, bar(15, 1), 0.45);
-  const pin = E.outExpo(prog(t, bar(14, 2), bar(14, 2) + 0.8));
-  put(c.ph.p, { x: 1350 + (1 - pin) * 700, y: 40 + Math.sin(t * 1.2) * 7, ry: -6, o: pin > 0 ? 1 : 0 });
-});
-
-// 7. Several models resident, one compute lane: three blocks, one die lit at a time.
-const RESIDENT = ['qwen3-1.7b', 'lfm2.5-1.2b-instruct', 'llama-3.2-1b-instruct'];
-scene(bar(16), bar(18), 'paper', (r) => {
+// 4. Tap Start: the phone's own recording, Stopped to Working to Serving, landing on the music.
+const ST = { tap: 6.15, serving: 9.9 }; // in the recording
+const ST_TAP_AT = SERVING - (ST.serving - ST.tap) / 2; // loading runs at double speed
+function stClip(t) {
+  if (t <= ST_TAP_AT) return ST.tap - (ST_TAP_AT - t);
+  if (t <= SERVING) return ST.tap + (t - ST_TAP_AT) * 2;
+  return ST.serving + (t - SERVING);
+}
+scene(bar(8), bar(11), 'paper', (r) => {
   el('div', 'lattice', r);
-  const h = line(r, 'Up to three models, ready.', 'h1', 140, 150, 104);
-  const sub = line(r, 'One compute lane. Each model keeps its own cache.', 'sub grey', 146, 290, 40);
-  const blocks = RESIDENT.map((name) => ({ m: el('div', 'abs', r), l: el('div', 'note abs', r, name) }));
-  return { h, sub, blocks };
+  const h = line(r, 'Tap Start.', 'h1', 150, 300, 118);
+  const h2 = line(r, 'Now it’s a server.', 'h1', 150, 300, 118);
+  const sub = line(r, 'Your apps and devices can use it,<br>even with the app in the background.', 'sub grey', 156, 470, 44, 'line-height:1.3');
+  const ph = phone(r, 600, 2772 / 1280);
+  const rip = el('div', 'ripple abs', ph.p);
+  const em = el('div', 'abs', r);
+  const tag = el('div', 'tag light abs', r, 'Loading sped up');
+  return { h, h2, sub, ph, rip, em, tag };
 }, (t, c) => {
-  const t0 = bar(16);
-  reveal(c.h, t, t0 + 0.05, 0.45);
-  reveal(c.sub, t, bar(16, 1.5), 0.45);
-  c.blocks.forEach((b, i) => {
-    const q = E.outBack(prog(t, bar(16, 1 + i * 0.5), bar(16, 1 + i * 0.5) + 0.45));
-    // The lane: the die lights on whichever model has the beat, one at a time.
-    const beatNo = Math.floor((t - bar(17)) / BEAT);
-    const lit = t >= bar(17) && ((beatNo % 3) + 3) % 3 === i;
-    const x = 330 + i * 480, y = 430;
-    b.m.innerHTML = mark(300, { die: lit ? 1 + 0.12 * kickPulse(t, bar(17)) : 0.55, dieGlow: lit ? kickPulse(t, bar(17)) : 0 });
-    put(b.m, { x, y: y + (1 - q) * -120, o: clamp(q * 2) });
-    b.l.style.color = lit ? 'var(--ember)' : 'var(--ink)';
-    put(b.l, { x: x + 150 - b.l.offsetWidth / 2, y: y + 330, o: clamp(q * 2) });
+  const t0 = bar(8);
+  reveal(c.h, t, t0 + 0.2, 0.55, SERVING - 0.3);
+  reveal(c.h2, t, SERVING, 0.55);
+  reveal(c.sub, t, SERVING + 0.5, 0.55);
+  const q = E.outExpo(prog(t, t0, t0 + 0.7));
+  put(c.ph.p, { x: 1110 + (1 - q) * 400, y: 70, ry: -6, o: q });
+  frame(c.ph.img, 'start', stClip(t));
+  const since = t - ST_TAP_AT, k = c.ph.w / 1280;
+  put(c.rip, { x: 12 + 1044 * k, y: 12 + 516 * k, s: 0.4 + since * 1.6, o: since >= 0 && since < 0.45 ? 1 - since / 0.45 : 0 });
+  // The ember lights above the phone the moment it serves.
+  const e = E.outBack(prog(t, SERVING, SERVING + 0.5));
+  c.em.innerHTML = ember(110, pulse(t, SERVING));
+  put(c.em, { x: 1110 + 12 + 300 - 55, y: 10 + Math.sin(t * 2.1) * 4, s: Math.max(0.001, e), o: e > 0 ? 1 : 0 });
+  put(c.tag, { x: 156, y: 470, o: t > ST_TAP_AT + 0.1 && t < SERVING ? 1 : 0 });
+});
+
+// 5. Open it from your laptop: the phone's own chat page, at its Wi-Fi address, recorded live.
+const CHAT_SHIFT = ANSWER - CH.firstText; // the reply starts on the music's cue
+scene(bar(11), bar(15), 'dark', (r) => {
+  const rig = serveRig(r, 'chat', D.chat.address);
+  const h = line(r, 'Open it from your laptop.', 'h1', 150, 48, 76, 'color:var(--paper)');
+  const sub = line(r, 'Choose Your network in the app, then open its address in any browser.', 'sub dimtext', 156, 140, 36);
+  return { rig, h, sub };
+}, (t, c) => {
+  const t0 = bar(11), clip = t - CHAT_SHIFT;
+  const flow = clip >= CH.firstText && clip <= CH.done + 0.3 ? 1 : 0;
+  renderRig(c.rig, t, { clipTime: clip, inAt: t0, flow, glow: pulse(t, t0), zoom: prog(clip, CH.sent - 0.2, CH.sent + 0.8) });
+  reveal(c.h, t, t0 + 0.2, 0.55);
+  reveal(c.sub, t, t0 + 0.7, 0.55);
+});
+
+// 6. The phone's screen goes off, and the next answer still comes. browser.cjs read the phone's
+// state over adb before and after the take: locked and dozing both times (asleep.json).
+const SLEEP_SHIFT = WOKE - AS.firstText;
+scene(bar(15), bar(19), 'dark', (r) => {
+  const rig = serveRig(r, 'asleep', D.asleep.address);
+  const h = line(r, 'Screen off.', 'h1', 150, 48, 76, 'color:var(--paper)');
+  const h2 = line(r, 'Still answering.', 'h1', 580, 48, 76, 'color:var(--paper)');
+  const fine = el('div', 'note abs dimtext', r, 'Recorded with the phone locked and dozing.');
+  return { rig, h, h2, fine };
+}, (t, c) => {
+  // It holds on the finished answer three seconds after the reply is done.
+  const t0 = bar(15), clip = Math.min(AS.done + 3, t - SLEEP_SHIFT);
+  const off = E.inOutCubic(prog(t, t0 + 0.2, t0 + 1.0));
+  const flow = clip >= AS.firstText && clip <= AS.done + 0.3 ? 1 : 0;
+  // While it sleeps the ember breathes slowly; when the answer comes it beats again.
+  const glow = t < WOKE ? 0.5 + 0.5 * Math.sin(t * 2.6) : pulse(t, WOKE);
+  renderRig(c.rig, t, { clipTime: clip, inAt: t0 - 5, flow, glow, off, zoom: prog(clip, AS.sent - 0.2, AS.sent + 0.8) });
+  reveal(c.h, t, t0 + 0.3, 0.55);
+  reveal(c.h2, t, WOKE, 0.55);
+  put(c.fine, { x: 156, y: 148, o: E.outCubic(prog(t, t0 + 1.2, t0 + 1.8)) });
+});
+
+// 7. Your apps use it too: a script calls the phone over Wi-Fi, and the reply is the recorded one.
+const S = D.stream;
+// The request record.py sent, parameter for parameter, and the reply it got.
+const CODE_HTML = [
+  '<span class="k">import</span> os',
+  '<span class="k">from</span> openai <span class="k">import</span> OpenAI',
+  '',
+  'phone = <span class="f">OpenAI</span>(base_url=<span class="str">"http://192.168.100.171:8080/v1"</span>,',
+  '               api_key=os.environ[<span class="str">"EXECUSERVE_KEY"</span>])',
+  'stream = phone.chat.completions.<span class="f">create</span>(',
+  '    model=<span class="str">"qwen3-1.7b-8da4w-gptq-4k"</span>, stream=<span class="k">True</span>, max_tokens=120,',
+  '    extra_body={<span class="str">"chat_template_kwargs"</span>: {<span class="str">"enable_thinking"</span>: <span class="k">False</span>}},',
+  '    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">"Write a one-line git commit message"</span>',
+  '               <span class="str">" for: fixed a crash when the download cache is empty."</span>}],',
+  ')',
+  '<span class="k">for</span> chunk <span class="k">in</span> stream:',
+  '    <span class="f">print</span>(chunk.choices[0].delta.content <span class="k">or</span> <span class="str">""</span>, end=<span class="str">""</span>)',
+].join('\n');
+scene(bar(19), bar(22), 'dark', (r) => {
+  const h = line(r, 'Your apps can use it too.', 'h1', 150, 70, 92, 'color:var(--paper)');
+  const sub = line(r, 'Compatible with OpenAI and Anthropic clients.', 'sub dimtext', 156, 196, 40);
+  const ed = el('div', 'win abs', r, `<div class="bar"><i></i><i></i><i></i><span>commit.py</span></div><div class="code">${CODE_HTML}</div>`);
+  ed.style.width = '1320px';
+  const term = el('div', 'win abs', r, '<div class="bar"><i></i><i></i><i></i><span>terminal · the reply recorded from the phone</span></div><div class="term"></div>');
+  term.style.width = '1300px'; term.style.height = '180px';
+  const tags = ['LangChain', 'Vercel AI SDK', 'Open WebUI', 'curl'].map((w) => el('div', 'tag ondark abs', r, w));
+  return { h, sub, ed, term, tags };
+}, (t, c) => {
+  const t0 = bar(19);
+  reveal(c.h, t, t0 + 0.2, 0.55);
+  reveal(c.sub, t, t0 + 0.6, 0.55);
+  const q = E.outExpo(prog(t, t0 + 0.3, t0 + 1.0));
+  put(c.ed, { x: 150, y: 270 + (1 - q) * 50, o: q });
+  const q2 = E.outExpo(prog(t, t0 + 0.8, t0 + 1.5));
+  put(c.term, { x: 150, y: 882 + (1 - q2) * 50, o: q2 });
+  const cmd = 'python commit.py', n = Math.floor(clamp((t - (CODE_STREAM - 1.0)) / 0.04, 0, cmd.length));
+  let out = `<span class="p">$</span> ${t > CODE_STREAM - 1.0 ? cmd.slice(0, n) : ''}`;
+  if (t >= CODE_STREAM) out += '\n<span class="out">' + S.tokens.filter((k) => k.t <= t - CODE_STREAM).map((k) => k.text).join('').replace(/</g, '&lt;') + '</span>';
+  c.term.querySelector('.term').innerHTML = out;
+  // The clients the README documents, in a row beside the editor.
+  let y = 300;
+  c.tags.forEach((tg, i) => {
+    const qq = E.outBack(prog(t, bar(20, 1 + i * 0.5), bar(20, 1 + i * 0.5) + 0.4));
+    put(tg, { x: 1500, y: y + (1 - qq) * 20, s: Math.max(0.001, qq), o: qq > 0 ? 1 : 0 });
+    y += 66;
   });
 });
 
-// 8. What it guarantees.
-scene(bar(18), bar(20), 'dark', (r) => {
-  const items = [
-    ['API keys by default.', 'Loopback included. Hosts checked.'],
-    ['Keeps serving, screen off.', '20 of 20 requests in a 10-minute battery soak.'],
-    ['Inference stays on your phone.', 'No account. Nothing sent to us.'],
-    ['Kotlin Multiplatform.', 'The shared core also compiles for iOS.'],
-  ].map(([a, b]) => ({ a: line(r, a, 'h1', 0, 0, 74, 'color:var(--paper)'), b: line(r, b, 'sub dimtext', 0, 0, 32), check: el('div', 'abs', r, CHECK(64)) }));
-  return { items };
+// 8. What it does without.
+scene(bar(22), bar(24), 'paper', (r) => {
+  el('div', 'lattice', r);
+  const lines = ['No cloud inference.', 'No account.', 'No subscription.'].map((w, i) => line(r, w, 'h1', 150, 120 + i * 170, 140));
+  const last = line(r, 'Just your phone.', 'h1', 150, 680, 140, 'color:var(--ember)');
+  const em = el('div', 'abs', r);
+  return { lines, last, em };
 }, (t, c) => {
-  c.items.forEach((l, i) => {
-    const on = bar(18, i * 1.25);
-    const x = 330, y = 150 + i * 205;
-    l.a.m.style.left = x + 'px'; l.a.m.style.top = y + 'px';
-    l.b.m.style.left = x + 4 + 'px'; l.b.m.style.top = y + 96 + 'px';
-    reveal(l.a, t, on, 0.4); reveal(l.b, t, on + 0.12, 0.4);
-    const q = E.outBack(prog(t, on, on + 0.35));
-    l.check.style.color = 'var(--ember)';
-    put(l.check, { x: x - 92, y: y + 8, s: Math.max(0.001, q), o: q > 0 ? 1 : 0 });
-  });
+  [0, 1, 2].forEach((at, i) => reveal(c.lines[i], t, bar(22, at), 0.45));
+  reveal(c.last, t, bar(23), 0.5);
+  const q = E.outBack(prog(t, bar(23, 0.5), bar(23, 0.5) + 0.4));
+  c.em.innerHTML = mark(260, { glow: pulse(t, bar(23, 0.5)) });
+  put(c.em, { x: 1450, y: 600 + (1 - q) * 40, s: Math.max(0.001, q), o: q > 0 ? 1 : 0 });
 });
 
-// 9. Open source: clone it, verify it.
-scene(bar(20), bar(22), 'dark', (r) => {
-  const h = centred(line(r, 'Open source. Apache-2.0.', 'h1', 0, 130, 100, 'color:var(--paper)'));
-  const sub = centred(line(r, 'Read it, build it, change it.', 'sub dimtext', 0, 268, 40));
-  const win = el('div', 'win abs', r);
-  win.style.width = '1240px'; win.style.height = '400px';
-  win.innerHTML = '<div class="bar"><i></i><i></i><i></i><span>~</span></div><div class="term"></div>';
-  return { h, sub, win };
-}, (t, c) => {
-  const t0 = bar(20);
-  reveal(c.h, t, t0, 0.4);
-  reveal(c.sub, t, bar(20, 2), 0.4);
-  const q = E.outExpo(prog(t, t0 + 0.05, t0 + 0.5));
-  put(c.win, { x: 340, y: 340 + (1 - q) * 60, o: q });
-  const cmd1 = 'git clone https://github.com/ExperimentalMachines/execuserve', cmd2 = './gradlew verify';
-  const n1 = Math.floor(clamp((t - t0 - 0.2) / 0.016, 0, cmd1.length));
-  let out = `<span class="p">$</span> ${cmd1.slice(0, n1)}`;
-  if (t > t0 + 1.25) out += `\n<span class="o">Cloning into 'execuserve'...</span>`;
-  const c2 = bar(21);
-  if (t > c2) out += `\n<span class="p">$</span> cd execuserve && ${cmd2.slice(0, Math.floor(clamp((t - c2) / 0.03, 0, cmd2.length)))}`;
-  // What verify runs, in the README's words: the commands are real, and no output is faked.
-  if (t > c2 + 0.75) out += `\n<span class="o"># lint, static analysis, every test tier, Android and iOS builds</span>`;
-  c.win.querySelector('.term').innerHTML = out;
-});
-
-// 10. The end card.
-scene(bar(22), LENGTH, 'paper', (r) => {
+// 9. The end card.
+scene(bar(24), LENGTH, 'paper', (r) => {
   el('div', 'lattice', r);
   const logo = el('div', 'abs', r);
-  const word = line(r, '<img src="assets/wordmark.svg" style="height:124px;display:block">', '', 150, 410, 124);
-  const tag = line(r, 'ExecuTorch models, served from your phone.<br>Free and open source.', 'sub grey', 156, 580, 44, 'line-height:1.25');
+  const word = line(r, '<img src="assets/wordmark.svg" style="height:124px;display:block">', '', 150, 400, 124);
+  const tag = line(r, 'Your Android phone, now an AI server.<br>Free and open source.', 'sub grey', 156, 575, 46, 'line-height:1.25');
   const url = el('div', 'urlpill abs', r, 'experimentalmachines.org/execuserve');
   const gh = el('div', 'note abs grey', r, 'github.com/ExperimentalMachines/execuserve');
   const qr = el('div', 'qrcard abs', r, '<img src="assets/qr.svg"><p>The project page</p>');
-  const fine = el('div', 'fine abs', r, `An independent project by Experimental Machines, not affiliated with or endorsed by the organizations named.<br>PyTorch and ExecuTorch are trademarks of the Linux Foundation. Figures measured on a ${C.device}.`);
+  const fine = el('div', 'fine abs', r, 'An independent project by Experimental Machines, not affiliated with or endorsed by the organizations named.<br>PyTorch and ExecuTorch are trademarks of the Linux Foundation. Recorded on a POCO X8 Pro Max.');
   return { logo, word, tag, url, gh, qr, fine, r };
 }, (t, c) => {
-  const t0 = bar(22);
-  put(c.r, { s: 1 + 0.03 * E.outCubic(prog(t, t0, LENGTH)) });
-  const k = (a, d = 0.42) => E.outBack(prog(t, t0 + a, t0 + a + d));
+  const t0 = bar(24);
+  put(c.r, { s: 1 + 0.025 * E.outCubic(prog(t, t0, LENGTH)) });
+  const k = (a, d = 0.45) => E.outBack(prog(t, t0 + a, t0 + a + d));
   const lid = k(0), side = k(0.06), die = Math.max(0, k(0.3, 0.35));
-  const last = bar(25), lastPulse = t > last ? Math.exp(-(t - last) * 5) : 0;
-  c.logo.innerHTML = mark(200, { lid: [0, (1 - lid) * -60], left: [(1 - side) * -50, (1 - side) * 28], right: [(1 - side) * 50, (1 - side) * 28], die: die * (1 + 0.25 * lastPulse), dieGlow: lastPulse, o: [clamp(lid * 3), clamp(side * 3), clamp(side * 3)] });
+  const end = bar(26), endGlow = t > end ? Math.exp(-(t - end) * 3) : 0;
+  c.logo.innerHTML = mark(200, { lid: [0, (1 - lid) * -60], left: [(1 - side) * -50, (1 - side) * 28], right: [(1 - side) * 50, (1 - side) * 28], die: die * (1 + 0.2 * endGlow), glow: endGlow, o: [clamp(lid * 3), clamp(side * 3), clamp(side * 3)] });
   put(c.logo, { x: 150, y: 170 });
-  reveal(c.word, t, t0 + 0.15, 0.5);
-  reveal(c.tag, t, bar(22, 1.5), 0.5);
-  const u = E.outExpo(prog(t, bar(22, 2.5), bar(22, 2.5) + 0.6));
-  put(c.url, { x: 150, y: 760 + (1 - u) * 50, o: u });
-  put(c.gh, { x: 156, y: 885, o: E.outCubic(prog(t, bar(23), bar(23, 1))) });
-  const q = E.outBack(prog(t, bar(23), bar(23) + 0.5));
+  reveal(c.word, t, t0 + 0.15, 0.55);
+  reveal(c.tag, t, bar(24, 1.5), 0.55);
+  const u = E.outExpo(prog(t, bar(24, 3), bar(24, 3) + 0.6));
+  put(c.url, { x: 150, y: 745 + (1 - u) * 50, o: u });
+  put(c.gh, { x: 156, y: 868, o: E.outCubic(prog(t, bar(25), bar(25) + 0.6)) });
+  const q = E.outBack(prog(t, bar(25), bar(25) + 0.5));
   put(c.qr, { x: 1390, y: 280 + (1 - q) * 60, s: Math.max(0.001, 0.9 + 0.1 * q), o: q > 0 ? 1 : 0 });
-  put(c.fine, { x: 150, y: 948, o: prog(t, bar(23), bar(23) + 0.6) });
+  put(c.fine, { x: 150, y: 950, o: prog(t, bar(25, 2), bar(25, 2) + 0.6) });
 });
 
 // ---------------------------------------------------------------------------------------
-// Cuts: two slabs, ember then ink, sweep across at the mark's isometric angle, covering the
-// old scene exactly on the bar line and uncovering the new one.
+// Cuts: an ember slab, then an ink one, sweep across at the mark's 30-degree angle. Screen off
+// (bar 15) is not a cut: the same laptop and phone carry on, and the phone goes dark.
 const flash = el('div', 'flash'), black = el('div', 'black');
-const WIPES = [bar(6), bar(9), bar(12), bar(14), bar(16), bar(18), bar(20)];
+const WIPES = [bar(5), bar(8), bar(11), bar(19), bar(22), bar(24)];
 const slabs = [el('div', 'wipe'), el('div', 'wipe')];
 slabs[0].style.background = 'var(--ember)'; slabs[1].style.background = 'var(--ink)';
-const HALF = 0.26, SLANT = 32.5; // 1080 * tan(30 degrees) / 1920, as a percentage of the width
+const HALF = 0.3, SLANT = 32.5;
 function sweep(slab, t, W, lag) {
   const a = prog(t, W - HALF + lag, W + lag), b = prog(t, W + lag, W + HALF + lag);
   if (a <= 0 || b >= 1) return false;
@@ -532,6 +511,7 @@ function sweep(slab, t, W, lag) {
 }
 
 window.renderAt = function (t) {
+  pending.length = 0;
   for (const sc of scenes) {
     const visible = t >= sc.start && t < sc.end;
     sc.root.style.visibility = visible ? 'visible' : 'hidden';
@@ -541,19 +521,19 @@ window.renderAt = function (t) {
     const on = WIPES.some((W) => sweep(s, t, W, k ? 0.05 : -0.05));
     s.style.visibility = on ? 'visible' : 'hidden';
   });
-  // The half beat of silence before the drop, a white flash on it, and a softer one on the end hit.
-  black.style.opacity = t > bar(4) - BEAT / 2 && t < bar(4) ? 1 : 0;
-  const f1 = t >= bar(4) ? Math.exp(-(t - bar(4)) * 7) : 0;
-  const f2 = t >= bar(22) ? Math.exp(-(t - bar(22)) * 8) * 0.8 : 0;
+  black.style.opacity = t > bar(3) - BEAT / 2 && t < bar(3) ? 1 : 0;
+  const f1 = t >= bar(3) ? Math.exp(-(t - bar(3)) * 7) : 0;
+  const f2 = t >= bar(24) ? Math.exp(-(t - bar(24)) * 8) * 0.7 : 0;
   flash.style.opacity = Math.max(f1, f2);
+  return Promise.all(pending);
 };
 
-window.ready = Promise.all([...document.images].map((i) => (i.complete && i.naturalWidth ? Promise.resolve() : new Promise((res, rej) => { i.onload = res; i.onerror = () => rej(new Error('image failed: ' + i.src)); }))))
+// Static images only: the clip slots get their frames from renderAt.
+window.ready = Promise.all([...document.images].filter((i) => i.getAttribute('src')).map((i) => (i.complete && i.naturalWidth ? Promise.resolve() : new Promise((res, rej) => { i.onload = res; i.onerror = () => rej(new Error('image failed: ' + i.src)); }))))
   .then(() => Promise.all(['600 100px Plex', '500 40px Plex', '400 30px PlexMono', '500 30px PlexMono'].map((f) => document.fonts.load(f))))
   .then(() => document.fonts.ready)
+  .then(() => window.renderAt(Number(new URLSearchParams(location.search).get('t') ?? 0)))
   .then(() => true);
-const q = new URLSearchParams(location.search);
-window.renderAt(Number(q.get('t') ?? 0));
 </script>
 </body>
 </html>

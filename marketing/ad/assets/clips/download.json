@@ -1,0 +1,7 @@
+{
+ "variant": "Qwen3-1.7B, 4k window, 1.2 GB (8da4w-gptq-g32)",
+ "expand": 5.37,
+ "get": 9.1,
+ "installed": 175.47,
+ "note": "Times in the clip, from its scene changes. The screen recorder stops at 175 s, at 95%; the last 3 s are the same screen once Installed, recorded seconds later."
+}

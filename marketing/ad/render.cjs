@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const fps = Number(process.argv[2] || 30), workers = Number(process.argv[4] || 6);
 const dir = require('path').resolve(__dirname, process.argv[3] || 'frames/draft');
-const LENGTH = 25 * (240 / 124) + 2.4, total = Math.ceil(LENGTH * fps);
+const LENGTH = 27 * (240 / 112) + 2.6, total = Math.ceil(LENGTH * fps);
 fs.mkdirSync(dir, { recursive: true });
 (async () => {
   const b = await chromium.launch();

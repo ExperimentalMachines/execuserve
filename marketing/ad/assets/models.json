@@ -1,7 +1,0 @@
-{
- "device": "POCO X8 Pro Max",
- "models": [
-  "llama-3.2-1b-instruct-8da4w-32k",
-  "qwen3-1.7b-8da4w-gptq-4k"
- ]
-}

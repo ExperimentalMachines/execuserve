@@ -1,186 +1,46 @@
 {
  "device": "POCO X8 Pro Max",
  "model": "qwen3-1.7b-8da4w-gptq-4k",
- "prompt": "In two short sentences, why would a developer run a language model on their own phone?",
- "text": "A developer might run a language model on their own phone to perform tasks like code completion or translation on the go. \n\nThis allows them to access and use AI features without relying on a dedicated device or internet connection.",
+ "prompt": "Write a one-line git commit message for: fixed a crash when the download cache is empty.",
+ "text": "Fix crash when download cache is empty.",
  "tokens": [
   {
-   "t": 0.441,
-   "text": "A"
+   "t": 0.8277,
+   "text": "Fix"
   },
   {
-   "t": 0.5035,
-   "text": " developer"
+   "t": 0.8307,
+   "text": " crash"
   },
   {
-   "t": 0.5039,
-   "text": " might"
+   "t": 0.8633,
+   "text": " when"
   },
   {
-   "t": 0.5041,
-   "text": " run"
+   "t": 0.8975,
+   "text": " download"
   },
   {
-   "t": 0.5044,
-   "text": " a"
+   "t": 0.9359,
+   "text": " cache"
   },
   {
-   "t": 0.5316,
-   "text": " language"
+   "t": 0.9681,
+   "text": " is"
   },
   {
-   "t": 0.5656,
-   "text": " model"
+   "t": 1.0024,
+   "text": " empty"
   },
   {
-   "t": 0.5995,
-   "text": " on"
-  },
-  {
-   "t": 0.828,
-   "text": " their"
-  },
-  {
-   "t": 0.937,
-   "text": " own"
-  },
-  {
-   "t": 0.9372,
-   "text": " phone"
-  },
-  {
-   "t": 0.9373,
-   "text": " to"
-  },
-  {
-   "t": 0.9374,
-   "text": " perform"
-  },
-  {
-   "t": 0.9375,
-   "text": " tasks"
-  },
-  {
-   "t": 0.9377,
-   "text": " like"
-  },
-  {
-   "t": 0.9378,
-   "text": " code"
-  },
-  {
-   "t": 0.9947,
-   "text": " completion"
-  },
-  {
-   "t": 0.9951,
-   "text": " or"
-  },
-  {
-   "t": 1.1506,
-   "text": " translation"
-  },
-  {
-   "t": 1.1509,
-   "text": " on"
-  },
-  {
-   "t": 1.1512,
-   "text": " the"
-  },
-  {
-   "t": 1.1514,
-   "text": " go"
-  },
-  {
-   "t": 1.1885,
-   "text": "."
-  },
-  {
-   "t": 1.1887,
-   "text": " \n\n"
-  },
-  {
-   "t": 1.2557,
-   "text": "This"
-  },
-  {
-   "t": 1.5269,
-   "text": " allows"
-  },
-  {
-   "t": 1.5272,
-   "text": " them"
-  },
-  {
-   "t": 1.5275,
-   "text": " to"
-  },
-  {
-   "t": 1.5277,
-   "text": " access"
-  },
-  {
-   "t": 1.528,
-   "text": " and"
-  },
-  {
-   "t": 1.5282,
-   "text": " use"
-  },
-  {
-   "t": 1.5284,
-   "text": " AI"
-  },
-  {
-   "t": 1.5287,
-   "text": " features"
-  },
-  {
-   "t": 1.5289,
-   "text": " without"
-  },
-  {
-   "t": 1.5428,
-   "text": " relying"
-  },
-  {
-   "t": 1.5787,
-   "text": " on"
-  },
-  {
-   "t": 1.6085,
-   "text": " a"
-  },
-  {
-   "t": 1.6455,
-   "text": " dedicated"
-  },
-  {
-   "t": 1.8049,
-   "text": " device"
-  },
-  {
-   "t": 2.0368,
-   "text": " or"
-  },
-  {
-   "t": 2.0371,
-   "text": " internet"
-  },
-  {
-   "t": 2.0374,
-   "text": " connection"
-  },
-  {
-   "t": 2.0377,
+   "t": 1.0373,
    "text": "."
   }
  ],
  "usage": {
-  "completion_tokens": 44,
-  "prompt_tokens": 30,
-  "total_tokens": 74,
+  "completion_tokens": 9,
+  "prompt_tokens": 31,
+  "total_tokens": 40,
   "completion_tokens_details": null,
   "prompt_tokens_details": {
    "audio_tokens": null,
@@ -193,14 +53,14 @@
  "timings": {
   "queue_ms": 1,
   "load_ms": 0,
-  "first_token_ms": 308,
+  "first_token_ms": 190,
   "cache_n": 0,
-  "prompt_n": 30,
-  "prompt_ms": 303,
-  "prompt_per_second": 99.0,
-  "predicted_n": 44,
-  "predicted_ms": 1505,
-  "predicted_per_second": 29.23
+  "prompt_n": 31,
+  "prompt_ms": 187,
+  "prompt_per_second": 165.77,
+  "predicted_n": 9,
+  "predicted_ms": 267,
+  "predicted_per_second": 33.7
  },
  "sdk": "openai 3.24.0"
 }

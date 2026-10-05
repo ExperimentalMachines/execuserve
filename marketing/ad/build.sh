@@ -1,10 +1,11 @@
 #!/bin/sh
-# Builds out/execuserve-ad-16x9.mp4 from music.py and ad.html: renders 120 fps, blends each
+# Builds out/execuserve-ad-16x9.mp4 from the recordings, music.py and ad.html: renders 120 fps, blends each
 # pair of frames into one at 60 fps (motion blur), and sets the music to -14 LUFS with a
 # two-pass loudnorm. Needs node (npm install here), uv and ffmpeg.
 set -eu
 cd "$(dirname "$0")"
 
+./clips.sh
 node data.cjs
 uv run music.py
 rm -rf frames/hi
@@ -21,6 +22,6 @@ ffmpeg -hide_banner -loglevel error -y -framerate 120 -i frames/hi/f_%05d.jpg -i
   -c:v libx264 -preset slow -crf 16 -profile:v high -level 4.2 \
   -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv \
   -c:a aac -b:a 256k -ar 48000 -shortest -movflags +faststart out/execuserve-ad-16x9.mp4
-ffmpeg -hide_banner -loglevel error -y -ss 44.5 -i out/execuserve-ad-16x9.mp4 -frames:v 1 out/thumbnail.png
+ffmpeg -hide_banner -loglevel error -y -ss 58.5 -i out/execuserve-ad-16x9.mp4 -frames:v 1 out/thumbnail.png
 rm -rf frames/hi
 echo "built out/execuserve-ad-16x9.mp4"

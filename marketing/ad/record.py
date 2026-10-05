@@ -2,12 +2,11 @@
 # requires-python = ">=3.11"
 # dependencies = ["openai", "anthropic"]
 # ///
-# Real footage for the ad, recorded from a phone serving a model: what /v1/models lists, a
-# streamed reply through the OpenAI SDK with the moment each token arrived, a reply through the
-# Anthropic SDK, and a cold turn against a warm one on the same long conversation. The ad
-# replays these; it invents none of them.
-#   tools/execuserve --model qwen3-1.7b-8da4w-gptq-4k --port 8090   (prints the key)
-#   EXECUSERVE_BASE=http://127.0.0.1:8090 EXECUSERVE_KEY=... uv run marketing/ad/record.py
+# The code scene's reply, recorded from a phone serving a model over Wi-Fi: a streamed reply
+# through the OpenAI SDK with the moment each token arrived. The ad replays it as recorded.
+# (anthropic and cache are further recordings the current cut does not use.)
+#   tools/execuserve --model qwen3-1.7b-8da4w-gptq-4k --network   (prints the address and key)
+#   ONLY=stream PROMPT='...' EXECUSERVE_BASE=http://<phone>:8080 EXECUSERVE_KEY=... uv run marketing/ad/record.py
 #   ONLY=anthropic ... to record one part (models, stream, anthropic or cache).
 # Writes assets/{models,stream,anthropic,cache}.json.
 import json
@@ -25,7 +24,7 @@ MODEL = os.environ.get('EXECUSERVE_MODEL', 'qwen3-1.7b-8da4w-gptq-4k')
 DEVICE = os.environ.get('EXECUSERVE_DEVICE', 'POCO X8 Pro Max')
 ONLY = os.environ.get('ONLY')
 NO_THINK = {'chat_template_kwargs': {'enable_thinking': False}}
-PROMPT = 'In two short sentences, why would a developer run a language model on their own phone?'
+PROMPT = os.environ.get('PROMPT', 'In two short sentences, why would a developer run a language model on their own phone?')
 
 oa = openai.OpenAI(base_url=f'{BASE}/v1', api_key=KEY)
 an = anthropic.Anthropic(base_url=BASE, api_key=KEY)
