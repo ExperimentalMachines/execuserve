@@ -1,0 +1,16 @@
+{
+ "model": "qwen3-1.7b-8da4w-gptq-4k",
+ "text": "Hello, developers! 🌟✨",
+ "usage": {
+  "cache_creation": null,
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "inference_geo": null,
+  "input_tokens": 20,
+  "output_tokens": 7,
+  "output_tokens_details": null,
+  "server_tool_use": null,
+  "service_tier": null
+ },
+ "sdk": "anthropic 1.11.0"
+}

@@ -1,0 +1,22 @@
+TITLE
+ExecuServe: your phone is an OpenAI- and Anthropic-compatible AI server
+
+DESCRIPTION
+Keep your SDK. Point it at your phone, and it talks to a model running there.
+
+ExecuServe is a free, open-source Android app that keeps ExecuTorch language models loaded on the phone and serves them over HTTP, with the OpenAI and Anthropic APIs your tools already speak.
+
+• OpenAI Chat Completions, Responses and Completions, and Anthropic Messages, with streaming and tool calls
+• Our compatibility suites, run with the official SDKs against the release build on a phone: OpenAI 16 of 16, Anthropic 8 of 8, edge cases 28 of 28
+• Follow-ups reuse the server's KV cache: on a 2,195-token conversation, the follow-up's first token came 39× sooner than the cold first turn (0.50 s against 19.38 s, 2,202 tokens reused; Qwen3 1.7B on a POCO X8 Pro Max)
+• Up to three models resident, sharing one compute lane
+• API keys by default, a foreground service that kept serving with the screen off (20 of 20 requests in a 10-minute battery soak), and a browser chat served by the phone itself
+
+Everything in the video is real: the tokens are a recorded reply from Qwen3 1.7B on a POCO X8 Pro Max through the OpenAI SDK, replayed at the moment each arrived, and the browser chat is that phone's own page.
+
+Project page: https://experimentalmachines.org/execuserve/
+Source (Apache-2.0): https://github.com/ExperimentalMachines/execuserve
+Privacy: https://experimentalmachines.org/execuserve/privacy/
+
+Disclosure
+ExecuServe is an independent project by Experimental Machines. It is not affiliated with or endorsed by the PyTorch Foundation, Meta, OpenAI, Anthropic, or the makers of the other tools named. PyTorch and ExecuTorch are trademarks of the Linux Foundation. Product names are used only to say what ExecuServe works with.

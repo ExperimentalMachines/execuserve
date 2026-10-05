@@ -73,8 +73,8 @@ call a model on your phone the way they call a cloud.
 
 **Two APIs, checked with their own SDKs.** OpenAI's Chat Completions, Completions and
 Responses, and Anthropic's Messages, with their error shapes and streaming framing. On the
-minified release build on a phone, the official OpenAI SDK suite passes 16 of 16, the
-Anthropic suite 8 of 8, and an edge-case probe 28 of 28.
+minified release build on a phone, the compatibility suite run with the official OpenAI SDK
+passes 16 of 16, the one run with the Anthropic SDK 8 of 8, and an edge-case probe 28 of 28.
 
 **The KV cache belongs to the server.** Clients resend the whole conversation, as both APIs
 expect; the server keeps the runtime's cache and remembers the exact bytes it holds for each
@@ -93,7 +93,7 @@ DNS rebinding; a strict Content-Security-Policy on the browser chat; nothing in 
 device transfers.
 
 **A multiplatform core.** Everything except the runtime binding and the app shell is Kotlin
-Multiplatform and compiles for iOS on every build.
+Multiplatform and compiles for iOS in every `./gradlew verify` and CI run.
 
 ## Quick start
 
@@ -297,8 +297,8 @@ to the web chat, and the brand kit in [docs/brand](docs/brand).
 
 ## Security
 
-- **A key on every request**, loopback included, because any app with network permission can
-  reach `127.0.0.1`. Give each client its own key: the run log shows which one asked, and a
+- **A key on every request** by default, loopback included, because any app with network
+  permission can reach `127.0.0.1`; Settings can let apps on the phone skip it, and says why not to. Give each client its own key: the run log shows which one asked, and a
   key can be revoked alone. Keys are compared in constant time.
 - **DNS rebinding** is stopped by a `Host` check: a request whose `Host` does not name this
   phone is refused.

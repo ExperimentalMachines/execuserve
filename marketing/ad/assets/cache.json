@@ -1,0 +1,16 @@
+{
+ "model": "qwen3-1.7b-8da4w-gptq-4k",
+ "device": "POCO X8 Pro Max",
+ "cold": {
+  "ttft_s": 19.38,
+  "prompt_tokens": 2195,
+  "cached_tokens": 0,
+  "load_ms": 0
+ },
+ "warm": {
+  "ttft_s": 0.5,
+  "prompt_tokens": 2222,
+  "cached_tokens": 2202,
+  "load_ms": 0
+ }
+}
