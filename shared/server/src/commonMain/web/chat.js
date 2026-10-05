@@ -138,6 +138,19 @@
     parent.append(document.createTextNode(text.slice(start)));
   }
 
+  // Closes a bold or code span the stream has opened but not yet closed, so the half-written
+  // word shows bold or code from its first token instead of as a literal ** or `.
+  function closeOpen(text) {
+    const fences = (text.match(/^```/gm) || []).length;
+    if (fences % 2) return text; // inside an unfinished code block, which already displays as code
+    const outside = text.replace(/```[\s\S]*?```/g, "");
+    const lastLine = outside.slice(outside.lastIndexOf("\n") + 1);
+    let closed = text;
+    if ((lastLine.match(/`/g) || []).length % 2) closed += "`";
+    else if ((lastLine.match(/\*\*/g) || []).length % 2 && !/\*\*\s*$/.test(lastLine)) closed += "**";
+    return closed;
+  }
+
   function markdown(parent, text) {
     parent.replaceChildren();
     // Process fences line by line so an unfinished fence still displays its contents.
@@ -228,8 +241,8 @@
     if (!turn.view) return;
     const view = turn.view, busy = turn.status === "pending";
     view.body.classList.toggle("streaming", busy);
-    if (busy) view.body.textContent = turn.content;
-    else markdown(view.body, turn.content);
+    // Formatted as it streams, so a reply never shows raw ** and then jumps when it ends.
+    markdown(view.body, busy ? closeOpen(turn.content) : turn.content);
     view.button.hidden = !turn.content || busy;
     view.details.hidden = !turn.reasoning;
     view.reasoning.textContent = turn.reasoning;

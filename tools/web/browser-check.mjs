@@ -311,6 +311,21 @@ try {
     [...body.querySelectorAll('ol')].map(list => ({ start: list.start, items: list.children.length })));
   assert.deepEqual(lists, [{ start: 1, items: 3 }, { start: 4, items: 1 }]); checks++;
   await restoreStreams();
+  // While it streams, a reply is already formatted: a bold span the model has opened but not
+  // closed shows bold, never as raw asterisks.
+  await newConversation();
+  await installStreams([{ events: [
+    { at: 0, chunk: { choices: [{ delta: { content: '1. **Ter' } }] } },
+    { at: 1500, chunk: { choices: [{ delta: { content: 'ra**: a tool' }, finish_reason: 'stop' }] } },
+  ], end: 1600 }]);
+  await sendPrompt('Bold while streaming');
+  const streamingBody = page.locator('.message.assistant .message-body').last();
+  await streamingBody.filter({ hasText: 'Ter' }).waitFor();
+  assert(!(await streamingBody.innerText()).includes('**'), 'raw ** while streaming');
+  assert.equal(await streamingBody.locator('strong').first().innerText(), 'Ter'); checks++;
+  await finished();
+  assert.equal(await streamingBody.locator('strong').first().innerText(), 'Terra'); checks++;
+  await restoreStreams();
   assert.deepEqual(errors, []);
   console.log(`PASS: ${checks} ${browserName} browser checks; artifacts: ${output}`);
 } finally { await browser.close(); }
