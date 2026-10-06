@@ -88,6 +88,9 @@ data class HostSettings(
     /** The resident-model setting, clamped to what one phone can hold. */
     private val residentLimit get() = maxResidentModels.coerceIn(Choices.RESIDENT_MODELS)
 
+    /** The most models in memory at once, as the engine applies it: one with a manual thread count. */
+    val memoryLimit: Int get() = if (threads == 0) residentLimit else 1
+
     private fun list(text: String) = text.split(',', ' ', '\n').map { it.trim() }.filter { it.isNotEmpty() }
 
     private companion object {

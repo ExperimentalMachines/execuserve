@@ -103,8 +103,15 @@ fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
                 if (shown.isEmpty()) {
                     Text(stringResource(R.string.runs_none), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                // The newest hundred are drawn; the rest are in the export and the API.
+                // The newest hundred are drawn; the rest are in the export and the API, and it says so.
                 shown.take(SHOWN_RUNS).forEach { run -> key(run.id) { RunRow(run, names.getValue(run.model)) } }
+                if (shown.size > SHOWN_RUNS) {
+                    Text(
+                        stringResource(R.string.runs_more, Format.count(SHOWN_RUNS), Format.count(shown.size)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Expandable(stringResource(R.string.runs_kept_title)) {
                     Text(stringResource(R.string.runs_kept), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -170,7 +177,7 @@ fun RunRow(run: JobRecord, name: String) {
                 Text(Format.duration(run.totalMs), style = MaterialTheme.typography.bodySmall, color = muted)
                 Text(
                     remember(run.finishedAtMs) {
-                        Format.time(run.finishedAtMs, withSeconds = true)
+                        Format.dateTime(run.finishedAtMs)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = muted,
@@ -181,7 +188,7 @@ fun RunRow(run: JobRecord, name: String) {
             val decode =
                 run.decodeTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.none_yet)
             Text(stringResource(R.string.host_phase_rates, prefill, decode), style = MaterialTheme.typography.bodySmall, color = muted)
-            Text(run.client, style = MaterialTheme.typography.bodySmall, color = muted)
+            Text(clientName(run.client), style = MaterialTheme.typography.bodySmall, color = muted)
             if (open) RunDetail(run, checks)
         }
     }

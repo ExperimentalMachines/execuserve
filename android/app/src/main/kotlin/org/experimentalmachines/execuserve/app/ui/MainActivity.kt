@@ -67,7 +67,7 @@ private fun App(model: MainViewModel) {
     ConsoleFrame(
         tab = tab,
         onTabSelect = { tab = it },
-        header = { Header(stringResource(TABS[tab]), if (tab == Tabs.HOSTING) null else server, status) },
+        header = { Header(stringResource(TABS[tab]), server, status) },
     ) { padding, twoColumns ->
         when (tab) {
             Tabs.HOSTING -> ServerScreen(
@@ -76,7 +76,6 @@ private fun App(model: MainViewModel) {
                 twoColumns,
                 openModels = { tab = Tabs.LIBRARY },
                 openRuns = { tab = Tabs.ACTIVITY },
-                openSettings = { tab = Tabs.SETTINGS },
                 openChat = { id ->
                     model.chooseChatModel(id)
                     tab = Tabs.CHAT

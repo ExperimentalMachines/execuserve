@@ -14,7 +14,7 @@
     <string name="check_decode_clocks">The runtime\'s writing time and this tablet\'s clock differ by more than 10%%.</string>
     <string name="models_on_phone">On this tablet</string>
     <string name="settings_open_loopback">Apps on this tablet need no key</string>
-    <string name="settings_threads_note">A change reopens the loaded model. The benchmark in Activity measures which count suits this tablet.</string>
+    <string name="settings_threads_note">A change unloads the models in memory; they load again with it when a request needs them. The benchmark in Requests measures which count suits this tablet.</string>
     <string name="settings_boot">Start when the tablet starts</string>
     <string name="settings_autostart">Allow it, or HyperOS will not bring the server back after the app stops unexpectedly, nor start it with the tablet. The app cannot check this setting itself.</string>
     <string name="settings_optimisation_on">On. If requests stall after long idle periods, choose ExecuServe in the list and set it to not optimised; the foreground service alone was enough on the devices tested.</string>
@@ -23,9 +23,9 @@
     <string name="start_what_network">It will serve %1$s to this tablet and your network, on port %2$d, with your saved settings.</string>
     <string name="copied_on_phone">Copied on tablet</string>
     <string name="chat_no_models_note">Download one from the catalog, or copy a .pte export onto the tablet.</string>
-    <string name="chat_welcome_note">Replies come from the model on this tablet, through the same API, key and queue your apps use.</string>
+    <string name="chat_welcome_note">Replies come from the model on this tablet, through the same API and queue your apps use. This conversation isn\'t saved.</string>
     <string name="chat_suggest_write">Write a haiku about this tablet</string>
-    <string name="gpu_refused">This tablet\'s GPU cannot run Vulkan builds. The same model\'s CPU build runs anywhere.</string>
+    <string name="gpu_refused">This tablet\'s GPU cannot run Vulkan builds. Try the same model\'s CPU build.</string>
     <string name="npu_refused">This tablet\'s NPU cannot run Qualcomm builds. Try the same model\'s CPU build; it does not need the NPU.</string>
     <string name="npu_mediatek_refused">This tablet\'s NPU cannot run MediaTek builds. Try the same model\'s CPU build; it does not need the NPU.</string>
     <string name="dictation_unavailable">This tablet has no offline speech recognition, and ExecuServe will not use the online kind.</string>

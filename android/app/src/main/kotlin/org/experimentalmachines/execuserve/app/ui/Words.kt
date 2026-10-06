@@ -35,6 +35,7 @@ val Outcome.words: Int get() = when (this) {
     Outcome.DONE -> R.string.outcome_done
     Outcome.TOOL_CALL -> R.string.outcome_tool_call
     Outcome.CUT_OFF -> R.string.outcome_cut_off
+    Outcome.CANCELLED -> R.string.outcome_cancelled
     Outcome.CLIENT_LEFT -> R.string.outcome_client_left
     Outcome.TOO_LONG -> R.string.outcome_too_long
     Outcome.TIMED_OUT -> R.string.outcome_timed_out

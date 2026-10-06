@@ -9,10 +9,13 @@
     <string name="tab_server">Hosting</string>
     <string name="tab_models">Library</string>
     <string name="tab_chat">Chat</string>
-    <string name="tab_runs">Activity</string>
+    <string name="tab_runs">Requests</string>
     <string name="tab_settings">Settings</string>
     <string name="action_start">Start</string>
-    <string name="action_stop">Stop</string>
+    <string name="action_start_hosting">Start hosting</string>
+    <string name="action_stop_hosting">Stop hosting</string>
+    <string name="action_change">Change</string>
+    <string name="client_chat">Chat</string>
     <string name="action_restart">Restart</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_copy">Copy</string>
@@ -31,8 +34,8 @@
     <string name="range_hint">%1$d to %2$d</string>
 
     <!-- The server's state: host.ServerLook -->
-    <string name="look_serving">Serving</string>
-    <string name="look_working">Working</string>
+    <string name="look_serving">Hosting</string>
+    <string name="look_working">Hosting</string>
     <string name="look_paused_hot">Paused: too hot</string>
     <string name="look_paused_battery">Paused: low battery</string>
     <string name="look_not_responding">Not responding</string>
@@ -43,19 +46,13 @@
 
     <!-- Status panel -->
     <string name="status_engine_starting">Starting the engine</string>
-    <string name="status_loading">Loading %1$s</string>
-    <string name="status_reading">Reading the prompt from %1$s</string>
     <string name="status_a_model">a model</string>
     <string name="status_paused_hot">New requests are refused until the phone cools down.</string>
     <string name="status_paused_battery">New requests are refused until the phone charges.</string>
     <string name="status_recovered">Restarted by Android at %1$s after the app stopped unexpectedly.</string>
     <string name="status_recovered_wedge">Restarted itself at %1$s after the model stopped responding.</string>
     <string name="status_starting_hint">Opening the port</string>
-    <string name="status_stopping_hint">Finishing the current request</string>
-    <plurals name="status_waiting">
-        <item quantity="one">%d more waiting</item>
-        <item quantity="other">%d more waiting</item>
-    </plurals>
+    <string name="status_stopping_hint">Stopping; unfinished requests may be cancelled.</string>
     <plurals name="tokens">
         <item quantity="one">%s token</item>
         <item quantity="other">%s tokens</item>
@@ -92,7 +89,6 @@
     <string name="fig_device">Device</string>
     <string name="fig_window">%1$s window</string>
     <string name="fig_rate">%1$s tok/s</string>
-    <string name="fig_speed_now">Writing now</string>
     <string name="fig_battery">Battery %1$d%%</string>
     <string name="fig_battery_charging">Battery %1$d%%, charging</string>
 
@@ -112,10 +108,11 @@
     <string name="fact_cached">Cached</string>
 
     <!-- host.Outcome -->
-    <string name="outcome_done">Done</string>
+    <string name="outcome_done">Completed</string>
+    <string name="outcome_cancelled">Cancelled</string>
     <string name="outcome_tool_call">Tool call</string>
     <string name="outcome_cut_off">Cut off</string>
-    <string name="outcome_client_left">Client left</string>
+    <string name="outcome_client_left">Client disconnected</string>
     <string name="outcome_too_long">Too long</string>
     <string name="outcome_timed_out">Timed out</string>
     <string name="outcome_refused">Refused</string>
@@ -127,7 +124,6 @@
     <string name="attention_notifications">Notifications are off, so Android may stop the server without warning.</string>
 
     <!-- Request log -->
-    <string name="log_title">Requests</string>
     <string name="detail_model">Model</string>
     <string name="detail_id">Request id</string>
 
@@ -137,7 +133,7 @@
     <string name="runs_benchmark">Benchmark</string>
     <string name="runs_compare_close">Close comparison</string>
     <string name="runs_benchmark_close">Close benchmark</string>
-    <string name="runs_kept_title">What is kept</string>
+    <string name="runs_kept_title">Privacy and retention</string>
     <string name="runs_col_identity">Model / client</string>
     <string name="runs_col_tokens">In → out</string>
     <string name="runs_col_total">Total</string>
@@ -147,17 +143,17 @@
         <item quantity="one">%2$s tok/s median, %1$s, %3$d run</item>
         <item quantity="other">%2$s tok/s median, %1$s, %3$d runs</item>
     </plurals>
-    <string name="runs_export">Export CSV</string>
-    <string name="runs_clear">Clear</string>
-    <string name="runs_clear_title">Clear the run history?</string>
-    <string name="runs_clear_body">Every stored run goes, on this phone and in the API. The counters since the server started are kept.</string>
-    <string name="runs_none">No runs yet. Requests appear here as they finish, and stay across restarts.</string>
-    <string name="runs_see_all">See all runs</string>
+    <string name="runs_export">Export all as CSV</string>
+    <string name="runs_clear">Clear all</string>
+    <string name="runs_clear_title">Clear the request history?</string>
+    <string name="runs_clear_body">Every stored request goes, on this phone and in the API. The counters since hosting started are kept.</string>
+    <string name="runs_none">No requests yet. They appear here as they finish, and stay across restarts.</string>
+    <string name="runs_see_all">See all requests</string>
     <plurals name="runs_count">
-        <item quantity="one">%s run</item>
-        <item quantity="other">%s runs</item>
+        <item quantity="one">%s request</item>
+        <item quantity="other">%s requests</item>
     </plurals>
-    <string name="runs_kept">Figures only: never the prompt, the reply or a key. The last 10 000 runs or 30 days.</string>
+    <string name="runs_kept">Figures only: never the prompt, the reply or a key. The last 10 000 requests or 30 days.</string>
     <string name="phase_queue">Queue</string>
     <string name="phase_load">Load</string>
     <string name="phase_prompt">Prompt</string>
@@ -200,7 +196,7 @@
     <string name="bench_title">Benchmark</string>
     <string name="bench_note" tools:ignore="PluralsCandidate">Three cold runs of one model: a prompt read in a single runtime call, so its token count is exact, then up to %1$d tokens written. Counts are what the runtime reported. Runs queue behind real requests.</string>
     <string name="bench_run">Run benchmark</string>
-    <string name="bench_needs_server">Start the server to run a benchmark.</string>
+    <string name="bench_needs_server">Start hosting to run a benchmark.</string>
     <string name="bench_progress">Run %1$d of %2$d</string>
     <string name="bench_result">Prompt %1$s tok/s over %2$s tokens; writing %3$s tok/s over %4$s tokens</string>
 
@@ -211,7 +207,6 @@
         <item quantity="other">%d installed</item>
     </plurals>
     <string name="models_none">Nothing installed yet. Get a model from the catalog below.</string>
-    <string name="model_loaded">Loaded</string>
     <string name="model_raw">Raw prompts only</string>
     <string name="fact_template">Chat template</string>
     <string name="fact_window">Window</string>
@@ -219,10 +214,6 @@
     <string name="model_from">From %1$s</string>
     <string name="model_from_computer">Added from a computer</string>
     <string name="model_did_not_load">Did not load: %1$s</string>
-    <string name="model_load_at_start">Load at start</string>
-    <string name="model_load_now">Load now</string>
-    <string name="model_try_again">Try again</string>
-    <string name="model_unload">Unload</string>
     <string name="models_not_usable">Not usable</string>
     <string name="models_downloading">Downloading</string>
     <string name="download_progress">%1$s of %2$s</string>
@@ -244,10 +235,10 @@
         <item quantity="one">%1$d variant, from %2$s</item>
         <item quantity="other">%1$d variants, from %2$s</item>
     </plurals>
-    <string name="catalog_get">Get</string>
+    <string name="catalog_get">Download</string>
     <string name="catalog_installed">Installed</string>
-    <string name="catalog_over_budget">Over the exporter\'s phone budget</string>
-    <string name="gpu_refused">This phone\'s GPU cannot run Vulkan builds. The same model\'s CPU build runs anywhere.</string>
+    <string name="catalog_over_budget">Larger than the exporter recommends for phones</string>
+    <string name="gpu_refused">This phone\'s GPU cannot run Vulkan builds. Try the same model\'s CPU build.</string>
     <string name="processor_cpu">CPU (XNNPACK)</string>
     <string name="processor_gpu">GPU (Vulkan)</string>
     <string name="processor_npu_qualcomm">NPU (Qualcomm)</string>
@@ -262,7 +253,7 @@
 
     <!-- Settings -->
     <string name="settings_restart_title">Restart to apply</string>
-    <string name="settings_restart_needed">Connection changes apply when the server restarts.</string>
+    <string name="settings_restart_needed">Connection changes apply when hosting restarts.</string>
     <string name="settings_connection">Connection</string>
     <string name="settings_port">Port</string>
     <string name="settings_open_loopback">Apps on this phone need no key</string>
@@ -270,7 +261,7 @@
     <string name="settings_keys">API keys</string>
     <string name="settings_keys_note">One per client: the log shows who asked, and each can be revoked alone.</string>
     <string name="settings_key_new">New key for…</string>
-    <string name="settings_model">Model</string>
+    <string name="settings_model">Replies</string>
     <string name="settings_reasoning">Reasoning</string>
     <string name="settings_when_unset">Used when the client does not set it</string>
     <string name="thinking_model">Default</string>
@@ -284,15 +275,13 @@
     <string name="settings_threads_now">%1$d in use now</string>
     <string name="settings_threads_idle">Shown once a model loads</string>
     <string name="threads_auto">Automatic</string>
-    <string name="settings_threads_note">A change reopens the loaded model. The benchmark in Activity measures which count suits this phone.</string>
-    <string name="settings_threads_why">Why Automatic may not be fastest</string>
-    <string name="settings_threads_why_body">Generating a reply is limited by memory and reading a prompt by compute, so the best count differs between the two. On the POCO X8 Pro Max, Automatic (7) generated 18 tokens a second, 4 threads 22, and 8 threads read prompts fastest.</string>
-    <string name="settings_background">Background</string>
+    <string name="settings_threads_note">A change unloads the models in memory; they load again with it when a request needs them. The benchmark in Requests measures which count suits this phone.</string>
+    <string name="settings_background">Background operation</string>
     <string name="settings_boot">Start when the phone starts</string>
     <string name="settings_autostart_title">Autostart (HyperOS)</string>
     <string name="settings_autostart">Allow it, or HyperOS will not bring the server back after the app stops unexpectedly, nor start it with the phone. The app cannot check this setting itself.</string>
     <string name="settings_wake">Keep the CPU awake</string>
-    <string name="wake_always">While serving</string>
+    <string name="wake_always">While hosting</string>
     <string name="wake_busy">Only when busy</string>
     <string name="settings_unload">Unload an idle model</string>
     <string name="never">Never</string>
@@ -306,14 +295,14 @@
     <string name="settings_optimisation">Battery optimisation</string>
     <string name="settings_optimisation_on">On. If requests stall after long idle periods, choose ExecuServe in the list and set it to not optimised; the foreground service alone was enough on the phones tested.</string>
     <string name="settings_optimisation_off">Exempt: Android will not defer the app.</string>
-    <string name="settings_limits">Limits</string>
+    <string name="settings_limits">Request limits</string>
     <string name="settings_limits_summary" tools:ignore="PluralsCandidate">Queue of %1$d, %2$d per client, timeouts</string>
     <string name="settings_max_queued">Requests waiting, at most</string>
     <string name="settings_max_per_client">Per client, at most</string>
     <string name="settings_queue_timeout">Longest wait in the queue</string>
     <string name="settings_request_timeout">Longest request</string>
     <string name="unit_seconds">s</string>
-    <string name="settings_advanced">Advanced</string>
+    <string name="settings_advanced">More connection options</string>
     <string name="settings_advanced_summary">Host names, browsers, other apps</string>
     <string name="settings_hosts">Other names for this phone</string>
     <string name="settings_hosts_note">A Tailscale MagicDNS name, say; requests naming any other host are refused</string>
@@ -344,18 +333,18 @@
 
     <!-- Notifications -->
     <string name="channel_server">Server</string>
-    <string name="channel_server_description">Shown while ExecuServe is serving a model or downloading one.</string>
+    <string name="channel_server_description">Shown while ExecuServe is hosting or downloading a model.</string>
     <string name="channel_alerts">Alerts</string>
-    <string name="notif_serving">Serving on %1$s</string>
-    <string name="notif_starting">Starting ExecuServe</string>
-    <string name="notif_stopping">Stopping ExecuServe</string>
+    <string name="notif_serving">Hosting on %1$s</string>
+    <string name="notif_starting">Starting hosting</string>
+    <string name="notif_stopping">Stopping hosting</string>
     <string name="notif_downloading">Downloading %1$s, %2$s</string>
     <string name="notif_idle">Idle</string>
-    <string name="notif_ready_model">Ready, %1$s loaded</string>
-    <string name="notif_ready_no_model">Ready, no model loaded</string>
+    <string name="notif_ready_model">Ready for requests · %1$s in memory</string>
+    <string name="notif_ready_no_model">Ready for requests · no model in memory</string>
     <plurals name="notif_answering">
-        <item quantity="one">Answering %2$s, %1$d token</item>
-        <item quantity="other">Answering %2$s, %1$d tokens</item>
+        <item quantity="one">Writing a reply for %2$s, %1$d token</item>
+        <item quantity="other">Writing a reply for %2$s, %1$d tokens</item>
     </plurals>
     <plurals name="notif_waiting">
         <item quantity="one">%1$s; %2$d waiting</item>
@@ -379,12 +368,7 @@
     <string name="qr_reveal_note">This QR contains your API key. Anyone who scans it can use the server. Reveal it only when you are ready to scan. It hides after one minute.</string>
     <string name="qr_reveal">Reveal QR code</string>
     <string name="qr_visible_key">Anyone viewing this screen can scan and use this key. Hidden after one minute; the key itself stays valid.</string>
-    <string name="settings_hosting">Hosting capacity</string>
-    <string name="settings_resident">Models kept ready</string>
-    <string name="settings_resident_note">Keep several models loaded to switch without reloading. Requests share one compute queue; RAM usage grows with each model.</string>
     <string name="settings_resident_threads">Multiple loaded models use automatic CPU threads. A manual thread count keeps one model loaded at a time.</string>
-    <string name="settings_startup_models">Load when hosting starts</string>
-    <string name="settings_startup_models_note">Selected models load up to the ready-model limit. Other models load when requested.</string>
 
     <!-- Reporting a model reply (Play's generative-AI policy). -->
     <string name="report_action">Report this reply</string>
@@ -410,13 +394,13 @@
 
     <!-- Chat: the console's own client of its server. -->
     <string name="host_chat">Chat</string>
-    <string name="chat_start_title">Start serving to chat</string>
-    <string name="chat_start_note">Chat talks to your models through the server, the way any app does. Start it to begin.</string>
+    <string name="chat_start_title">Start hosting to chat</string>
+    <string name="chat_start_note">Chat talks to your models through the server, the way any app does.</string>
     <string name="chat_no_models_title">Install a model to chat</string>
     <string name="chat_no_models_note">Download one from the catalog, or copy a .pte export onto the phone.</string>
     <string name="chat_no_models_action">Open Library</string>
     <string name="chat_welcome">Talk to %1$s</string>
-    <string name="chat_welcome_note">Replies come from the model on this phone, through the same API, key and queue your apps use.</string>
+    <string name="chat_welcome_note">Replies come from the model on this phone, through the same API and queue your apps use. This conversation isn\'t saved.</string>
     <string name="chat_suggest_plan">Plan my day in five steps</string>
     <string name="chat_suggest_explain">Explain a KV cache simply</string>
     <string name="chat_suggest_write">Write a haiku about this phone</string>
@@ -446,7 +430,7 @@
     <string name="chat_send">Send</string>
     <string name="chat_stop">Stop</string>
     <string name="chat_new">New chat</string>
-    <string name="chat_think">Think</string>
+    <string name="chat_think">Reasoning</string>
     <string name="chat_reasoning">Reasoning</string>
     <string name="chat_reasoning_now">Thinking…</string>
     <string name="chat_waiting">Reading your message…</string>
@@ -454,4 +438,10 @@
     <string name="chat_http_error">The server said %1$d: %2$s</string>
     <string name="chat_prefill">Prefill %1$s tok/s</string>
     <string name="chat_decode">Decode %1$s tok/s</string>
+    <string name="settings_performance">Performance</string>
+    <string name="settings_connection_note">Who can connect is chosen on Hosting, in Connect an app.</string>
+    <string name="chat_switch_unloads">The memory limit is %1$s: choosing another model unloads %2$s from memory.</string>
+    <string name="chat_no_template_title">No installed model can chat</string>
+    <string name="chat_no_template_note">These models have no chat template, so they answer raw prompts only, through the Completions API. Get a chat model from the Library.</string>
+    <string name="runs_more">Showing the newest %1$s of %2$s. Export all as CSV for the rest.</string>
 </resources>

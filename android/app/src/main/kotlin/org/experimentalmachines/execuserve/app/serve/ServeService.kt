@@ -17,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -63,6 +64,8 @@ class ServeService : LifecycleService() {
     private var settled = false
 
     private var warnedRestricted = false
+
+    private var pendingNotify: kotlinx.coroutines.Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -278,6 +281,8 @@ class ServeService : LifecycleService() {
 
     private fun stopIfIdle() {
         if (settled && graph.host.state.value is ServeHost.State.Stopped && !graph.downloader.busy) {
+            // A held update must not post the notification again after it is gone.
+            pendingNotify?.cancel()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
@@ -312,10 +317,27 @@ class ServeService : LifecycleService() {
         }
     }
 
+    /**
+     * At most one update a second, and never the last one dropped: an update inside the second
+     * is held and posted at its end, superseded by any newer one. Dropping it left "Answering
+     * Console, 521 tokens" on screen long after the reply ended, because the final state lands
+     * a moment after the last token.
+     */
     private fun notifyThrottled(notification: Notification) {
-        val now = System.currentTimeMillis()
-        if (now - lastNotifiedAt < NOTIFY_INTERVAL_MS) return
-        lastNotifiedAt = now
+        pendingNotify?.cancel()
+        val wait = NOTIFY_INTERVAL_MS - (System.currentTimeMillis() - lastNotifiedAt)
+        if (wait <= 0) {
+            postNotification(notification)
+        } else {
+            pendingNotify = lifecycleScope.launch {
+                delay(wait)
+                postNotification(notification)
+            }
+        }
+    }
+
+    private fun postNotification(notification: Notification) {
+        lastNotifiedAt = System.currentTimeMillis()
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
     }
 
@@ -342,7 +364,7 @@ class ServeService : LifecycleService() {
                 if (download != null && download.total > 0) {
                     setProgress(PROGRESS_MAX, (download.bytes * PROGRESS_MAX / download.total).toInt(), false)
                 }
-                if (state is ServeHost.State.Running) addAction(0, getString(R.string.action_stop), stop)
+                if (state is ServeHost.State.Running) addAction(0, getString(R.string.action_stop_hosting), stop)
             }
             .build()
     }

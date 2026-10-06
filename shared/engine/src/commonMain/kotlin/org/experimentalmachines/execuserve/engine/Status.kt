@@ -115,6 +115,8 @@ data class EngineStatus(
     val running: RunningJob? = null,
     val queued: Int = 0,
     val resident: List<ResidentInfo> = emptyList(),
+    /** The model being opened while the lane is [LaneState.LOADING], whether a request or a person asked. */
+    val loading: String? = null,
     /** Models that failed to load, with the runtime's reason, until the next rescan. */
     val broken: Map<String, String> = emptyMap(),
     val recent: List<JobRecord> = emptyList(),

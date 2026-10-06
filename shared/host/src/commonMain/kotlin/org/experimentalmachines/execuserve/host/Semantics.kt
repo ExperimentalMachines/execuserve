@@ -48,6 +48,7 @@ enum class Outcome(val mood: Mood) {
     DONE(Mood.GOOD),
     TOOL_CALL(Mood.WORKING),
     CUT_OFF(Mood.ATTENTION),
+    CANCELLED(Mood.IDLE),
     CLIENT_LEFT(Mood.IDLE),
     TOO_LONG(Mood.FAILED),
     TIMED_OUT(Mood.FAILED),
@@ -65,7 +66,9 @@ enum class Outcome(val mood: Mood) {
         fun of(job: JobRecord): Outcome {
             job.finish?.let { return of(it) }
             return when (job.failure) {
-                FailureKind.CLIENT_GONE, FailureKind.SLOW_CLIENT, FailureKind.CANCELLED -> CLIENT_LEFT
+                // Stopped on purpose (Stop in the chat, a client's cancel) is not the client going away.
+                FailureKind.CANCELLED -> CANCELLED
+                FailureKind.CLIENT_GONE, FailureKind.SLOW_CLIENT -> CLIENT_LEFT
                 FailureKind.CONTEXT_OVERFLOW -> TOO_LONG
                 FailureKind.QUEUE_TIMEOUT, FailureKind.DEADLINE -> TIMED_OUT
                 FailureKind.OVERHEATED, FailureKind.SHUTTING_DOWN -> REFUSED

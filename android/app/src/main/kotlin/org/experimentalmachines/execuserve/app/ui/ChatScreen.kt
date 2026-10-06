@@ -114,23 +114,31 @@ fun ChatScreen(model: MainViewModel, padding: PaddingValues, openModels: () -> U
                 stringResource(R.string.chat_no_models_action),
                 openModels,
             )
+            // A model without a chat template answers raw prompts only (the Completions API).
+            installed.none { it.family != null } -> Gate(
+                stringResource(R.string.chat_no_template_title),
+                stringResource(R.string.chat_no_template_note),
+                stringResource(R.string.chat_no_models_action),
+                openModels,
+            )
             server !is ServeHost.State.Running -> Gate(
                 stringResource(R.string.chat_start_title),
                 stringResource(R.string.chat_start_note),
-                stringResource(R.string.action_start),
+                stringResource(R.string.action_start_hosting),
                 model::start,
             )
             else -> {
                 // Whatever is in memory answers fastest, so it is the suggestion until someone picks.
                 // Every candidate must still be installed: a model removed from disk and rescanned
                 // can stay resident until it is unloaded (agy review).
-                fun installedOrNull(id: String?) = installed.firstOrNull { it.id == id }
+                val chattable = installed.filter { it.family != null }
+                fun installedOrNull(id: String?) = chattable.firstOrNull { it.id == id }
                 val entry = installedOrNull(chat.model)
                     ?: status?.resident.orEmpty().firstNotNullOfOrNull { installedOrNull(it.id) }
                     ?: installedOrNull(settings?.defaultModel)
-                    ?: installed.first()
+                    ?: chattable.first()
                 val target = entry.id
-                Controls(installed, entry, chat, model)
+                Controls(installed, chattable, entry, chat, settings?.memoryLimit ?: 1, model)
                 Conversation(chat, ModelNames.shown(entry, installed), model, target, Modifier.weight(1f)) { model.sendChat(it, target) }
                 Composer(chat.running, model, onSend = { model.sendChat(it, target) }, onStop = model::stopChat)
             }
@@ -160,14 +168,15 @@ private fun Gate(title: String, note: String, action: String, onAction: () -> Un
 
 /** The model and the processor it runs on, the thinking switch where it has one, and starting over. */
 @Composable
-private fun Controls(installed: List<ModelEntry>, entry: ModelEntry, chat: ChatState, model: MainViewModel) {
+private fun Controls(installed: List<ModelEntry>, options: List<ModelEntry>, entry: ModelEntry, chat: ChatState, limit: Int, model: MainViewModel) {
     var picking by remember { mutableStateOf(false) }
     val status by model.status.collectAsState()
-    // Where the model stands, so a switch is visible: the one left is unloaded, this one loads.
+    val resident = status?.resident.orEmpty()
+    // Where the model stands, so a switch is visible.
     val memory = stringResource(
         when {
-            status?.resident.orEmpty().any { it.id == entry.id } -> R.string.chat_in_memory
-            status?.lane == LaneState.LOADING -> R.string.chat_loading
+            resident.any { it.id == entry.id } -> R.string.chat_in_memory
+            status?.lane == LaneState.LOADING && status?.loading == entry.id -> R.string.chat_loading
             else -> R.string.chat_loads_on_send
         },
     )
@@ -199,9 +208,34 @@ private fun Controls(installed: List<ModelEntry>, entry: ModelEntry, chat: ChatS
                 Chevron(open = picking, extent = 20.dp)
             }
             DropdownMenu(expanded = picking, onDismissRequest = { picking = false }) {
-                installed.forEach { option ->
+                // At the memory limit, choosing another model unloads this one: said before the choice.
+                if (resident.size >= limit && resident.any { it.id == entry.id }) {
+                    Text(
+                        stringResource(
+                            R.string.chat_switch_unloads,
+                            pluralStringResource(R.plurals.memory_limit_models, limit, limit),
+                            ModelNames.shown(entry, installed),
+                        ),
+                        Modifier.padding(horizontal = 16.dp, vertical = 8.dp).widthIn(max = 280.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                options.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(ModelNames.shown(option, installed)) },
+                        text = {
+                            Column {
+                                Text(ModelNames.shown(option, installed))
+                                Text(
+                                    listOfNotNull(
+                                        shortProcessor(option.backend),
+                                        stringResource(R.string.chat_in_memory).takeIf { resident.any { it.id == option.id } },
+                                    ).joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
                         onClick = {
                             picking = false
                             model.chooseChatModel(option.id)

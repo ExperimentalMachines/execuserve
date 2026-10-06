@@ -18,18 +18,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +57,7 @@ import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.engine.JobRecord
 import org.experimentalmachines.execuserve.engine.LaneState
 import org.experimentalmachines.execuserve.engine.ModelEntry
+import org.experimentalmachines.execuserve.engine.RunningJob
 import org.experimentalmachines.execuserve.host.Benchmark
 import org.experimentalmachines.execuserve.host.Choices
 import org.experimentalmachines.execuserve.host.Heat
@@ -65,17 +69,14 @@ import org.experimentalmachines.execuserve.host.ServerLook
 import org.experimentalmachines.execuserve.server.ApiKey
 import org.experimentalmachines.execuserve.server.BindMode
 
-/** The listener is shared; every installed model has its own address and memory state. */
+/**
+ * Hosting: whether the server runs and what it is doing, how to connect to it, and which
+ * installed models are in memory. Each concept has one name here and everywhere: installed
+ * (files on the phone), in memory (open, answering without loading), memory limit (the most
+ * models in memory at once), hosting (the server).
+ */
 @Composable
-fun ServerScreen(
-    model: MainViewModel,
-    padding: PaddingValues,
-    wide: Boolean,
-    openModels: () -> Unit,
-    openRuns: () -> Unit,
-    openSettings: () -> Unit,
-    openChat: (String) -> Unit,
-) {
+fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, openModels: () -> Unit, openRuns: () -> Unit, openChat: (String) -> Unit) {
     val server by model.server.collectAsState()
     val status by model.status.collectAsState()
     val settings by model.settings.collectAsState()
@@ -85,28 +86,31 @@ fun ServerScreen(
     val current = settings ?: return
     val key = model.shareableKey(keys)
     val running = server as? ServeHost.State.Running
+    val limit = current.memoryLimit
+    var editingMemory by rememberSaveable { mutableStateOf(false) }
     val primary: LazyListScope.() -> Unit = {
         item(key = "status") {
             val recovery by model.recovery.collectAsState()
-            var choosingStart by rememberSaveable { mutableStateOf(false) }
             StatusPanel(
                 server,
                 status,
-                installed.size,
-                if (current.threads == 0) current.maxResidentModels else 1,
+                installed,
+                current,
                 recovery,
                 model::start,
                 model::stop,
-                openSettings,
-                startsWith = current.startupModels { id -> installed.firstOrNull { it.id == id }?.let { ModelNames.shown(it, installed) } },
-                onChooseStart = { choosingStart = true },
+                onEditMemory = { editingMemory = true },
             )
-            if (choosingStart) StartupSheet(installed, current, model, onDismiss = { choosingStart = false })
         }
+        if (installed.isNotEmpty()) item(key = "connect") { ConnectPanel(server, current, key, model) }
         item(key = "models-heading") {
             PanelTitle(stringResource(R.string.host_models), trailing = { Action(stringResource(R.string.host_library), openModels) })
         }
-        if (installed.isEmpty()) item(key = "empty") { EmptyModels(openModels) }
+        if (installed.isEmpty()) {
+            item(key = "empty") { EmptyModels(openModels) }
+        } else if (running != null) {
+            item(key = "models-note") { Note(stringResource(R.string.host_models_note)) }
+        }
         val resident = status?.resident.orEmpty().map { it.id }.toSet()
         ModelNames.hostedOrder(installed, resident, current.defaultModel).forEach { entry ->
             item(key = "host-" + entry.id) {
@@ -115,6 +119,8 @@ fun ServerScreen(
                     ModelNames.shown(entry, installed),
                     status,
                     running,
+                    limit,
+                    installed,
                     runs.firstOrNull { it.model == entry.id && it.api != Benchmark.API },
                     model,
                     onChat = { openChat(entry.id) },
@@ -123,26 +129,27 @@ fun ServerScreen(
         }
     }
     val secondary: LazyListScope.() -> Unit = {
-        item(key = "connect") { ConnectPanel(server, current, key, model) }
         item(key = "attention") { Attention() }
-        item(key = "device") { DevicePanel(model) }
-        item(key = "log") { LogPanel(runs.filter { it.api != Benchmark.API }.take(LATEST_RUNS), openRuns) }
+        item(key = "device") { DevicePanel(model, openRuns) }
     }
     PanelColumns(wide, padding, main = primary, side = secondary)
+    if (editingMemory) MemorySheet(installed, current, running != null, model, onDismiss = { editingMemory = false })
 }
 
+/**
+ * The server, line by line: its state and what it is doing, then what it holds. Stopped,
+ * it says what that means for clients; either way it says what Start loads.
+ */
 @Composable
 private fun StatusPanel(
     server: ServeHost.State,
     status: EngineStatus?,
-    installedCount: Int,
-    capacity: Int,
+    installed: List<ModelEntry>,
+    settings: HostSettings,
     recovery: Recovery?,
     onStart: () -> Unit,
     onStop: () -> Unit,
-    openSettings: () -> Unit,
-    startsWith: List<String>,
-    onChooseStart: () -> Unit,
+    onEditMemory: () -> Unit,
 ) {
     val look = ServerLook.of(server, status)
     val tone = LocalTones.current.of(look.mood)
@@ -153,19 +160,14 @@ private fun StatusPanel(
                     Dot(tone.color, 10.dp)
                     Text(stringResource(look.words), style = MaterialTheme.typography.titleLarge, color = tone.color)
                 }
-                Text(statusLine(server, look, status, installedCount, capacity), style = MaterialTheme.typography.bodyMedium)
+                Text(activityLine(server, look, status, installed), style = MaterialTheme.typography.bodyMedium)
             }
             when (server) {
-                is ServeHost.State.Running -> OutlineButton(stringResource(R.string.action_stop), onStop)
+                is ServeHost.State.Running -> OutlineButton(stringResource(R.string.action_stop_hosting), onStop)
                 // Nothing to serve yet: the models panel below offers the catalog instead.
-                is ServeHost.State.Stopped -> if (installedCount > 0) Button(onClick = onStart) { Text(stringResource(R.string.action_start)) }
+                is ServeHost.State.Stopped -> if (installed.isNotEmpty()) Button(onClick = onStart) { Text(stringResource(R.string.action_start_hosting)) }
                 else -> Unit
             }
-        }
-        if ((status?.queued ?: 0) >
-            0
-        ) {
-            Text(pluralStringResource(R.plurals.status_waiting, status!!.queued, status.queued), style = MaterialTheme.typography.bodySmall)
         }
         if (server is ServeHost.State.Running && recovery != null) {
             Text(
@@ -177,40 +179,76 @@ private fun StatusPanel(
                 color = LocalTones.current.attention.color,
             )
         }
-        Text(stringResource(R.string.host_compute_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (installedCount > 0) StartupLine(installedCount, startsWith, onChooseStart, openSettings)
+        if (installed.isNotEmpty()) {
+            val inMemory = status?.resident?.size ?: 0
+            CardLine(stringResource(R.string.host_fact_models), pluralStringResource(R.plurals.host_models_value, installed.size, installed.size, inMemory))
+            CardLine(
+                stringResource(R.string.host_fact_limit),
+                pluralStringResource(R.plurals.memory_limit_models, settings.memoryLimit, settings.memoryLimit),
+                action = stringResource(R.string.action_change) to onEditMemory,
+            )
+            val names = settings.startupModels { id -> installed.firstOrNull { it.id == id }?.let { ModelNames.shown(it, installed) } }
+                .take(settings.memoryLimit)
+            CardLine(
+                stringResource(R.string.host_fact_start),
+                if (names.isEmpty()) stringResource(R.string.host_start_none) else stringResource(R.string.host_start_loads, names.joinToString(", ")),
+                action = stringResource(R.string.action_change) to onEditMemory,
+            )
+        }
     }
 }
 
-/** The status card's second line: why it is not serving, or what it serves. */
+/** A labelled line of the status card, with the action that changes it. */
 @Composable
-private fun statusLine(server: ServeHost.State, look: ServerLook, status: EngineStatus?, installedCount: Int, capacity: Int): String = when {
-    installedCount == 0 && (server is ServeHost.State.Stopped || server is ServeHost.State.Running) -> stringResource(R.string.host_needs_model)
-    server is ServeHost.State.Stopped -> server.error ?: stringResource(R.string.host_stopped)
-    server == ServeHost.State.Starting -> stringResource(R.string.status_starting_hint)
-    server == ServeHost.State.Stopping -> stringResource(R.string.status_stopping_hint)
-    look == ServerLook.PAUSED_HOT -> stringResource(R.string.status_paused_hot)
-    look == ServerLook.PAUSED_BATTERY -> stringResource(R.string.status_paused_battery)
-    look == ServerLook.NOT_RESPONDING -> stringResource(R.string.alert_wedged_text)
-    else -> pluralStringResource(R.plurals.host_summary, installedCount, installedCount, status?.resident?.size ?: 0, capacity)
-}
-
-/** What Start loads, said where Start is, with the way to change it beside it. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun StartupLine(installedCount: Int, startsWith: List<String>, onChooseStart: () -> Unit, openSettings: () -> Unit) {
-    Text(
-        if (startsWith.isEmpty()) stringResource(R.string.host_starts_with_none) else stringResource(R.string.host_starts_with, startsWith.joinToString(", ")),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Action(stringResource(R.string.host_models_at_start), onChooseStart)
-        if (installedCount > 1) Action(stringResource(R.string.host_memory_settings), openSettings)
+private fun CardLine(label: String, value: String, action: Pair<String, () -> Unit>? = null) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.bodyMedium)
+        }
+        action?.let { (text, onClick) -> Action(text, onClick) }
     }
 }
 
-/** Metrics belong to a model, never to whichever model happened to finish most recently. */
+@Composable
+private fun Note(text: String) {
+    Text(text, Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** The second line of the card: why hosting is not running, or what it is doing right now. */
+@Composable
+private fun activityLine(server: ServeHost.State, look: ServerLook, status: EngineStatus?, installed: List<ModelEntry>): String {
+    val line = when {
+        installed.isEmpty() && (server is ServeHost.State.Stopped || server is ServeHost.State.Running) -> stringResource(R.string.host_needs_model)
+        server !is ServeHost.State.Running -> lifecycleLine(server)
+        look == ServerLook.PAUSED_HOT -> stringResource(R.string.status_paused_hot)
+        look == ServerLook.PAUSED_BATTERY -> stringResource(R.string.status_paused_battery)
+        look == ServerLook.NOT_RESPONDING -> stringResource(R.string.alert_wedged_text)
+        else -> laneLine(status, installed)
+    }
+    val waiting = status?.queued ?: 0
+    return if (waiting > 0 && server is ServeHost.State.Running) pluralStringResource(R.plurals.host_activity_waiting, waiting, line, waiting) else line
+}
+
+@Composable
+private fun lifecycleLine(server: ServeHost.State): String = when (server) {
+    is ServeHost.State.Stopped -> server.error ?: stringResource(R.string.host_stopped)
+    ServeHost.State.Starting -> stringResource(R.string.status_starting_hint)
+    else -> stringResource(R.string.status_stopping_hint)
+}
+
+@Composable
+private fun laneLine(status: EngineStatus?, installed: List<ModelEntry>): String = when (status?.lane) {
+    LaneState.LOADING -> {
+        val id = status.loading ?: status.running?.model
+        stringResource(R.string.host_activity_loading, installed.firstOrNull { it.id == id }?.let { ModelNames.shown(it, installed) } ?: id.orEmpty())
+    }
+    LaneState.PREFILLING -> stringResource(R.string.host_activity_reading, clientName(status.running?.client))
+    LaneState.GENERATING -> stringResource(R.string.host_activity_writing, clientName(status.running?.client))
+    else -> stringResource(R.string.host_activity_ready)
+}
+
+/** One installed model: its build, whether it is in memory, and the one memory action that fits. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HostedModel(
@@ -218,30 +256,17 @@ private fun HostedModel(
     name: String,
     status: EngineStatus?,
     running: ServeHost.State.Running?,
+    limit: Int,
+    installed: List<ModelEntry>,
     last: JobRecord?,
     model: MainViewModel,
     onChat: () -> Unit,
 ) {
     val loaded = status?.resident?.any { it.id == entry.id } == true
-    val job = status?.running?.takeIf { it.model == entry.id }
+    val loading = status?.lane == LaneState.LOADING && status.loading == entry.id
+    val job = status?.running?.takeIf { it.model == entry.id && status.lane != LaneState.LOADING }
     val broken = status?.broken?.get(entry.id)
-    var connecting by rememberSaveable(entry.id) { mutableStateOf(false) }
-    val tones = LocalTones.current
-    val state = when {
-        broken != null -> R.string.host_model_failed
-        running == null -> R.string.host_offline
-        job != null && status.lane == LaneState.LOADING -> R.string.host_loading
-        job != null && status.lane == LaneState.PREFILLING -> R.string.host_prefilling
-        job != null && status.lane == LaneState.GENERATING -> R.string.host_generating
-        loaded -> R.string.host_ready
-        else -> R.string.host_on_demand
-    }
-    val tone = when {
-        broken != null -> tones.failed
-        job != null -> tones.working
-        loaded -> tones.good
-        else -> tones.idle
-    }
+    var details by rememberSaveable(entry.id) { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     if (job != null) {
         val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -254,121 +279,147 @@ private fun HostedModel(
             }
         }
     }
+    val (state, tone) = modelState(broken != null, loading, job, status?.lane, loaded, now)
     Panel {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             LabMark(model, entry.lab, 32.dp)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(name, style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(state), style = MaterialTheme.typography.labelLarge, color = tone.color)
+                Text(modelFacts(entry), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Text(
-            listOfNotNull(
-                stringResource(R.string.host_model_file_size, Format.bytes(entry.sizeBytes)),
-                entry.contextLength?.let {
-                    stringResource(R.string.host_model_context, Format.window(it))
-                },
-            ).joinToString(" · "),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (broken != null) Text(broken, style = MaterialTheme.typography.bodySmall, color = tones.failed.color)
-        if (job != null) {
-            Text(
-                stringResource(R.string.host_request, job.client, Format.duration((now - job.startedAtMs).coerceAtLeast(0))),
-                style = MaterialTheme.typography.bodySmall,
-            )
-            if (status.lane == LaneState.PREFILLING && job.promptChars > 0) {
-                LinearProgressIndicator(progress = {
-                    (job.prefilledChars.toFloat() / job.promptChars).coerceIn(0f, 1f)
-                }, modifier = Modifier.fillMaxWidth(), color = tone.color)
-                Text(
-                    stringResource(R.string.host_prompt_progress, Format.count(job.prefilledChars), Format.count(job.promptChars)),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            } else {
-                LinearProgressIndicator(Modifier.fillMaxWidth(), color = tone.color)
-            }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Dot(tone.color, 8.dp)
+            Text(state, style = MaterialTheme.typography.labelLarge, color = tone.color)
         }
-        FigurePair({
-            Figure(
-                stringResource(R.string.host_prefill),
-                if (job != null && status.lane == LaneState.PREFILLING) {
-                    Format.duration(job.prefillElapsedMs(now))
-                } else {
-                    last?.prefillTokensPerSecond?.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) }
-                        ?: stringResource(R.string.none_yet)
-                },
-                listOf(
-                    if (job != null && status.lane == LaneState.PREFILLING) {
-                        stringResource(R.string.host_reading_now)
-                    } else {
-                        last?.takeIf { it.prefillTokensPerSecond > 0 }?.let { stringResource(R.string.host_prefill_detail, Format.duration(it.prefillMs)) }
-                            ?: stringResource(R.string.host_prefill_hint)
-                    },
-                ),
-                Modifier.weight(1f),
-            )
-        }, {
-            val live = job?.decodeRate(now)
-            Figure(
-                stringResource(R.string.host_decode),
-                (live ?: last?.decodeTokensPerSecond?.takeIf { it > 0 })?.let { stringResource(R.string.fig_rate, Format.rate(it)) }
-                    ?: stringResource(R.string.none_yet),
-                listOf(
-                    if (live !=
-                        null
-                    ) {
-                        stringResource(R.string.fig_speed_now)
-                    } else {
-                        last?.takeIf { it.decodeTokensPerSecond > 0 }?.let { stringResource(R.string.host_decode_detail, Format.duration(it.decodeMs)) }
-                            ?: stringResource(R.string.host_decode_hint)
-                    },
-                ),
-                Modifier.weight(1f),
-            )
-        })
-        // Unload is offered whenever the model is in memory, a reply running or not: it waits
-        // its turn in the queue, so a reply in progress finishes first.
-        var unloading by remember(entry.id) { mutableStateOf(false) }
-        if (!loaded) unloading = false
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (running != null) {
-                if (job != null) Action(stringResource(R.string.action_cancel), { model.cancelJob(job.id) })
-                when {
-                    loaded -> Action(
-                        stringResource(if (job != null) R.string.host_unload_after else R.string.host_unload),
-                        {
-                            unloading = true
-                            model.unload(entry.id)
-                        },
-                        enabled = !unloading,
-                    )
-                    job == null -> Action(stringResource(R.string.host_load), { model.load(entry.id) }, enabled = status?.lane != LaneState.LOADING)
-                }
-                Action(stringResource(R.string.host_chat), onChat)
-                Action(stringResource(if (connecting) R.string.host_close_connection else R.string.host_connect), { connecting = !connecting })
-            }
-        }
-        if (running != null) {
-            Text(
-                stringResource(if (loaded) R.string.host_unload_note else R.string.host_unloaded_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (running != null && connecting) {
-            running.endpoints.forEach { endpoint ->
-                val api = org.experimentalmachines.execuserve.host.ModelEndpoints.api(endpoint.url, entry.id)
-                val browser = org.experimentalmachines.execuserve.host.ModelEndpoints.browser(endpoint.url, entry.id)
-                Text(stringResource(endpoint.network.words), style = MaterialTheme.typography.labelLarge)
-                CopyRow(api, label = stringResource(R.string.host_model_api), qr = true)
-                CopyRow(browser, label = stringResource(R.string.connect_browser_chat), qr = true)
-            }
-            CopyRow(entry.id, label = stringResource(R.string.host_model_id), qr = true)
-            Text(stringResource(R.string.host_shared_key), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        if (job != null || loading) Progress(job, status.lane, tone.color)
+        if (broken != null) Text(broken, style = MaterialTheme.typography.bodySmall, color = LocalTones.current.failed.color)
+        val loadable = broken == null && !loaded && !loading
+        if (running != null && loadable) EvictionNote(status, limit, installed)
+        ModelActions(entry, running != null, loaded, loading, broken != null, job, status?.lane, model, onChat, details) { details = !details }
+        if (details) ModelDetails(entry, last, running)
     }
+}
+
+/** How far a request has read its prompt, or an indefinite bar while loading or writing. */
+@Composable
+private fun Progress(job: RunningJob?, lane: LaneState?, color: androidx.compose.ui.graphics.Color) {
+    if (job != null && lane == LaneState.PREFILLING && job.promptChars > 0) {
+        LinearProgressIndicator(progress = {
+            (job.prefilledChars.toFloat() / job.promptChars).coerceIn(0f, 1f)
+        }, modifier = Modifier.fillMaxWidth(), color = color)
+    } else {
+        LinearProgressIndicator(Modifier.fillMaxWidth(), color = color)
+    }
+}
+
+/** A model's state in words and tone: failed, loading, answering, in memory or not. */
+@Composable
+private fun modelState(failed: Boolean, loading: Boolean, job: RunningJob?, lane: LaneState?, loaded: Boolean, now: Long): Pair<String, Tone> {
+    val tones = LocalTones.current
+    val elapsed = job?.let { Format.duration((now - it.startedAtMs).coerceAtLeast(0)) }.orEmpty()
+    return when {
+        failed -> stringResource(R.string.host_model_failed) to tones.failed
+        loading -> stringResource(R.string.host_loading) to tones.working
+        job != null && lane == LaneState.PREFILLING -> stringResource(R.string.host_job_reading, clientName(job.client), elapsed) to tones.working
+        job != null -> stringResource(R.string.host_job_writing, clientName(job.client), elapsed) to tones.working
+        loaded -> stringResource(R.string.host_in_memory) to tones.good
+        else -> stringResource(R.string.host_not_in_memory) to tones.idle
+    }
+}
+
+/** At the memory limit, loading a model unloads the one used least recently: said before the tap. */
+@Composable
+private fun EvictionNote(status: EngineStatus?, limit: Int, installed: List<ModelEntry>) {
+    val resident = status?.resident.orEmpty()
+    if (resident.size < limit) return
+    val evicted = resident.minByOrNull { it.lastUsedMs } ?: return
+    val name = installed.firstOrNull { it.id == evicted.id }?.let { ModelNames.shown(it, installed) } ?: evicted.id
+    Text(
+        stringResource(R.string.host_evicts, name, pluralStringResource(R.plurals.memory_limit_models, limit, limit)),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/**
+ * The one memory action that fits the model's state, Chat, and Details. Unload waits its turn
+ * behind a reply in progress; a finished command (done or failed) ends the wait.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ModelActions(
+    entry: ModelEntry,
+    hosting: Boolean,
+    loaded: Boolean,
+    loading: Boolean,
+    failed: Boolean,
+    job: RunningJob?,
+    lane: LaneState?,
+    model: MainViewModel,
+    onChat: () -> Unit,
+    details: Boolean,
+    onDetails: () -> Unit,
+) {
+    var unloading by remember(entry.id) { mutableStateOf(false) }
+    if (!loaded) unloading = false
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (hosting) {
+            if (job != null) Action(stringResource(R.string.action_cancel), { model.cancelJob(job.id) })
+            when {
+                failed -> Action(stringResource(R.string.host_retry), { model.retry(entry.id) })
+                loaded -> Action(
+                    stringResource(if (job != null) R.string.host_unload_after else R.string.host_unload),
+                    {
+                        unloading = true
+                        model.unload(entry.id) { unloading = false }
+                    },
+                    enabled = !unloading,
+                )
+                !loading && job == null -> Action(stringResource(R.string.host_load), { model.load(entry.id) }, enabled = lane != LaneState.LOADING)
+            }
+            Action(stringResource(R.string.host_chat), onChat)
+        }
+        Action(stringResource(if (details) R.string.host_hide_details else R.string.host_details), onDetails)
+    }
+}
+
+/** Build, window and size in one line: "NPU (Qualcomm) · 4k-token context · 1.6 GB on disk". */
+@Composable
+internal fun modelFacts(entry: ModelEntry): String = listOfNotNull(
+    // Installs from before the backend was recorded: a Vulkan build says so in its name.
+    processorLabel(entry.backend ?: if ("vulkan" in entry.id) org.experimentalmachines.execuserve.catalog.HfCatalog.VULKAN else null),
+    entry.contextLength?.let { stringResource(R.string.host_model_context, Format.window(it)) },
+    stringResource(R.string.host_model_disk, Format.bytes(entry.sizeBytes)),
+).joinToString(" · ")
+
+/** What a model last did, and where a client reaches this model alone. */
+@Composable
+private fun ModelDetails(entry: ModelEntry, last: JobRecord?, running: ServeHost.State.Running?) {
+    Text(
+        last?.takeIf { it.decodeTokensPerSecond > 0 || it.prefillTokensPerSecond > 0 }?.let {
+            stringResource(
+                R.string.host_last_request,
+                Format.rate(it.prefillTokensPerSecond),
+                Format.rate(it.decodeTokensPerSecond),
+                Format.duration(it.totalMs),
+            )
+        } ?: stringResource(R.string.host_no_requests),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    CopyRow(entry.id, label = stringResource(R.string.host_model_id), qr = true)
+    running?.endpoints?.forEach { endpoint ->
+        val api = org.experimentalmachines.execuserve.host.ModelEndpoints.api(endpoint.url, entry.id)
+        CopyRow(api, label = stringResource(R.string.host_model_api_on, stringResource(endpoint.network.words)), qr = true)
+    }
+}
+
+/** Who a request came from, as a person would say it: this app's own chat is "Chat". */
+@Composable
+internal fun clientName(client: String?): String = when (client) {
+    null -> ""
+    org.experimentalmachines.execuserve.host.CONSOLE_KEY -> stringResource(R.string.client_chat)
+    else -> client
 }
 
 /**
@@ -433,28 +484,35 @@ private fun EmptyModels(openModels: () -> Unit) {
 // ---------------------------------------------------------------------------------------
 
 /**
- * Everything another app needs, and the one choice that decides who that can be. The
- * switch is live: it saves the setting and, while serving, restarts on the new address.
+ * Everything another app needs: who may connect, the address, and the key. Changing who may
+ * connect while hosting restarts it on the new address, so it asks first.
  */
 @Composable
 private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: ApiKey?, model: MainViewModel) {
     val running = server as? ServeHost.State.Running
+    var confirming by remember { mutableStateOf<BindMode?>(null) }
     Panel(stringResource(R.string.host_connection)) {
         ChoiceRow(
             stringResource(R.string.connect_who),
-            options = BindMode.entries.map {
-                it to stringResource(it.words)
-            },
+            options = BindMode.entries.map { it to stringResource(it.words) },
             selected = settings.bind,
-            onSelect = model::setBind,
+            onSelect = { mode -> if (running != null && mode != settings.bind) confirming = mode else model.setBind(mode) },
         )
-        if (settings.bind ==
-            BindMode.NETWORK
-        ) {
+        if (settings.bind == BindMode.NETWORK) {
             Text(stringResource(R.string.connect_plain_http), style = MaterialTheme.typography.bodySmall, color = LocalTones.current.attention.color)
         }
         if (running != null && running.settings.bind == BindMode.NETWORK && running.endpoints.none { it.network != NetworkKind.THIS_DEVICE }) {
             Text(stringResource(R.string.connect_no_network), style = MaterialTheme.typography.bodySmall, color = LocalTones.current.attention.color)
+        }
+        if (running != null) {
+            val first = running.endpoints.first()
+            CopyRow(first.url, label = stringResource(R.string.host_api_base, stringResource(first.network.words)), qr = true)
+        } else {
+            Text(
+                stringResource(R.string.host_address_when_running),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         Expandable(stringResource(R.string.host_access_key), stringResource(R.string.host_access_key_hint)) {
             if (key != null) {
@@ -480,11 +538,26 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
             CopyRow(CLEARTEXT_CONFIG)
         }
     }
+    confirming?.let { mode ->
+        AlertDialog(
+            onDismissRequest = { confirming = null },
+            title = { Text(stringResource(R.string.connect_restart_title)) },
+            text = { Text(stringResource(R.string.connect_restart_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirming = null
+                    model.setBind(mode)
+                }) { Text(stringResource(R.string.connect_restart_confirm)) }
+            },
+            dismissButton = { TextButton(onClick = { confirming = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
 }
 
+/** The phone's state, and what hosting has done; the requests themselves are on their own tab. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DevicePanel(model: MainViewModel) {
+private fun DevicePanel(model: MainViewModel, openRuns: () -> Unit) {
     val environment by model.environment.collectAsState()
     val memory by model.freeMemory.collectAsState()
     val status by model.status.collectAsState()
@@ -497,23 +570,8 @@ private fun DevicePanel(model: MainViewModel) {
                 Fact(stringResource(R.string.total_served), Format.count(status?.totals?.completed ?: 0))
                 Fact(stringResource(R.string.total_failed), Format.count(status?.totals?.failed ?: 0))
             }
+            Action(stringResource(R.string.runs_see_all), onClick = openRuns)
         }
-    }
-}
-
-// ---------------------------------------------------------------------------------------
-// Log
-// ---------------------------------------------------------------------------------------
-
-/** The latest few requests, from the history; the rest are on the Runs tab. */
-@Composable
-private fun LogPanel(latest: List<JobRecord>, openRuns: () -> Unit) {
-    Panel(stringResource(R.string.log_title), trailing = { Action(stringResource(R.string.runs_see_all), onClick = openRuns) }) {
-        if (latest.isEmpty()) {
-            Text(stringResource(R.string.none_yet), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        val names = remember(latest) { historyNames(latest.map { it.model }.distinct()) }
-        latest.forEach { run -> key(run.id) { RunRow(run, names.getValue(run.model)) } }
     }
 }
 
@@ -538,35 +596,57 @@ private const val TICK_MS = 500L
 // A key shows its ends, so a person can tell keys apart without revealing one.
 private const val KEY_HEAD = 6
 private const val KEY_TAIL = 4
-private const val LATEST_RUNS = 5
 
 /**
- * Which models Start loads, and how many may be in memory at once, from Hosting where Start is.
- * The same settings as Settings' hosting panel and the Library's "Load at start".
+ * Memory and startup, in one place: the memory limit, unloading idle models, and which models
+ * hosting loads when it starts. Startup loads at most the memory limit, in the order shown;
+ * a selection past it says it will not load.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun StartupSheet(installed: List<ModelEntry>, settings: HostSettings, model: MainViewModel, onDismiss: () -> Unit) {
+private fun MemorySheet(installed: List<ModelEntry>, settings: HostSettings, running: Boolean, model: MainViewModel, onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Column(
-            Modifier.navigationBarsPadding().padding(horizontal = Dimens.gutter).padding(bottom = Dimens.gutter),
+            Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = Dimens.gutter).padding(bottom = Dimens.gutter),
             verticalArrangement = Arrangement.spacedBy(Dimens.row),
         ) {
-            Text(stringResource(R.string.settings_startup_models), style = MaterialTheme.typography.titleMedium)
-            Text(
-                stringResource(R.string.settings_startup_models_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Text(stringResource(R.string.memory_title), style = MaterialTheme.typography.titleLarge)
+            MenuRow(
+                stringResource(R.string.host_fact_limit),
+                stringResource(R.string.memory_limit_note),
+                options = Choices.RESIDENT_MODELS.map { it to pluralStringResource(R.plurals.memory_limit_models, it, it) },
+                selected = settings.maxResidentModels,
+                onSelect = { count -> model.update { it.copy(maxResidentModels = count, threads = if (count > 1) 0 else it.threads) } },
             )
+            if (settings.threads > 0) Note(stringResource(R.string.settings_resident_threads))
+            MenuRow(
+                stringResource(R.string.settings_unload),
+                options = Choices.IDLE_UNLOAD_MINUTES.map { minutes ->
+                    minutes to if (minutes == 0) stringResource(R.string.never) else pluralStringResource(R.plurals.after_minutes, minutes, minutes)
+                },
+                selected = settings.idleUnloadMinutes,
+                onSelect = { v -> model.update { it.copy(idleUnloadMinutes = v) } },
+            )
+            Text(stringResource(R.string.host_fact_start), Modifier.padding(top = Dimens.row), style = MaterialTheme.typography.titleMedium)
+            Note(stringResource(if (running) R.string.memory_start_note_running else R.string.memory_start_note))
+            val order = settings.startupModels()
             installed.forEach { entry ->
+                val position = order.indexOf(entry.id)
                 SwitchRow(
                     ModelNames.shown(entry, installed),
-                    processorLabel(entry.backend),
-                    entry.id in settings.preloadModels || entry.id == settings.defaultModel,
+                    if (position >= settings.memoryLimit) {
+                        stringResource(
+                            R.string.memory_start_over,
+                            pluralStringResource(R.plurals.memory_limit_models, settings.memoryLimit, settings.memoryLimit),
+                        )
+                    } else {
+                        processorLabel(entry.backend)
+                    },
+                    position >= 0,
                 ) { on ->
                     model.update {
                         it.copy(
@@ -576,13 +656,6 @@ private fun StartupSheet(installed: List<ModelEntry>, settings: HostSettings, mo
                     }
                 }
             }
-            MenuRow(
-                stringResource(R.string.settings_resident),
-                stringResource(R.string.settings_resident_note),
-                options = Choices.RESIDENT_MODELS.map { it to it.toString() },
-                selected = settings.maxResidentModels,
-                onSelect = { count -> model.update { it.copy(maxResidentModels = count, threads = if (count > 1) 0 else it.threads) } },
-            )
         }
     }
 }

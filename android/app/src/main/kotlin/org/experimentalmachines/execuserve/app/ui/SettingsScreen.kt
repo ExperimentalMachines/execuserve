@@ -24,7 +24,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -32,20 +31,17 @@ import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.executorch.ExecuTorchRuntime
 import org.experimentalmachines.execuserve.host.Choices
-import org.experimentalmachines.execuserve.host.ModelNames
 import org.experimentalmachines.execuserve.host.ServeHost
 import org.experimentalmachines.execuserve.host.ThemeMode
 import org.experimentalmachines.execuserve.host.ThinkingDefault
 import org.experimentalmachines.execuserve.host.WakePolicy
 import org.experimentalmachines.execuserve.server.ApiKey
-import org.experimentalmachines.execuserve.server.BindMode
 
 @Composable
 fun SettingsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
     val settings by model.settings.collectAsState()
     val server by model.server.collectAsState()
     val keys by model.keys.collectAsState()
-    val installed by model.installed.collectAsState()
     val current = settings ?: return
     val running = server as? ServeHost.State.Running
     val tones = LocalTones.current
@@ -66,50 +62,40 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) 
 
         item(key = "connection") {
             Panel(stringResource(R.string.settings_connection)) {
-                ChoiceRow(
-                    stringResource(R.string.connect_who),
-                    options = BindMode.entries.map { it to stringResource(it.words) },
-                    selected = current.bind,
-                    onSelect = { mode -> model.setBind(mode) },
+                // Who may connect is chosen on Hosting, beside the address it changes.
+                Text(
+                    stringResource(R.string.settings_connection_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (current.bind == BindMode.NETWORK) {
-                    Text(stringResource(R.string.connect_plain_http), style = MaterialTheme.typography.bodySmall, color = tones.attention.color)
-                }
                 NumberRow(stringResource(R.string.settings_port), value = current.port, range = Choices.PORTS) { v -> update { it.copy(port = v) } }
                 SwitchRow(stringResource(R.string.settings_open_loopback), stringResource(R.string.settings_open_loopback_note), current.openLoopback) { on ->
                     update { it.copy(openLoopback = on) }
                 }
-            }
-        }
-
-        item(key = "capacity") {
-            Panel(stringResource(R.string.settings_hosting)) {
-                MenuRow(
-                    stringResource(R.string.settings_resident),
-                    stringResource(R.string.settings_resident_note),
-                    options = Choices.RESIDENT_MODELS.map { it to it.toString() },
-                    selected = current.maxResidentModels,
-                    onSelect = { count -> update { it.copy(maxResidentModels = count, threads = if (count > 1) 0 else it.threads) } },
-                )
-                Text(
-                    stringResource(R.string.settings_resident_threads),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Expandable(stringResource(R.string.settings_startup_models), stringResource(R.string.settings_startup_models_note)) {
-                    installed.forEach { entry ->
-                        SwitchRow(ModelNames.shown(entry, installed), null, entry.id in current.preloadModels || entry.id == current.defaultModel) { on ->
-                            update { settings ->
-                                settings.copy(
-                                    defaultModel = settings.defaultModel.takeUnless { !on && it == entry.id },
-                                    preloadModels = if (on) settings.preloadModels + entry.id else settings.preloadModels - entry.id,
-                                )
-                            }
-                        }
+                Expandable(stringResource(R.string.settings_advanced), stringResource(R.string.settings_advanced_summary)) {
+                    TextRow(
+                        stringResource(R.string.settings_hosts),
+                        stringResource(R.string.settings_hosts_note),
+                        current.extraHosts,
+                        "phone.tailnet.ts.net",
+                    ) { v ->
+                        update { it.copy(extraHosts = v) }
+                    }
+                    TextRow(
+                        stringResource(R.string.settings_cors),
+                        stringResource(R.string.settings_cors_note),
+                        current.corsOrigins,
+                        "http://localhost:3000",
+                    ) { v ->
+                        update { it.copy(corsOrigins = v) }
+                    }
+                    SwitchRow(stringResource(R.string.settings_external), stringResource(R.string.settings_external_note), current.allowExternalStart) { on ->
+                        update { it.copy(allowExternalStart = on) }
                     }
                 }
             }
         }
+
         item(key = "keys") { Panel { Expandable(stringResource(R.string.settings_keys)) { KeysPanel(keys, model::addKey, model::revokeKey) } } }
 
         item(key = "model") {
@@ -135,6 +121,12 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) 
                         stringResource(R.string.settings_keep_reasoning_note),
                         current.keepReasoningInHistory,
                     ) { on -> update { it.copy(keepReasoningInHistory = on) } }
+                }
+            }
+        }
+        item(key = "performance") {
+            Panel {
+                Expandable(stringResource(R.string.settings_performance)) {
                     val active by model.activeThreads.collectAsState()
                     val automatic = stringResource(R.string.threads_auto)
                     MenuRow(
@@ -149,13 +141,6 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) 
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Expandable(stringResource(R.string.settings_threads_why)) {
-                        Text(
-                            stringResource(R.string.settings_threads_why_body),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
             }
         }
@@ -192,14 +177,6 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) 
                         options = WakePolicy.entries.map { it to stringResource(it.words) },
                         selected = current.wake,
                         onSelect = { v -> update { it.copy(wake = v) } },
-                    )
-                    MenuRow(
-                        stringResource(R.string.settings_unload),
-                        options = Choices.IDLE_UNLOAD_MINUTES.map { minutes ->
-                            minutes to if (minutes == 0) stringResource(R.string.never) else pluralStringResource(R.plurals.after_minutes, minutes, minutes)
-                        },
-                        selected = current.idleUnloadMinutes,
-                        onSelect = { v -> update { it.copy(idleUnloadMinutes = v) } },
                     )
                     MenuRow(
                         stringResource(R.string.settings_battery_floor),
@@ -243,32 +220,6 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) 
                         suffix = seconds,
                     ) { v ->
                         update { it.copy(requestTimeoutSeconds = v) }
-                    }
-                }
-            }
-        }
-
-        item(key = "advanced") {
-            Panel {
-                Expandable(stringResource(R.string.settings_advanced), stringResource(R.string.settings_advanced_summary)) {
-                    TextRow(
-                        stringResource(R.string.settings_hosts),
-                        stringResource(R.string.settings_hosts_note),
-                        current.extraHosts,
-                        "phone.tailnet.ts.net",
-                    ) { v ->
-                        update { it.copy(extraHosts = v) }
-                    }
-                    TextRow(
-                        stringResource(R.string.settings_cors),
-                        stringResource(R.string.settings_cors_note),
-                        current.corsOrigins,
-                        "http://localhost:3000",
-                    ) { v ->
-                        update { it.copy(corsOrigins = v) }
-                    }
-                    SwitchRow(stringResource(R.string.settings_external), stringResource(R.string.settings_external_note), current.allowExternalStart) { on ->
-                        update { it.copy(allowExternalStart = on) }
                     }
                 }
             }

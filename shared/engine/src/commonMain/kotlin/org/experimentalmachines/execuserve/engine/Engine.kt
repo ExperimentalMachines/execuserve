@@ -802,7 +802,7 @@ class Engine(
         while (residents.isNotEmpty() && residents.size >= minOf(config.maxResidentModels, runtime.maxResidentModels).coerceAtLeast(1)) {
             evict(residents.values.minBy { it.lastUsedMs })
         }
-        setLane(LaneState.LOADING, running = current?.let { running(it, 0, 0) })
+        setLane(LaneState.LOADING, running = current?.let { running(it, 0, 0) }, loading = entry.id)
         val facts = runCatching { runtime.probe(entry.files) }.getOrElse { ModelFacts(entry.contextLength) }
         val session = try {
             runtime.open(entry.files, facts, entry.family)
@@ -998,9 +998,9 @@ class Engine(
         firstTokenAtMs = firstTokenAt,
     )
 
-    private fun setLane(state: LaneState, running: RunningJob?) {
+    private fun setLane(state: LaneState, running: RunningJob?, loading: String? = null) {
         if (wedged) return
-        _status.update { it.copy(lane = state, running = running) }
+        _status.update { it.copy(lane = state, running = running, loading = loading) }
     }
 
     private fun publishQueueLocked() {

@@ -4,8 +4,6 @@ import android.app.ActivityManager
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -88,18 +86,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
                         InstalledRow(
                             entry = entry,
                             name = ModelNames.shown(entry, installed),
-                            isDefault = settings?.let { entry.id == it.defaultModel || entry.id in it.preloadModels } == true,
                             status = status,
-                            onDefault = { on ->
-                                model.update { current ->
-                                    current.copy(
-                                        defaultModel = current.defaultModel.takeUnless { !on && it == entry.id },
-                                        preloadModels = if (on) current.preloadModels + entry.id else current.preloadModels - entry.id,
-                                    )
-                                }
-                            },
-                            onLoad = { if (status?.broken?.containsKey(entry.id) == true) model.retry(entry.id) else model.load(entry.id) },
-                            onUnload = { model.unload(entry.id) },
                             onDelete = { deleting = entry },
                             model = model,
                         )
@@ -197,20 +184,12 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
     }
 }
 
-/** One installed model: its names, what it is, where it came from, and what can be done with it. */
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * One installed model: what it is, where it came from, and deleting it. Its memory (loading,
+ * unloading, loading when hosting starts) is managed on Hosting, in one place.
+ */
 @Composable
-private fun InstalledRow(
-    entry: ModelEntry,
-    name: String,
-    isDefault: Boolean,
-    status: EngineStatus?,
-    onDefault: (Boolean) -> Unit,
-    onLoad: () -> Unit,
-    onUnload: () -> Unit,
-    onDelete: () -> Unit,
-    model: MainViewModel,
-) {
+private fun InstalledRow(entry: ModelEntry, name: String, status: EngineStatus?, onDelete: () -> Unit, model: MainViewModel) {
     val tones = LocalTones.current
     val loaded = status?.resident?.any { it.id == entry.id } == true
     val broken = status?.broken?.get(entry.id)
@@ -223,14 +202,10 @@ private fun InstalledRow(
                 // A state is a light and a word, as everywhere else.
                 if (loaded) {
                     Dot(tones.good.color, 8.dp)
-                    Text(stringResource(R.string.model_loaded), style = MaterialTheme.typography.labelLarge, color = tones.good.color)
+                    Text(stringResource(R.string.host_in_memory), style = MaterialTheme.typography.labelLarge, color = tones.good.color)
                 }
             }
-            Text(
-                Format.bytes(entry.sizeBytes) + " · " + processorLabel(entry.backend ?: if ("vulkan" in entry.id) HfCatalog.VULKAN else null),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text(modelFacts(entry), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Expandable(stringResource(R.string.host_model_details)) {
                 Text(entry.id, style = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.gutter), modifier = Modifier.padding(top = 4.dp)) {
@@ -252,19 +227,8 @@ private fun InstalledRow(
             if (broken != null) {
                 Text(stringResource(R.string.model_did_not_load, broken), color = tones.failed.color, style = MaterialTheme.typography.bodySmall)
             }
-            SwitchRow(stringResource(R.string.model_load_at_start), stringResource(R.string.host_startup_capacity_note), isDefault) { on -> onDefault(on) }
-            // Pulled left by a text button's own padding, so the labels line up with the text above.
-            FlowRow(Modifier.offset(x = -ACTION_INSET)) {
-                // Loading needs the engine, which exists only while serving.
-                if (status != null) {
-                    if (loaded) {
-                        Action(stringResource(R.string.model_unload), onClick = onUnload)
-                    } else {
-                        Action(stringResource(if (broken != null) R.string.model_try_again else R.string.model_load_now), onClick = onLoad)
-                    }
-                }
-                Action(stringResource(R.string.action_delete), onClick = onDelete, destructive = true)
-            }
+            // Pulled left by a text button's own padding, so the label lines up with the text above.
+            Action(stringResource(R.string.action_delete), onClick = onDelete, modifier = Modifier.offset(x = -ACTION_INSET), destructive = true)
         }
     }
 }
