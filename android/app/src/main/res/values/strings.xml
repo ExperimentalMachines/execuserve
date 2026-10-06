@@ -434,4 +434,5 @@
     <string name="memory_tight">Tight: Android may close other apps to make room.</string>
     <string name="memory_wont_fit">More than this phone can spare (%1$s): it won\'t load. Try a smaller window.</string>
     <string name="catalog_download_size">%1$s download</string>
+    <string name="start_timeout">Hosting did not start within 30 seconds.</string>
 </resources>
