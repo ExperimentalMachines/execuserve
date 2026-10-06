@@ -364,7 +364,6 @@
     <string name="chat_read_aloud">Read aloud</string>
     <string name="chat_stop_reading">Stop reading aloud</string>
     <string name="chat_more">More actions</string>
-    <string name="chat_regenerate">Regenerate reply</string>
     <string name="chat_in_memory">in memory</string>
     <string name="chat_loading">loading</string>
     <string name="chat_loads_on_send">loads when you send</string>
@@ -397,12 +396,6 @@
     <string name="chat_loading_model">Loading the model…</string>
     <string name="chat_manage_models">Manage models</string>
     <string name="chat_manage_models_note">Download, import or remove models in the Library</string>
-    <string name="stat_reused">reused</string>
-    <string name="stat_tokens">tokens</string>
-    <string name="stat_total_time">total time</string>
-    <string name="stat_prefill">Prefill</string>
-    <string name="stat_decode">Decode</string>
-    <string name="stat_tokens_value">%1$s tokens</string>
     <string name="stat_rate">%1$s tok/s</string>
     <string name="chat_phase_loading">Loading the model into memory…</string>
     <string name="chat_phase_queued">Waiting for another request to finish…</string>

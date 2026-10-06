@@ -117,8 +117,10 @@ class ConsoleFrameTest {
         assertTrue("Header crosses left inset: $header", header.left.value >= scenario.left)
         assertTrue("Header crosses right inset: $header", header.right.value <= scenario.width - scenario.right)
         assertEquals(scenario.top.toFloat(), header.top.value, 0.5f)
-        assertTrue("Content crosses left inset: $body", body.left.value >= scenario.left + 16)
-        assertTrue("Content crosses right inset: $body", body.right.value <= scenario.width - scenario.right - 16)
+        // Chat sets its own margins inside the content; every other tab gets the frame's gutter.
+        val gutter = if (scenario.tab == Tabs.CHAT) 0 else 16
+        assertTrue("Content crosses left inset: $body", body.left.value >= scenario.left + gutter)
+        assertTrue("Content crosses right inset: $body", body.right.value <= scenario.width - scenario.right - gutter)
         assertTrue("Content overlaps header: $body", body.top.value >= header.bottom.value)
         assertTrue("Content crosses bottom inset: $body", body.bottom.value <= scenario.height - scenario.bottom)
         compose.onNodeWithText("Copy").assertIsDisplayed()

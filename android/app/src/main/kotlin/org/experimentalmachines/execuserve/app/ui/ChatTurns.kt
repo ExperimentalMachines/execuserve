@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -33,10 +32,8 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,7 +57,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -112,7 +108,7 @@ internal fun UserTurn(message: ChatMessage) {
  * more, beside the reply's own figures.
  */
 @Composable
-internal fun AssistantTurn(message: ChatMessage, phase: Int?, speaking: Boolean, onReadAloud: () -> Unit, onRegenerate: (() -> Unit)?) {
+internal fun AssistantTurn(message: ChatMessage, phase: Int?, speaking: Boolean, onReadAloud: () -> Unit) {
     val context = LocalContext.current
     var more by rememberSaveable(message.id) { mutableStateOf(false) }
     var reporting by rememberSaveable(message.id) { mutableStateOf(false) }
@@ -141,16 +137,13 @@ internal fun AssistantTurn(message: ChatMessage, phase: Int?, speaking: Boolean,
         }
     }
     if (more) {
+        // Copy and report only: regenerating and the reply's figures are not what this is for.
         ActionsSheet(onDismiss = { more = false }) {
-            message.result?.let { TurnStats(it, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
-            onRegenerate?.let { regenerate ->
-                SheetAction(Icons.Rounded.Refresh, stringResource(R.string.chat_regenerate)) {
-                    more = false
-                    regenerate()
-                }
+            SheetAction(Icons.Rounded.ContentCopy, stringResource(R.string.chat_copy_message)) {
+                copy(context, message.content)
+                more = false
             }
-            // Here rather than under every reply: nothing is sent anywhere by the app, the report
-            // is a text the person shares where they choose.
+            // Nothing is sent anywhere by the app: the report is a text the person shares where they choose.
             SheetAction(Icons.Rounded.Flag, stringResource(R.string.report_action)) {
                 more = false
                 reporting = true
@@ -292,21 +285,22 @@ private fun MessageActions(speaking: Boolean, onCopy: () -> Unit, onReadAloud: (
 }
 
 /**
- * Prefill and decode by name, then the whole time: the two phases cost differently on a phone.
- * Each figure is kept whole, so a narrow row breaks between them, never inside "82.84 s".
+ * How fast the prompt was read, then how fast the reply was written, and the whole time:
+ * "55→24 tok/s  1.5s" (OpenWeights' Measurements). The arrow is one phase into the next; an
+ * isolate keeps a right-to-left layout from reading the two numbers backwards.
  */
 @Composable
 private fun Measurements(result: TestResult) {
-    Text(
-        listOfNotNull(
-            result.prefillTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.chat_prefill, Format.rate(it)) },
-            result.decodeTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.chat_decode, Format.rate(it)) },
-            Format.duration(result.totalMs),
-        ).joinToString(" · ") { it.replace(' ', '\u00A0') },
-        Modifier.padding(end = 4.dp),
-        style = MetricStyle,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    val prefill = result.prefillTokensPerSecond.takeIf { it > 0 }
+    val decode = result.decodeTokensPerSecond.takeIf { it > 0 }
+    Row(Modifier.padding(end = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        val rates = when {
+            prefill != null && decode != null -> "\u2068${Format.whole(prefill)}→${Format.whole(decode)}\u2069"
+            else -> (decode ?: prefill)?.let(Format::rate)
+        }
+        rates?.let { Text(stringResource(R.string.stat_rate, it), style = MetricStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
+        Text(Format.seconds(result.totalMs), style = MetricStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+    }
 }
 
 /** A quiet icon in a full touch target: these sit under every reply, so they must not compete with it. */
@@ -315,65 +309,6 @@ private fun ReplyAction(icon: ImageVector, label: String, onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier = Modifier.size(Dimens.touch)) {
         Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
     }
-}
-
-/**
- * Where one reply's time went (OpenWeights' TurnStatsPanel): what the cache spared, all the
- * tokens, the whole time; then each phase as tokens, seconds and a rate. Reused plus read plus
- * written is the total, so every figure is accounted for by another. Only what the server
- * measured; a dash where it did not.
- */
-@Composable
-private fun TurnStats(result: TestResult, modifier: Modifier = Modifier) {
-    val read = (result.promptTokens - result.cachedTokens).coerceAtLeast(0)
-    Column(
-        modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(Modifier.fillMaxWidth()) {
-            Headline(Format.count(result.cachedTokens), stringResource(R.string.stat_reused), Modifier.weight(1f))
-            Headline(Format.count(result.promptTokens + result.completionTokens), stringResource(R.string.stat_tokens), Modifier.weight(1f))
-            Headline(Format.duration(result.totalMs), stringResource(R.string.stat_total_time), Modifier.weight(1f))
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        PhaseRow(stringResource(R.string.stat_prefill), read, millisOf(read, result.prefillTokensPerSecond), result.prefillTokensPerSecond)
-        PhaseRow(
-            stringResource(R.string.stat_decode),
-            result.completionTokens,
-            millisOf(result.completionTokens - 1, result.decodeTokensPerSecond),
-            result.decodeTokensPerSecond,
-        )
-    }
-}
-
-/** The time a phase took, from its tokens and its measured rate; null when either is missing. */
-private fun millisOf(tokens: Int, perSecond: Double): Long? = if (tokens > 0 && perSecond > 0) (tokens * MS_PER_SECOND / perSecond).toLong() else null
-
-@Composable
-private fun Headline(value: String, label: String, modifier: Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(value, style = MaterialTheme.typography.titleMedium)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-    }
-}
-
-@Composable
-private fun PhaseRow(name: String, tokens: Int, millis: Long?, perSecond: Double) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(name, Modifier.width(64.dp), style = MaterialTheme.typography.bodyMedium)
-        Cell(stringResource(R.string.stat_tokens_value, Format.count(tokens)), Modifier.weight(TOKENS_WEIGHT))
-        Cell(millis?.let(Format::duration) ?: NOT_MEASURED, Modifier.weight(1f))
-        Cell(if (perSecond > 0) stringResource(R.string.stat_rate, Format.rate(perSecond)) else NOT_MEASURED, Modifier.weight(RATE_WEIGHT))
-    }
-}
-
-@Composable
-private fun Cell(text: String, modifier: Modifier) {
-    Text(text, modifier, style = MetricStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
 }
 
 /**
@@ -410,7 +345,3 @@ private val BUBBLE_CORNER = 12.dp
 private val MetricStyle = Mono.copy(fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
 private const val PULSE_DIM = 0.3f
 private const val PULSE_MS = 700
-private const val MS_PER_SECOND = 1000.0
-private const val TOKENS_WEIGHT = 1.3f
-private const val RATE_WEIGHT = 1.1f
-private const val NOT_MEASURED = "-"

@@ -229,17 +229,6 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     val dictation = Dictation(app)
     val reader = SpeechReader(app)
 
-    /** Asks the last question again in place of its reply, as when it was first asked. */
-    fun regenerateChat(model: String) {
-        val messages = _chat.value.messages
-        val reply = messages.lastOrNull() ?: return
-        val question = messages.getOrNull(messages.size - 2) ?: return
-        if (reply.fromUser || reply.running || !question.fromUser) return
-        if (reader.speaking.value == reply.id) reader.stop()
-        _chat.update { it.copy(messages = it.messages.dropLast(2)) }
-        sendChat(question.content, model)
-    }
-
     /**
      * Sends [text] with the conversation so far to this app's own server, over loopback and
      * streamed, exactly as another app would: the console sees what a client gets.

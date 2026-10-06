@@ -163,7 +163,7 @@ fun ChatScreen(model: MainViewModel, padding: PaddingValues, openModels: () -> U
                 var picking by rememberSaveable { mutableStateOf(false) }
                 ChatTopBar(entry, installed, status, chat, onPick = { picking = true }, onNewChat = model::newChat)
                 LoadFailure(status?.broken?.get(entry.id)) { model.retry(entry.id) }
-                Transcript(chat, ModelNames.shown(entry, installed), model, target, Modifier.weight(1f)) { model.sendChat(it, target) }
+                Transcript(chat, ModelNames.shown(entry, installed), model, Modifier.weight(1f)) { model.sendChat(it, target) }
                 Composer(
                     running = chat.running,
                     loading = status?.lane == LaneState.LOADING && status?.loading == entry.id,
@@ -402,7 +402,7 @@ private fun shortProcessor(backend: String?): String = stringResource(
 
 /** The conversation, capped to a readable width, with the way back to the latest message. */
 @Composable
-private fun Transcript(chat: ChatState, modelName: String, model: MainViewModel, target: String, modifier: Modifier, onSuggestion: (String) -> Unit) {
+private fun Transcript(chat: ChatState, modelName: String, model: MainViewModel, modifier: Modifier, onSuggestion: (String) -> Unit) {
     // Opened at the newest message: started at the top, the first frame drew the oldest one.
     val list =
         rememberLazyListState(initialFirstVisibleItemIndex = chat.messages.lastIndex.coerceAtLeast(0), initialFirstVisibleItemScrollOffset = Int.MAX_VALUE)
@@ -411,7 +411,6 @@ private fun Transcript(chat: ChatState, modelName: String, model: MainViewModel,
         Welcome(modelName, modifier, onSuggestion)
         return
     }
-    val last = chat.messages.lastOrNull()
     val speaking by model.reader.speaking.collectAsState()
     val status by model.status.collectAsState()
     val scope = rememberCoroutineScope()
@@ -427,14 +426,11 @@ private fun Transcript(chat: ChatState, modelName: String, model: MainViewModel,
                 if (message.fromUser) {
                     UserTurn(message)
                 } else {
-                    // Only the last reply can be asked again, and only once nothing is being written.
-                    val again = message.id == last?.id && !chat.running && chat.messages.getOrNull(chat.messages.size - 2)?.fromUser == true
                     AssistantTurn(
                         message,
                         phase = if (message.running) replyPhase(status, message) else null,
                         speaking = speaking == message.id,
                         onReadAloud = { if (speaking == message.id) model.reader.stop() else model.reader.speak(message.id, message.content) },
-                        onRegenerate = if (again) ({ model.regenerateChat(target) }) else null,
                     )
                 }
             }

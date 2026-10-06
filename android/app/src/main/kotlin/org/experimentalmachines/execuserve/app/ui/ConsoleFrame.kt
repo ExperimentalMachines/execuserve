@@ -120,7 +120,9 @@ internal fun ConsoleFrame(
                     Modifier.fillMaxSize()
                         .padding(padding)
                         .consumeWindowInsets(padding)
-                        .padding(horizontal = Dimens.gutter),
+                        // Chat keeps its own, narrower margins (OpenWeights'): a gutter here
+                        // on top of them left a wide gap on each side of every message.
+                        .padding(horizontal = if (tab == Tabs.CHAT) 0.dp else Dimens.gutter),
                     contentAlignment = Alignment.TopCenter,
                 ) {
                     val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)

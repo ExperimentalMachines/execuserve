@@ -20,6 +20,12 @@ object Format {
 
     fun percent(part: Long, whole: Long): String = if (whole > 0) "${(part * PERCENT / whole).coerceIn(0, PERCENT)}%" else "0%"
 
+    /** A rate to the nearest whole number, for two rates side by side: "55". */
+    fun whole(perSecond: Double): String = String.format(locale, "%.0f", perSecond)
+
+    /** A time in seconds to one decimal, unspaced, beside a rate: "1.5s". */
+    fun seconds(ms: Long): String = String.format(locale, "%.1fs", ms / MS_PER_SECOND.toDouble())
+
     fun bytes(n: Long): String = when {
         n >= GB -> String.format(locale, "%.1f GB", n / GB.toDouble())
         n >= MB -> String.format(locale, "%.0f MB", n / MB.toDouble())
