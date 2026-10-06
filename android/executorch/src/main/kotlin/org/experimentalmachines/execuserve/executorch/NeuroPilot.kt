@@ -185,4 +185,6 @@ private fun availableMemory(): Long? = runCatching {
 private fun gigabytes(bytes: Long) = String.format(java.util.Locale.ROOT, "%.1f GB", bytes / GB)
 
 private const val KIB = 1024L
-private const val GB = 1e9
+
+// Binary, as the app's screens count (Format.bytes): one figure, one unit, everywhere.
+private const val GB = 1024.0 * 1024 * 1024

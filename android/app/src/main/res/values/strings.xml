@@ -241,8 +241,6 @@
     <string name="processor_gpu">GPU (Vulkan)</string>
     <string name="processor_npu_qualcomm">NPU (Qualcomm)</string>
     <string name="processor_npu_mediatek">NPU (MediaTek) prefill, CPU decode</string>
-    <string name="catalog_npu_memory">Needs about %1$s of free memory to run, more than it downloads.</string>
-    <string name="catalog_npu_too_big">More than this phone can usually free: it will be refused. Try a smaller window or the CPU build.</string>
     <string name="npu_mediatek_refused">This phone\'s NPU cannot run MediaTek builds. Try the same model\'s CPU build; it does not need the NPU.</string>
     <string name="npu_refused">This phone\'s NPU cannot run Qualcomm builds. Try the same model\'s CPU build; it does not need the NPU.</string>
     <string name="catalog_runtime">Exported for ExecuTorch %1$s; this app runs %2$s</string>
@@ -458,4 +456,9 @@
         <item quantity="one">Ready for requests · %d model in memory</item>
         <item quantity="other">Ready for requests · %d models in memory</item>
     </plurals>
+    <string name="chat_latest">Jump to the latest message</string>
+    <string name="memory_needs">Needs %1$s of memory to run</string>
+    <string name="memory_tight">Tight: Android may close other apps to make room.</string>
+    <string name="memory_wont_fit">More than this phone can spare (%1$s): it won\'t load. Try a smaller window.</string>
+    <string name="catalog_download_size">%1$s download</string>
 </resources>

@@ -305,6 +305,7 @@ private fun HostedModel(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(breakable(name), style = MaterialTheme.typography.titleMedium)
                 Text(modelFacts(entry), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                MemoryNeed(memoryNeed(entry))
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

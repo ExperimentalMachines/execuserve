@@ -6,6 +6,7 @@ import org.experimentalmachines.execuserve.engine.LlmRuntime
 import org.experimentalmachines.execuserve.engine.LlmSession
 import org.experimentalmachines.execuserve.engine.ModelFacts
 import org.experimentalmachines.execuserve.engine.ModelFiles
+import org.experimentalmachines.execuserve.engine.ModelMemory
 import org.experimentalmachines.execuserve.engine.RuntimeFailure
 import org.experimentalmachines.execuserve.engine.RuntimeOutcome
 import org.pytorch.executorch.Module
@@ -75,6 +76,7 @@ class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { tr
         if (!File(files.model).isFile) throw RuntimeFailure("${files.model} is missing")
         if (!File(files.tokenizer).isFile) throw RuntimeFailure("${files.tokenizer} is missing")
         if (files.backend == NEUROPILOT) return@synchronized NeuroPilotSession(files, facts, EngineConfig().defaultTemperature)
+        if (files.backend != QNN) refuseIfTooBig(files, facts)
         val selectedThreads = threads
         if (openSessions > 0 && (selectedThreads != 0 || residentThreads != 0 || pinnedPoolThreads == null)) {
             throw RuntimeFailure("Unload the current models before changing CPU threads or opening another model.")
@@ -88,6 +90,33 @@ class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { tr
             pinnedPoolThreads = activeThreads()
         }
     }
+
+    /**
+     * A build whose window's cache cannot fit is refused before it loads: ExecuTorch allocates
+     * the whole cache at load, and a build bigger than about two thirds of the phone pushes
+     * every other app out of memory (Qwen3-0.6B at 32k took 7.55 GB on a 12 GB phone).
+     */
+    private fun refuseIfTooBig(files: ModelFiles, facts: ModelFacts) {
+        val model = File(files.model)
+        // The install's folder names the model; a loose file names itself.
+        val name = model.parentFile?.name?.takeUnless { it == "models" } ?: model.nameWithoutExtension
+        val need = ModelMemory.needBytes(name, facts.contextLength, model.length()) ?: return
+        val total = memTotal() ?: return
+        if (ModelMemory.fit(need, total, Long.MAX_VALUE) == ModelMemory.Fit.WONT_FIT) {
+            throw RuntimeFailure(
+                "This build needs about ${gb(need)} of memory once loaded (its ${facts.contextLength}-token window is " +
+                    "reserved at load), more than this phone can spare (${gb(ModelMemory.usableBytes(total))}). " +
+                    "Use the same model with a smaller window.",
+            )
+        }
+    }
+
+    private fun memTotal(): Long? = runCatching {
+        File("/proc/meminfo").useLines { lines -> lines.firstOrNull { it.startsWith("MemTotal:") } }
+            ?.split(Regex("\\s+"))?.getOrNull(1)?.toLongOrNull()?.times(KIB)
+    }.getOrNull()
+
+    private fun gb(bytes: Long) = String.format(java.util.Locale.ROOT, "%.1f GB", bytes / GB)
 
     /**
      * ExecuTorch 1.4 has a process-wide pool. Its JNI constructors choose different
@@ -335,6 +364,10 @@ internal const val NEUROPILOT = "mtk"
 
 /** The JNI layer's model type for Qualcomm's static LLM runner (jni_layer_llama.cpp); the Java API names no constant for it. */
 private const val MODEL_TYPE_QNN = 4
+private const val KIB = 1024L
+
+// Binary, as the app's screens count (Format.bytes): one figure, one unit, everywhere.
+private const val GB = 1024.0 * 1024 * 1024
 
 /** Whether [name] (a family such as `lfm2.5`, or a file name) is an LFM2 model. */
 internal fun isLfm2(name: String): Boolean = "lfm2" in name.lowercase().filter { it.isLetterOrDigit() }

@@ -29,5 +29,5 @@
     <string name="npu_refused">This tablet\'s NPU cannot run Qualcomm builds. Try the same model\'s CPU build; it does not need the NPU.</string>
     <string name="npu_mediatek_refused">This tablet\'s NPU cannot run MediaTek builds. Try the same model\'s CPU build; it does not need the NPU.</string>
     <string name="dictation_unavailable">This tablet has no offline speech recognition, and ExecuServe will not use the online kind.</string>
-    <string name="catalog_npu_too_big">More than this tablet can usually free: it will be refused. Try a smaller window or the CPU build.</string>
+    <string name="memory_wont_fit">More than this tablet can spare (%1$s): it won\'t load. Try a smaller window.</string>
 </resources>

@@ -8,6 +8,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Refresh
@@ -50,6 +53,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,10 +62,12 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -78,6 +84,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import kotlinx.coroutines.launch
 import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.app.text.Format
@@ -287,60 +294,97 @@ private fun Conversation(chat: ChatState, modelName: String, model: MainViewMode
     val list =
         rememberLazyListState(initialFirstVisibleItemIndex = chat.messages.lastIndex.coerceAtLeast(0), initialFirstVisibleItemScrollOffset = Int.MAX_VALUE)
     val last = chat.messages.lastOrNull()
-    // Following the end is a decision, not a measurement: a growing reply is taller than the
-    // screen long before it ends, so "is the end in view" turns false on its own. Sending
-    // turns following on; scrolling away turns it off; scrolling back to the end turns it on.
-    var follow by remember { mutableStateOf(true) }
+    var follow by rememberFollow(list, chat)
+    if (chat.messages.isEmpty()) {
+        Welcome(modelName, modifier, onSuggestion)
+        return
+    }
+    val speaking by model.reader.speaking.collectAsState()
+    val scope = rememberCoroutineScope()
+    Box(modifier.fillMaxWidth()) {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            state = list,
+            contentPadding = PaddingValues(vertical = Dimens.row),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            items(chat.messages, key = { it.id }) { message ->
+                if (message.fromUser) {
+                    Asked(message)
+                } else {
+                    // Only the last reply can be asked again, and only once nothing is being written.
+                    val again = message.id == last?.id && !chat.running && chat.messages.getOrNull(chat.messages.size - 2)?.fromUser == true
+                    Reply(
+                        message,
+                        speaking = speaking == message.id,
+                        onReadAloud = { if (speaking == message.id) model.reader.stop() else model.reader.speak(message.id, message.content) },
+                        onRegenerate = if (again) ({ model.regenerateChat(target) }) else null,
+                    )
+                }
+            }
+        }
+        // Scrolled away while a reply is written: the way back, which also resumes following.
+        if (!follow && list.canScrollForward) {
+            SmallFloatingActionButton(
+                onClick = {
+                    follow = true
+                    scope.launch { list.scrollToItem(chat.messages.lastIndex, Int.MAX_VALUE) }
+                },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            ) {
+                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = stringResource(R.string.chat_latest))
+            }
+        }
+    }
+}
+
+/**
+ * Whether the list follows the end of the conversation. Following the end is a decision, not
+ * a measurement: a growing reply is taller than the screen long before it ends, so "is the
+ * end in view" turns false on its own. Sending turns following on; a finger on the list turns
+ * it off at once (until then each streamed piece scrolled back under the thumb); scrolling
+ * back to the end turns it on.
+ */
+@Composable
+private fun rememberFollow(list: LazyListState, chat: ChatState): MutableState<Boolean> {
+    val follow = remember { mutableStateOf(true) }
+    val last = chat.messages.lastOrNull()
+    LaunchedEffect(list) {
+        list.interactionSource.interactions.collect { if (it is DragInteraction.Start) follow.value = false }
+    }
     LaunchedEffect(list.isScrollInProgress) {
-        if (!list.isScrollInProgress && chat.messages.isNotEmpty()) follow = !list.canScrollForward
+        if (!list.isScrollInProgress && chat.messages.isNotEmpty()) follow.value = !list.canScrollForward
     }
     LaunchedEffect(chat.messages.size) {
         if (chat.messages.isNotEmpty()) {
-            follow = true
+            follow.value = true
             list.scrollToItem(chat.messages.lastIndex, Int.MAX_VALUE)
         }
     }
     LaunchedEffect(last?.content?.length, last?.reasoning?.length, last?.running) {
-        if (follow && chat.messages.isNotEmpty()) list.scrollToItem(chat.messages.lastIndex, Int.MAX_VALUE)
+        if (follow.value && !list.isScrollInProgress && chat.messages.isNotEmpty()) list.scrollToItem(chat.messages.lastIndex, Int.MAX_VALUE)
     }
-    if (chat.messages.isEmpty()) {
-        Column(modifier.fillMaxWidth().padding(vertical = Dimens.gutter), verticalArrangement = Arrangement.Center) {
-            Mark(48.dp)
-            Text(stringResource(R.string.chat_welcome, breakable(modelName)), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.headlineSmall)
-            Text(
-                stringResource(R.string.chat_welcome_note),
-                Modifier.padding(top = 8.dp, bottom = 16.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(R.string.chat_suggest_plan, R.string.chat_suggest_explain, R.string.chat_suggest_write).forEach { id ->
-                    val text = stringResource(id)
-                    SuggestionChip(onClick = { onSuggestion(text) }, label = { Text(text) })
-                }
-            }
-        }
-        return
-    }
-    val speaking by model.reader.speaking.collectAsState()
-    LazyColumn(
-        modifier.fillMaxWidth(),
-        state = list,
-        contentPadding = PaddingValues(vertical = Dimens.row),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        items(chat.messages, key = { it.id }) { message ->
-            if (message.fromUser) {
-                Asked(message)
-            } else {
-                // Only the last reply can be asked again, and only once nothing is being written.
-                val again = message.id == last?.id && !chat.running && chat.messages.getOrNull(chat.messages.size - 2)?.fromUser == true
-                Reply(
-                    message,
-                    speaking = speaking == message.id,
-                    onReadAloud = { if (speaking == message.id) model.reader.stop() else model.reader.speak(message.id, message.content) },
-                    onRegenerate = if (again) ({ model.regenerateChat(target) }) else null,
-                )
+    return follow
+}
+
+/** An empty chat: which model answers, where replies come from, and three ways to begin. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Welcome(modelName: String, modifier: Modifier, onSuggestion: (String) -> Unit) {
+    Column(modifier.fillMaxWidth().padding(vertical = Dimens.gutter), verticalArrangement = Arrangement.Center) {
+        Mark(48.dp)
+        Text(stringResource(R.string.chat_welcome, breakable(modelName)), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.headlineSmall)
+        Text(
+            stringResource(R.string.chat_welcome_note),
+            Modifier.padding(top = 8.dp, bottom = 16.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(R.string.chat_suggest_plan, R.string.chat_suggest_explain, R.string.chat_suggest_write).forEach { id ->
+                val text = stringResource(id)
+                SuggestionChip(onClick = { onSuggestion(text) }, label = { Text(text) })
             }
         }
     }
