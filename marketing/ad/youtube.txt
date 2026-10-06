@@ -12,7 +12,7 @@ ExecuServe is a free, open-source Android app that runs an AI model on your phon
 • Compatible with OpenAI and Anthropic clients, LangChain, the Vercel AI SDK and Open WebUI, or open the phone's chat page from any browser on your network
 • No cloud, no account, no subscription
 
-Everything in the video is real: the phones' own screen recordings (a Snapdragon 8 Elite Gen 5 on Qualcomm Device Cloud and a POCO X8 Pro Max with a MediaTek Dimensity), and another device asking the POCO over Wi-Fi. The screen-off answer was recorded with the phone locked and dozing. Loading is sped up and says so; the answers play at the speed they arrived.
+Everything in the video is real: the phones' own screen recordings (a Snapdragon 8 Elite Gen 5 on Qualcomm Device Cloud and a POCO X8 Pro Max with a MediaTek Dimensity), and another device asking the POCO over Wi-Fi. The screen-off answer was recorded with the phone locked and dozing. Nothing is sped up: every take plays at the pace it was recorded.
 
 Project page: https://experimentalmachines.org/execuserve/
 Source (Apache-2.0): https://github.com/ExperimentalMachines/execuserve

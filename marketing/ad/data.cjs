@@ -8,14 +8,15 @@ const read = (f) => JSON.parse(fs.readFileSync(`${dir}/assets/${f}`, 'utf8'));
 const fail = (why) => { console.error('data.cjs:', why); process.exit(1); };
 const count = (c) => { try { return fs.readdirSync(`${dir}/frames/clips/${c}`).filter((f) => f.endsWith('.jpg')).length; } catch { return 0; } };
 
-// The Snapdragon take is the phone's own screen recording, so its moments come from the screen:
-// the status dot turns blue (Working) when Send is tapped and green again when the reply is done,
-// read frame by frame at 20 fps. The footer is the app's own measurement of the same reply.
-const npuJson = read('clips/npu-sm8850-chat.json');
-const npu = { ...npuJson, marks: { sent: 7.75, done: 11.0 } };
+// The Snapdragon takes are the phone's own screen recordings, so their moments come from the
+// screen: in the chat, the status dot turns blue (Working) when Send is tapped and green again
+// when the reply is done, read frame by frame at 20 fps; the footer is the app's own measurement.
+const npu = read('clips/npu-sm8850-chat.json');
+const start = read('clips/start.json');
 
 const data = {
   npu,
+  start,
   asleep: read('clips/npu-poco-asleep.json'),
   clips: { asleep: { fps: 25, count: count('asleep') }, start: { fps: 30, count: count('start') }, npu: { fps: 30, count: count('npu') } },
 };
@@ -29,6 +30,8 @@ if (/\*\*|`/.test(asleep.reply)) fail("npu-poco-asleep.json's reply has Markdown
 const dozing = (s) => s?.locked && s?.wakefulness === 'Dozing';
 if (!(dozing(asleep.phone?.before) && dozing(asleep.phone?.after))) fail('npu-poco-asleep.json does not show the phone locked and dozing before and after the take');
 if (!npu.footer || !npu.reply?.trim()) fail('npu-sm8850-chat.json lacks its footer or reply');
+if (!(npu.marks?.sent < npu.marks?.done)) fail('npu-sm8850-chat.json marks are missing or out of order');
+if (!(start.marks?.tap < start.marks?.serving)) fail('start.json marks are missing or out of order');
 
 // Each clip must run as long as its scene asks; a short one would freeze on its last frame
 // (the asleep scene holds its last frame on purpose, so it needs only the answer and a beat).
@@ -36,7 +39,7 @@ const BEAT = 60 / 112, bar = (n, b = 0) => (n * 4 + b) * BEAT;
 const needs = {
   npu: npu.marks.sent + (bar(15) - bar(12)) - 0.5,
   asleep: asleep.marks.done + 1,
-  start: 9.9 + (bar(11) - bar(10)),
+  start: start.marks.serving + (bar(11) - bar(10)),
 };
 for (const [c, need] of Object.entries(needs)) {
   const have = data.clips[c].count / data.clips[c].fps;

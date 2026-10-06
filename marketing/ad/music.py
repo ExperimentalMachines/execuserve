@@ -37,7 +37,12 @@ START = 9           # tap Start
 SERVING = (10, 0)   # the app turns green: the groove arrives
 NPU = 11            # the Snapdragon's NPU reads a document
 SEND = (12, 0)      # Send; the reply finishes its recorded seconds later
-NPU_TOOK = 11.0 - 7.75  # npu-sm8850-chat: sent and done, read from the screen (data.cjs)
+# The takes' own moments (assets/clips/*.json, read from the screen): Send to the reply done,
+# and the tap on Start to Serving.
+_npu = json.loads((HERE / 'assets/clips/npu-sm8850-chat.json').read_text())['marks']
+NPU_TOOK = _npu['done'] - _npu['sent']
+_start = json.loads((HERE / 'assets/clips/start.json').read_text())['marks']
+START_TOOK = _start['serving'] - _start['tap']
 NET = 15            # every app can use it
 SLEEP = (15, 2)     # the power button: the screen goes off, the hush
 WOKE = (18, 0)      # the answer still arrives
@@ -276,7 +281,7 @@ for i in range(4):  # a card a beat: CPU, GPU, then the two NPUs, brighter
     place(fx, at, bell((72, 76, 79, 84)[i], 0.9), 0.5 if i < 2 else 0.75)
 for secs, note in zip(TTFT, (84, 77, 72)):  # each chart bar stops on a bell; the NPU first and brightest
     place(fx, t_of(*CHART_GO) + secs, bell(note, 1.2), 0.8 if note == 84 else 0.5)
-tap(t_of(*SERVING) - (9.9 - 6.15) / 2)  # ad.html's tap on Start, before the sped-up loading
+tap(t_of(*SERVING) - START_TOOK)  # ad.html's tap on Start, in real time
 place(fx, t_of(*SERVING), thump(0.6), 0.7)
 place(fx, t_of(*SERVING), bell(84), 0.8)
 # Send, the NPU at work (a soft tick on each half beat, as the ember pulses), and the reply done.

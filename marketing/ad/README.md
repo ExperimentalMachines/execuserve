@@ -38,8 +38,8 @@ A rebuild rewrites the committed video and thumbnail; commit them again with the
 | `ad.html` | The whole ad as one page. `window.renderAt(t)` draws the frame at `t` seconds, waits for each footage frame to decode and never reads the clock, so every frame renders the same every time. Scenes cut on the music's bar lines: `bar(n, beat)` at 112 BPM. |
 | `music.py` | The track: 112 BPM warm electro in F major, 25 bars and a tail, synthesised with numpy and scipy (no samples, nothing licensed). Seeded. Its moments are the story's: the ember motif falling away as the chip goes cold, a hit on the logo and on each processor, a bell as each chart bar stops, the groove landing on Serving, a tick while the NPU reads, a hush when the screen goes off, a bell when the answer still arrives. |
 | `browser.cjs` | Another device using the phone: Playwright opens the chat page the phone serves at its Wi-Fi address, connects (the key goes into a password field), asks one question and films it as 2× screenshots, encoded to `assets/clips/<name>.mp4` with the moments it connected, sent, got its first text and finished. With `ANDROID_SERIAL` set it also logs the phone's screen and lock state before and after the take. |
-| `assets/clips/start.mp4` | The POCO's own screen recording: Start, Working, Serving (the Play Store foreground-service take). |
-| `assets/clips/npu-sm8850-chat.mp4` | The Snapdragon 8 Elite Gen 5's own screen recording (Qualcomm Device Cloud): meeting notes pasted into the app's Chat and summarised on the NPU, footer and all. Its JSON has the prompt, the reply and the footer; `data.cjs` holds when Send was tapped and the reply finished, read from the status dot. |
+| `assets/clips/start.mp4` | The Snapdragon's own screen recording, portrait, on the release build: Start tapped, then Starting, Working and Serving in real time (its NPU build loads in about half a second). `start.json` holds the moments and the button's position. |
+| `assets/clips/npu-sm8850-chat.mp4` | The Snapdragon 8 Elite Gen 5's own screen recording (Qualcomm Device Cloud) on the release build: meeting notes typed into the app's Chat and summarised on the NPU, footer and all. Its JSON has the prompt, the reply, the footer, and when Send was tapped and the reply finished, read from the status dot. |
 | `assets/clips/npu-poco-asleep.mp4` | `browser.cjs` on another device asking the POCO's MediaTek NPU build at its Wi-Fi address, with the phone locked and dozing before and after. |
 | `assets/clips/cpu-sm8850-chat.mp4` | Not in the ad: the same Chat take on the Snapdragon's CPU, kept for the comparison in `docs/results/2026-10-06-npu.md`. |
 | `clips.sh` | Turns the clips into frames under `frames/clips/` for the page. |
@@ -57,7 +57,7 @@ A rebuild rewrites the committed video and thumbnail; commit them again with the
 | Logo | 3–5 | 6.4–10.7 | The mark builds on the beat. "An AI server for any Android phone." Free, Open source. |
 | Processors | 5–7 | 10.7–15.0 | "It runs on the chip you have." A card a beat: CPU (XNNPACK, every Android phone), GPU (Vulkan), NPU (Qualcomm QNN, Snapdragon), NPU (MediaTek NeuroPilot, Dimensity). |
 | Chart | 7–9 | 15.0–19.3 | Time to the first token on a 700-token prompt on one Snapdragon 8 Elite Gen 5: CPU 2.0 s, GPU 1.0 s, NPU 0.41 s, each bar growing for as long as it took. |
-| Tap Start | 9–11 | 19.3–23.6 | Stopped, Working (sped up), Serving, landing on the groove. "Now it's a server. For the apps on the phone, and every device on your network." The ember lights. |
+| Tap Start | 9–11 | 19.3–23.6 | The Snapdragon: Stopped, Starting, Working, Serving, in real time, landing on the groove. "Now it's a server. For the apps on the phone, and every device on your network." The ember lights. |
 | On the NPU | 11–15 | 23.6–32.1 | The Snapdragon's Chat summarising meeting notes on its NPU, in real time, and the app's own figures for that reply. |
 | Every app | 15–20 | 32.1–42.9 | Another device's browser at the POCO's Wi-Fi address; the phone's screen goes off, and the answer comes from its MediaTek NPU. The clients the README documents. |
 | Without | 20–22 | 42.9–47.1 | No cloud. No account. No subscription. Just your phone's own chip. |
@@ -78,8 +78,7 @@ A rebuild rewrites the committed video and thumbnail; commit them again with the
 - The client names: the README's HTTP API and Clients sections. "No cloud, no account, no
   subscription": the README and the privacy policy (models run on the phone; the catalog
   downloads from Hugging Face).
-- Sped-up footage says so on screen; the NPU take and the browser reply play at their recorded
-  pace.
+- Nothing is sped up: every take plays at its recorded pace.
 
 ## Rules for anything made here
 

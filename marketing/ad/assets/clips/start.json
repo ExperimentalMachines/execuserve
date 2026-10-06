@@ -1,0 +1,18 @@
+{
+  "device": "Snapdragon 8 Elite Gen 5 (SM8850), Qualcomm Device Cloud, Android 16",
+  "app": "ExecuServe 0.1.0 (40) release build",
+  "model": "qwen3-1.7b-qnn (Qualcomm NPU), Load at start on",
+  "how": "the phone's own screenrecord of the Hosting tab, portrait: Start tapped, then Starting, Working and Serving. screenrecord writes a frame only when the screen changes, so the last frame is the moment it was Serving; clips.sh holds it.",
+  "marks": {
+    "tap": 5.39,
+    "serving": 6.01
+  },
+  "start_button": [
+    1188,
+    444
+  ],
+  "size": [
+    1440,
+    3200
+  ]
+}
