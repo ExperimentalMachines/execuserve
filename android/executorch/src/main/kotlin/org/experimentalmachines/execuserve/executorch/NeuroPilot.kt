@@ -5,8 +5,11 @@ import org.experimentalmachines.execuserve.engine.ContextOverflow
 import org.experimentalmachines.execuserve.engine.LlmSession
 import org.experimentalmachines.execuserve.engine.ModelFacts
 import org.experimentalmachines.execuserve.engine.ModelFiles
+import org.experimentalmachines.execuserve.engine.NpuFiles
+import org.experimentalmachines.execuserve.engine.NpuMemory
 import org.experimentalmachines.execuserve.engine.RuntimeFailure
 import org.experimentalmachines.execuserve.engine.RuntimeOutcome
+import java.io.File
 
 /**
  * The JNI surface of the MediaTek runtime (libexecutorch_pd_jni, built by
@@ -86,10 +89,28 @@ internal class NeuroPilotSession(private val files: ModelFiles, private val fact
         if (!NeuroPilotSupport.usable) {
             throw RuntimeFailure("This device cannot run MediaTek NPU builds; try the same model's CPU build, which does not need the NPU.")
         }
+        refuseIfTooBig(npu)
         handle = NativeCrashGuard.around(guardId) {
             bridge.nativeLoad(npu.runnerOptions, npu.chunks.joinToString(","), npu.embedding, files.model, files.tokenizer, temperature)
         }
         if (handle == 0L) throw RuntimeFailure("The MediaTek runtime could not open ${npu.chunks.firstOrNull() ?: files.model}")
+    }
+
+    /**
+     * A build that cannot fit is refused here, saying why, rather than loaded into Android's
+     * low-memory killer: it closes the phone's other apps first, then this one (NpuMemory).
+     */
+    private fun refuseIfTooBig(npu: NpuFiles) {
+        val files = (npu.chunks + npu.embedding + files.model + files.tokenizer).sumOf { File(it).length() }
+        val need = NpuMemory.needBytes(npu.runnerOptions, files) ?: return
+        val available = availableMemory() ?: return
+        if (!NpuMemory.fits(need, available)) {
+            throw RuntimeFailure(
+                "This build needs about ${gigabytes(need + NpuMemory.RESERVE_BYTES)} of free memory and the phone has " +
+                    "${gigabytes(available)}. Loading it would make Android close other apps and then this one. " +
+                    "Close apps you are not using, or use a smaller window or this model's CPU build.",
+            )
+        }
     }
 
     private fun live(): Long = handle.takeIf { it != 0L } ?: throw RuntimeFailure("The MediaTek session is closed")
@@ -154,3 +175,14 @@ internal class NeuroPilotTokens(private val sink: (String) -> Unit) {
         return true
     }
 }
+
+/** MemAvailable from the kernel: what can be had without killing an app. */
+private fun availableMemory(): Long? = runCatching {
+    File("/proc/meminfo").useLines { lines -> lines.firstOrNull { it.startsWith("MemAvailable:") } }
+        ?.split(Regex("\\s+"))?.getOrNull(1)?.toLongOrNull()?.times(KIB)
+}.getOrNull()
+
+private fun gigabytes(bytes: Long) = String.format(java.util.Locale.ROOT, "%.1f GB", bytes / GB)
+
+private const val KIB = 1024L
+private const val GB = 1e9

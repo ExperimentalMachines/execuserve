@@ -252,7 +252,8 @@
     <string name="processor_gpu">GPU (Vulkan)</string>
     <string name="processor_npu_qualcomm">NPU (Qualcomm)</string>
     <string name="processor_npu_mediatek">NPU (MediaTek) prefill, CPU decode</string>
-    <string name="catalog_npu_memory">Needs more memory while loading than it downloads; if the app stops, try a smaller window or the CPU build.</string>
+    <string name="catalog_npu_memory">Needs about %1$s of free memory to run, more than it downloads.</string>
+    <string name="catalog_npu_too_big">More than this phone can usually free: it will be refused. Try a smaller window or the CPU build.</string>
     <string name="npu_mediatek_refused">This phone\'s NPU cannot run MediaTek builds. Try the same model\'s CPU build; it does not need the NPU.</string>
     <string name="npu_refused">This phone\'s NPU cannot run Qualcomm builds. Try the same model\'s CPU build; it does not need the NPU.</string>
     <string name="catalog_runtime">Exported for ExecuTorch %1$s; this app runs %2$s</string>

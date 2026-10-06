@@ -1,5 +1,7 @@
 package org.experimentalmachines.execuserve.app.ui
 
+import android.app.ActivityManager
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -25,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,6 +42,7 @@ import org.experimentalmachines.execuserve.catalog.Labs
 import org.experimentalmachines.execuserve.catalog.runtimeMismatch
 import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.engine.ModelEntry
+import org.experimentalmachines.execuserve.engine.NpuMemory
 import org.experimentalmachines.execuserve.executorch.ExecuTorchRuntime
 import org.experimentalmachines.execuserve.host.ModelNames
 
@@ -327,6 +331,7 @@ private fun RepoPanel(
 @Composable
 private fun VariantRow(variant: CatalogVariant, installed: Boolean, download: DownloadState?, onGet: (CatalogVariant) -> Unit) {
     val tones = LocalTones.current
+    val context = LocalContext.current
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
         Column(Modifier.weight(1f)) {
             Text(
@@ -345,9 +350,14 @@ private fun VariantRow(variant: CatalogVariant, installed: Boolean, download: Do
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (variant.backend == HfCatalog.NEUROPILOT) {
-                // Measured: Qwen3-1.7B's 4k build needs more than 6.6 GB while loading on a 12 GB phone.
-                Text(stringResource(R.string.catalog_npu_memory), style = MaterialTheme.typography.bodySmall, color = tones.attention.color)
+            // A MediaTek build needs far more memory than it downloads (NpuMemory); one that cannot
+            // fit is refused at load, so say so before the download.
+            variant.npu?.let { NpuMemory.needBytes(it.runner, variant.installBytes) }?.let { need ->
+                val total = remember { totalMemory(context) }
+                Text(stringResource(R.string.catalog_npu_memory, Format.bytes(need)), style = MaterialTheme.typography.bodySmall, color = tones.attention.color)
+                if (total != null && need + NpuMemory.RESERVE_BYTES > total * USUALLY_FREE) {
+                    Text(stringResource(R.string.catalog_npu_too_big), style = MaterialTheme.typography.bodySmall, color = tones.failed.color)
+                }
             }
             if (variant.fitsPhoneBudget == false) {
                 Text(stringResource(R.string.catalog_over_budget), style = MaterialTheme.typography.bodySmall, color = tones.attention.color)
@@ -380,3 +390,10 @@ internal fun processorLabel(backend: String?): String = stringResource(
         else -> R.string.processor_cpu
     },
 )
+
+/** The phone's memory in all, from Android. */
+private fun totalMemory(context: Context): Long? = context.getSystemService(ActivityManager::class.java)
+    ?.let { manager -> ActivityManager.MemoryInfo().also(manager::getMemoryInfo).totalMem }
+
+/** The share of a phone's memory that its other apps and the system usually leave free. */
+private const val USUALLY_FREE = 0.6
