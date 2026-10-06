@@ -102,7 +102,9 @@ class ProgressTest {
         ServerSocket(0, 0, InetAddress.getByName("127.0.0.1")).use { taken ->
             val server = ExecuServer(ServerContext(engine, ServerSettings(port = taken.localPort), StaticKeys(listOf(key)), { emptySet() }, "test", { 0 }))
             try {
-                assertFailsWith<ServerStartFailure> { server.start() }
+                val failure = assertFailsWith<ServerStartFailure> { server.start() }
+                // Said as a person can act on it, not as the coroutine that carried it.
+                assertEquals("Port ${taken.localPort} is already in use by another app.", failure.message)
                 // CIO's accept coroutine fails after start returns; give it the time to.
                 delay(500)
                 assertEquals(emptyList(), synchronized(uncaught) { uncaught.toList() })

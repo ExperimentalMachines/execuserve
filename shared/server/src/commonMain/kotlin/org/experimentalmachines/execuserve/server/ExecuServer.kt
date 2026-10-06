@@ -69,9 +69,18 @@ class ExecuServer(private val ctx: ServerContext) {
                 runCatching { candidate.stopSuspend(0, 0) }
             }
         }
-        val reason = last?.message.orEmpty()
+        // CIO wraps the bind failure in its own cancellation: read the whole chain, causes and
+        // suppressed alike, not the wrapper's "is cancelling".
+        val chain = generateSequence(listOfNotNull(last)) { level ->
+            level.flatMap { listOfNotNull(it.cause) + it.suppressedExceptions }.takeIf { it.isNotEmpty() }
+        }
+            .take(CAUSE_DEPTH).flatten().toList()
+        val inUse = chain.any {
+            "BindException" == it::class.simpleName || "in use" in it.message.orEmpty().lowercase() || "EADDRINUSE" in it.message.orEmpty()
+        }
+        val reason = chain.lastOrNull { !it.message.isNullOrBlank() }?.message.orEmpty()
         throw ServerStartFailure(
-            if ("in use" in reason.lowercase() || "EADDRINUSE" in reason) {
+            if (inUse) {
                 "Port ${settings.port} is already in use by another app."
             } else {
                 "Could not listen on port ${settings.port}: $reason"
@@ -89,5 +98,6 @@ class ExecuServer(private val ctx: ServerContext) {
     private companion object {
         const val GRACE_MS = 500L
         const val TIMEOUT_MS = 2_000L
+        const val CAUSE_DEPTH = 8
     }
 }
