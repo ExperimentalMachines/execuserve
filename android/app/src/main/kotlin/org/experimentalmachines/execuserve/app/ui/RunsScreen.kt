@@ -2,26 +2,30 @@ package org.experimentalmachines.execuserve.app.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,96 +35,62 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.app.text.Format
 import org.experimentalmachines.execuserve.catalog.ModelIds
-import org.experimentalmachines.execuserve.engine.ContextBucket
 import org.experimentalmachines.execuserve.engine.Discrepancy
 import org.experimentalmachines.execuserve.engine.JobRecord
 import org.experimentalmachines.execuserve.engine.Metrics
-import org.experimentalmachines.execuserve.engine.ModelSummary
-import org.experimentalmachines.execuserve.engine.Spread
 import org.experimentalmachines.execuserve.host.Benchmark
 import org.experimentalmachines.execuserve.host.Heat
 import org.experimentalmachines.execuserve.host.ModelNames
 import org.experimentalmachines.execuserve.host.Outcome
-import org.experimentalmachines.execuserve.host.ServeHost
 
 /**
- * Every request the server finished, across restarts: recent runs first, because the most
- * common question is "what just happened"; the comparison between models and the benchmark
- * are a tap away, not the first thing on the page.
+ * Every request the server finished, across restarts: the one running now, then the most
+ * recent, a page at a time.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
     val runs by model.runs.collectAsState()
     val installed by model.installed.collectAsState()
-    val server by model.server.collectAsState()
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
-    var comparing by rememberSaveable { mutableStateOf(false) }
-    var benchmarking by rememberSaveable { mutableStateOf(false) }
+    // A page at a time: the history keeps hundreds, and a look at the latest draws only those.
+    var limit by rememberSaveable(filter) { mutableIntStateOf(PAGE) }
     var clearing by remember { mutableStateOf(false) }
     val ordinary = remember(runs) { runs.filter { it.api != Benchmark.API } }
     val shown = remember(ordinary, filter) { if (filter == null) ordinary else ordinary.filter { it.model == filter } }
     val models = remember(ordinary) { ordinary.map { it.model }.distinct() }
     val names = remember(models) { historyNames(models) }
+    val page = remember(shown, limit) { shown.take(limit) }
 
-    val side: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
-        item(key = "diagnostics") {
-            Panel {
-                Expandable(stringResource(R.string.host_diagnostics), stringResource(R.string.host_diagnostics_hint)) {
-                    Action(stringResource(if (comparing) R.string.runs_compare_close else R.string.runs_compare), { comparing = !comparing })
-                    Action(stringResource(if (benchmarking) R.string.runs_benchmark_close else R.string.runs_benchmark), { benchmarking = !benchmarking })
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        LazyColumn(Modifier.fillMaxSize().then(if (wide) Modifier.widthIn(max = WIDE_LIST) else Modifier), contentPadding = padding) {
+            // What is happening now, above what has finished: a long request is not missing.
+            item(key = "now") { NowPanel(model, installed, Modifier.padding(bottom = Dimens.gap)) }
+            item(key = "head") {
+                RunsHead(
+                    count = shown.size,
+                    any = runs.isNotEmpty(),
+                    onExport = { model.exportRuns() },
+                    onClear = { clearing = true },
+                ) {
+                    if (models.size > 1) ModelFilter(models, names, filter) { filter = it }
                 }
             }
-        }
-        if (comparing) item(key = "compare") { ComparePanel(model, ordinary) }
-        if (benchmarking) item(key = "benchmark") { BenchmarkPanel(model, installed.map { it.id }, server is ServeHost.State.Running, runs) }
-    }
-    val main: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
-        // What is happening now, above what has finished: a long request is not missing.
-        item(key = "now") { NowPanel(model, installed) }
-        item(key = "runs") {
-            Panel(
-                pluralStringResource(R.plurals.runs_count, shown.size, Format.count(shown.size)),
-                trailing = {
-                    if (runs.isNotEmpty()) {
-                        Row {
-                            Action(stringResource(R.string.runs_export), onClick = { model.exportRuns() })
-                            Action(stringResource(R.string.runs_clear), onClick = { clearing = true }, destructive = true)
-                        }
-                    }
-                },
-            ) {
-                if (models.size > 1) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
-                        ModelChip(stringResource(R.string.runs_all), filter == null) { filter = null }
-                        models.forEach { id -> ModelChip(names.getValue(id), filter == id) { filter = id } }
-                    }
+            // Each request is its own item, drawn as it scrolls in, inside one continuous card.
+            items(page, key = { it.id }) { run ->
+                PanelPart {
+                    RunRow(run, names.getValue(run.model))
                 }
-                if (shown.isEmpty()) {
-                    Text(stringResource(R.string.runs_none), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                // The newest hundred are drawn; the rest are in the export and the API, and it says so.
-                shown.take(SHOWN_RUNS).forEach { run -> key(run.id) { RunRow(run, names.getValue(run.model)) } }
-                if (shown.size > SHOWN_RUNS) {
-                    Text(
-                        stringResource(R.string.runs_more, Format.count(SHOWN_RUNS), Format.count(shown.size)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Expandable(stringResource(R.string.runs_kept_title)) {
-                    Text(stringResource(R.string.runs_kept), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+            }
+            item(key = "foot") {
+                RunsFoot(more = shown.size - page.size) { limit += PAGE }
             }
         }
     }
-    PanelColumns(wide, padding, main = main, side = side)
 
     if (clearing) {
         AlertDialog(
@@ -135,6 +105,82 @@ fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
             },
             dismissButton = { Action(stringResource(R.string.action_cancel), onClick = { clearing = false }) },
         )
+    }
+}
+
+/** The list's title, its count and actions, the model filter, or that there is nothing yet. */
+@Composable
+private fun RunsHead(count: Int, any: Boolean, onExport: () -> Unit, onClear: () -> Unit, filters: @Composable () -> Unit) {
+    PanelPart(top = true) {
+        Column(Modifier.padding(top = Dimens.gutter), verticalArrangement = Arrangement.spacedBy(Dimens.row)) {
+            PanelTitle(
+                pluralStringResource(R.plurals.runs_count, count, Format.count(count)),
+                trailing = {
+                    if (any) {
+                        Row {
+                            Action(stringResource(R.string.runs_export), onClick = onExport)
+                            Action(stringResource(R.string.runs_clear), onClick = onClear, destructive = true)
+                        }
+                    }
+                },
+            )
+            filters()
+            if (count == 0) {
+                Text(
+                    stringResource(R.string.runs_none),
+                    Modifier.padding(bottom = Dimens.row),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** Show more, while there is more, and where the history is kept. */
+@Composable
+private fun RunsFoot(more: Int, onMore: () -> Unit) {
+    PanelPart(bottom = true) {
+        Column(Modifier.padding(bottom = Dimens.gutter), verticalArrangement = Arrangement.spacedBy(Dimens.row)) {
+            if (more > 0) {
+                Divider()
+                Action(stringResource(R.string.runs_show_more, Format.count(minOf(more, PAGE)), Format.count(more)), onClick = onMore)
+            }
+            Expandable(stringResource(R.string.runs_kept_title)) {
+                Text(stringResource(R.string.runs_kept), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ModelFilter(models: List<String>, names: Map<String, String>, filter: String?, onFilter: (String?) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
+        ModelChip(stringResource(R.string.runs_all), filter == null) { onFilter(null) }
+        models.forEach { id -> ModelChip(names.getValue(id), filter == id) { onFilter(id) } }
+    }
+}
+
+/**
+ * A slice of one [Panel] split across lazy items: the same surface and side padding, rounded
+ * only at the [top] of the first slice and the [bottom] of the last.
+ */
+@Composable
+private fun PanelPart(top: Boolean = false, bottom: Boolean = false, content: @Composable () -> Unit) {
+    val corner = Dimens.corner
+    Surface(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(
+            topStart = if (top) corner else 0.dp,
+            topEnd = if (top) corner else 0.dp,
+            bottomStart = if (bottom) corner else 0.dp,
+            bottomEnd = if (bottom) corner else 0.dp,
+        ),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        Box(Modifier.padding(horizontal = Dimens.gutter)) { content() }
     }
 }
 
@@ -257,30 +303,6 @@ private fun RunDetail(run: JobRecord, checks: List<Discrepancy>) {
     }
 }
 
-/**
- * The column labels for [RunRow]'s first line, once above the list rather than a unit on
- * every row: the model (with its client below), tokens in and out, total time, writing
- * speed in tokens a second.
- */
-@Composable
-fun RunHeader() {
-    if (largeText()) return
-    val style = MaterialTheme.typography.labelMedium
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
-        Text(stringResource(R.string.runs_col_identity), Modifier.weight(IDENTITY_WEIGHT), style = style, color = muted)
-        Text(stringResource(R.string.runs_col_tokens), Modifier.weight(TOKENS_WEIGHT), style = style, color = muted, textAlign = TextAlign.End)
-        Text(stringResource(R.string.runs_col_total), Modifier.weight(TIME_WEIGHT), style = style, color = muted, textAlign = TextAlign.End)
-        Text(stringResource(R.string.runs_col_rate), Modifier.weight(RATE_WEIGHT), style = style, color = muted, textAlign = TextAlign.End)
-    }
-}
-
-/** One of a run's figures, right-aligned in its column; a long one wraps rather than lose its unit. */
-@Composable
-private fun RowScope.Cell(value: String, weight: Float) {
-    Text(value, Modifier.weight(weight), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.End)
-}
-
 /** A label and a value in one aligned column; ids and model names, which are copied, in the mono. */
 @Composable
 private fun Line(label: String, value: String, mono: Boolean = false) {
@@ -295,162 +317,13 @@ private fun Note(text: String, color: androidx.compose.ui.graphics.Color) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = color)
 }
 
-/** Each model beside the others, over ordinary traffic, with the number of runs behind every figure. */
-@Composable
-private fun ComparePanel(model: MainViewModel, ordinary: List<JobRecord>) {
-    val summaries = remember(ordinary) { Metrics.summarize(ordinary) }
-    val entries by model.installed.collectAsState()
-    Panel(stringResource(R.string.compare_title)) {
-        if (summaries.isEmpty()) Text(stringResource(R.string.runs_none), style = MaterialTheme.typography.bodyMedium)
-        summaries.forEach { summary ->
-            Divider()
-            SummaryBlock(model, summary, entries.firstOrNull { it.id == summary.model }?.lab)
-        }
-        Expandable(stringResource(R.string.compare_how)) {
-            Text(stringResource(R.string.compare_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun SummaryBlock(model: MainViewModel, summary: ModelSummary, lab: String?) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
-            LabMark(model, lab, 28.dp)
-            Column(Modifier.weight(1f)) {
-                Text(summary.model, style = Mono, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    stringResource(R.string.compare_runs, Format.count(summary.runs), Format.count(summary.failed)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        summary.firstTokenMs?.let { spread ->
-            Line(
-                stringResource(R.string.compare_first_token),
-                pluralStringResource(R.plurals.spread, spread.count, Format.duration(spread.median.toLong()), spread.count),
-            )
-        }
-        if (summary.prefill.isNotEmpty()) Line(stringResource(R.string.compare_prompt), buckets(summary.prefill))
-        if (summary.decode.isNotEmpty()) Line(stringResource(R.string.compare_writing), buckets(summary.decode))
-        if (summary.promptTokens > 0) {
-            Line(
-                stringResource(R.string.compare_cache),
-                pluralStringResource(
-                    R.plurals.compare_cache_value,
-                    summary.cacheHits,
-                    Format.percent(summary.cachedTokens, summary.promptTokens),
-                    Format.count(summary.cacheHits),
-                ),
-            )
-        }
-        if (summary.threads.isNotEmpty()) {
-            val threads = summary.threads.sorted().joinToString(", ")
-            Line(stringResource(R.string.compare_threads), if (summary.threads.size > 1) stringResource(R.string.compare_threads_mixed, threads) else threads)
-        }
-    }
-}
-
-@Composable
-private fun buckets(rates: Map<ContextBucket, Spread>): String = ContextBucket.entries.mapNotNull { bucket ->
-    rates[bucket]?.let { spread ->
-        pluralStringResource(R.plurals.bucket_rate, spread.count, stringResource(bucket.words), Format.rate(spread.median), spread.count)
-    }
-}.joinToString("\n")
-
-private val ContextBucket.words: Int get() = when (this) {
-    ContextBucket.SHORT -> R.string.bucket_short
-    ContextBucket.MEDIUM -> R.string.bucket_medium
-    ContextBucket.LONG -> R.string.bucket_long
-}
-
-/** Pick a model, measure it the same way every time, see the latest result for each. */
-@Composable
-private fun BenchmarkPanel(model: MainViewModel, installed: List<String>, serving: Boolean, runs: List<JobRecord>) {
-    val state by model.benchmark.collectAsState()
-    var chosen by rememberSaveable { mutableStateOf<String?>(null) }
-    // Read each time: a choice made before any model was installed, or of one since deleted,
-    // must not leave Run disabled with no menu to change it (agy review).
-    val active = chosen?.takeIf { it in installed } ?: installed.firstOrNull()
-    Panel(stringResource(R.string.bench_title)) {
-        Text(
-            stringResource(R.string.bench_note, Benchmark.DECODE_TOKENS),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (installed.size > 1) {
-            MenuRow(
-                stringResource(R.string.try_model),
-                options = installed.map {
-                    it to it
-                },
-                selected = active ?: installed.first(),
-                onSelect = { chosen = it },
-            )
-        }
-        when (val current = state) {
-            is BenchmarkState.Running -> {
-                Text(stringResource(R.string.bench_progress, current.finished + 1, Benchmark.REPEATS), style = MaterialTheme.typography.bodyMedium)
-                LinearProgressIndicator(
-                    progress = { current.finished / Benchmark.REPEATS.toFloat() },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = LocalTones.current.working.color,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                )
-            }
-            else -> if (serving) {
-                InkButton(stringResource(R.string.bench_run), onClick = { active?.let(model::runBenchmark) }, enabled = active != null)
-            } else {
-                Text(
-                    stringResource(R.string.bench_needs_server),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        // The latest benchmark of each model, from the history: survives restarts like any run.
-        runs.filter { it.api == Benchmark.API && it.finish != null }.groupBy { it.model }.forEach { (id, own) ->
-            val latest = own.take(Benchmark.REPEATS)
-            val prefill = Spread.of(latest.map { it.prefillTokensPerSecond }) ?: return@forEach
-            val decode = Spread.of(latest.map { it.decodeTokensPerSecond }) ?: return@forEach
-            val last = latest.first()
-            Divider()
-            Text(id, style = Mono, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                stringResource(
-                    R.string.bench_result,
-                    Format.rate(prefill.median),
-                    Format.count(last.promptTokens),
-                    Format.rate(decode.median),
-                    Format.count(last.completionTokens),
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                listOfNotNull(
-                    pluralStringResource(R.plurals.runs_count, latest.size, Format.count(latest.size)),
-                    last.threads?.let { pluralStringResource(R.plurals.run_threads, it, it) },
-                    stringResource(Heat.of(last.thermal).words),
-                    Format.time(last.finishedAtMs),
-                ).joinToString(", "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-private const val SHOWN_RUNS = 100
-private const val IDENTITY_WEIGHT = 1.4f
-private const val TOKENS_WEIGHT = 1.1f
-private const val TIME_WEIGHT = 0.9f
-private const val RATE_WEIGHT = 0.7f
+private const val PAGE = 25
+private val WIDE_LIST = 760.dp
 private val LABEL_WIDTH = 112.dp
 
 /** The request running now, how many wait, and Cancel; only while there is one. One runs at a time. */
 @Composable
-private fun NowPanel(model: MainViewModel, installed: List<org.experimentalmachines.execuserve.engine.ModelEntry>) {
+private fun NowPanel(model: MainViewModel, installed: List<org.experimentalmachines.execuserve.engine.ModelEntry>, modifier: Modifier = Modifier) {
     val status by model.status.collectAsState()
     val job = status?.running ?: return
     val name = installed.firstOrNull { it.id == job.model }?.let { org.experimentalmachines.execuserve.host.ModelNames.shown(it, installed) } ?: job.model
@@ -459,7 +332,7 @@ private fun NowPanel(model: MainViewModel, installed: List<org.experimentalmachi
         org.experimentalmachines.execuserve.engine.LaneState.PREFILLING -> stringResource(R.string.now_reading)
         else -> stringResource(R.string.now_writing)
     }
-    Panel(stringResource(R.string.now_title), trailing = { Action(stringResource(R.string.action_cancel), { model.cancelJob(job.id) }) }) {
+    Panel(stringResource(R.string.now_title), modifier, trailing = { Action(stringResource(R.string.action_cancel), { model.cancelJob(job.id) }) }) {
         Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
         Text(
             listOf(phase, clientName(job.client)).joinToString(" · "),

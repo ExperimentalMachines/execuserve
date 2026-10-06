@@ -4,7 +4,12 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,53 +22,57 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Flag
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Stop
-import androidx.compose.material.icons.rounded.StopCircle
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,23 +84,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import kotlinx.coroutines.launch
-import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.app.text.Format
 import org.experimentalmachines.execuserve.catalog.HfCatalog
+import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.engine.LaneState
 import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.engine.ResidentInfo
+import org.experimentalmachines.execuserve.host.CONSOLE_KEY
 import org.experimentalmachines.execuserve.host.ConsoleChat
 import org.experimentalmachines.execuserve.host.ModelNames
 import org.experimentalmachines.execuserve.host.ServeHost
@@ -99,7 +112,8 @@ import org.experimentalmachines.execuserve.host.ServeHost
 /**
  * Chat with the models this phone hosts, through its own server: the same API, key checks
  * and queue another app gets, so trying a model here is trying it as a client. One
- * conversation, kept in memory like the browser chat's.
+ * conversation, kept in memory. A thin wrapper over the server, laid out like OpenWeights'
+ * chat without its harness: no attachments, commands, history or compaction.
  */
 @Composable
 fun ChatScreen(model: MainViewModel, padding: PaddingValues, openModels: () -> Unit) {
@@ -138,7 +152,7 @@ fun ChatScreen(model: MainViewModel, padding: PaddingValues, openModels: () -> U
             else -> {
                 // Whatever is in memory answers fastest, so it is the suggestion until someone picks.
                 // Every candidate must still be installed: a model removed from disk and rescanned
-                // can stay resident until it is unloaded (agy review).
+                // can stay resident until it is unloaded.
                 val chattable = installed.filter { ConsoleChat.canChat(it) }
                 fun installedOrNull(id: String?) = chattable.firstOrNull { it.id == id }
                 val entry = installedOrNull(chat.model)
@@ -146,9 +160,38 @@ fun ChatScreen(model: MainViewModel, padding: PaddingValues, openModels: () -> U
                     ?: installedOrNull(settings?.defaultModel)
                     ?: chattable.first()
                 val target = entry.id
-                Controls(installed, chattable, entry, chat, settings?.memoryLimit ?: 1, model)
-                Conversation(chat, ModelNames.shown(entry, installed), model, target, Modifier.weight(1f)) { model.sendChat(it, target) }
-                Composer(chat.running, model, onSend = { model.sendChat(it, target) }, onStop = model::stopChat)
+                var picking by rememberSaveable { mutableStateOf(false) }
+                ChatTopBar(entry, installed, status, chat, onPick = { picking = true }, onNewChat = model::newChat)
+                LoadFailure(status?.broken?.get(entry.id)) { model.retry(entry.id) }
+                Transcript(chat, ModelNames.shown(entry, installed), model, target, Modifier.weight(1f)) { model.sendChat(it, target) }
+                Composer(
+                    running = chat.running,
+                    loading = status?.lane == LaneState.LOADING && status?.loading == entry.id,
+                    model = model,
+                    leading = {
+                        if (ConsoleChat.canThink(entry)) ThinkChip(chat.thinking, enabled = !chat.running) { model.setChatThinking(it) }
+                    },
+                    onSend = { model.sendChat(it, target) },
+                    onStop = model::stopChat,
+                )
+                if (picking) {
+                    ModelPickerSheet(
+                        installed = installed,
+                        options = chattable,
+                        active = entry,
+                        resident = status?.resident.orEmpty(),
+                        limit = settings?.memoryLimit ?: 1,
+                        onSelect = {
+                            picking = false
+                            model.chooseChatModel(it.id)
+                        },
+                        onManage = {
+                            picking = false
+                            openModels()
+                        },
+                        onDismiss = { picking = false },
+                    )
+                }
             }
         }
     }
@@ -163,102 +206,173 @@ private fun Gate(title: String, note: String, action: String, onAction: () -> Un
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Mark(56.dp)
-        Text(title, Modifier.padding(top = 20.dp), style = MaterialTheme.typography.titleLarge)
+        Text(title, Modifier.padding(top = 20.dp), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
         Text(
             note,
             Modifier.padding(top = 8.dp, bottom = 20.dp).widthIn(max = 360.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
         )
-        InkButton(action, onAction)
+        Button(onClick = onAction) { Text(action) }
     }
 }
 
-/** The model and the processor it runs on, the thinking switch where it has one, and starting over. */
+/**
+ * The bar over the conversation (OpenWeights' ChatTopBar): which model answers, raising the
+ * picker from its name, with what it runs on and where it stands beneath; and a new chat.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Controls(installed: List<ModelEntry>, options: List<ModelEntry>, entry: ModelEntry, chat: ChatState, limit: Int, model: MainViewModel) {
-    var picking by remember { mutableStateOf(false) }
-    val status by model.status.collectAsState()
-    val resident = status?.resident.orEmpty()
-    val failure = status?.broken?.get(entry.id)
-    // Where the model stands, so a switch is visible, failures included.
-    val memory = stringResource(
+private fun ChatTopBar(entry: ModelEntry, installed: List<ModelEntry>, status: EngineStatus?, chat: ChatState, onPick: () -> Unit, onNewChat: () -> Unit) {
+    val state = stringResource(
         when {
-            failure != null -> R.string.chat_load_failed
-            resident.any { it.id == entry.id } -> R.string.chat_in_memory
-            status?.lane == LaneState.LOADING && status?.loading == entry.id -> R.string.chat_loading
+            status?.broken?.containsKey(entry.id) == true -> R.string.chat_load_failed
+            status?.resident.orEmpty().any { it.id == entry.id } -> R.string.chat_in_memory
+            status?.lane == LaneState.LOADING && status.loading == entry.id -> R.string.chat_loading
             else -> R.string.chat_loads_on_send
         },
     )
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Box(Modifier.weight(1f)) {
-            TextButton(onClick = { picking = true }, enabled = !chat.running) {
-                Column(Modifier.weight(1f, fill = false)) {
-                    Text(ModelNames.shown(entry, installed), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                    // Each part kept whole: beside the Think chip on a narrow phone the line
-                    // wraps at the separator rather than cutting "4k context" short.
+    val identity = listOfNotNull(
+        shortProcessor(entry.backend),
+        entry.contextLength?.let { stringResource(R.string.host_model_context, Format.window(it)) },
+        state,
+    ).joinToString(" · ")
+    TopAppBar(
+        title = {
+            Column(
+                Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(enabled = !chat.running, role = Role.Button, onClick = onPick)
+                    .heightIn(min = Dimens.touch)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        listOfNotNull(
-                            shortProcessor(entry.backend),
-                            entry.contextLength?.let {
-                                stringResource(R.string.host_model_context, Format.window(it))
-                            },
-                            memory,
-                        )
-                            .joinToString(" · ") { it.replace(' ', '\u00A0') },
-                        maxLines = 2,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ModelNames.shown(entry, installed),
+                        Modifier.weight(1f, fill = false),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Icon(
+                        Icons.Rounded.ExpandMore,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
-                Chevron(open = picking, extent = 20.dp)
+                Text(
+                    identity,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
-            DropdownMenu(expanded = picking, onDismissRequest = { picking = false }) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text(ModelNames.shown(option, installed))
-                                Text(
-                                    listOf(shortProcessor(option.backend), switchConsequence(option, resident, limit, installed)).joinToString(" · "),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        },
-                        onClick = {
-                            picking = false
-                            model.chooseChatModel(option.id)
-                        },
-                    )
-                }
+        },
+        actions = {
+            IconButton(onClick = onNewChat, enabled = chat.messages.isNotEmpty() && !chat.running) {
+                Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.chat_new))
             }
-        }
-        if (ConsoleChat.canThink(entry)) {
-            FilterChip(
-                selected = chat.thinking,
-                onClick = { model.setChatThinking(!chat.thinking) },
-                label = { Text(stringResource(R.string.chat_think)) },
-                enabled = !chat.running,
-            )
-        }
-        TextButton(onClick = model::newChat, enabled = chat.messages.isNotEmpty()) { Text(stringResource(R.string.chat_new)) }
+        },
+        windowInsets = WindowInsets(0, 0, 0, 0),
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+    )
+}
+
+/** The chosen model failed to load: the runtime's reason, and trying again. */
+@Composable
+private fun LoadFailure(failure: String?, onRetry: () -> Unit) {
+    failure ?: return
+    Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            failure,
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+        )
+        TextButton(onClick = onRetry) { Text(stringResource(R.string.host_retry)) }
     }
-    if (failure != null) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                failure,
-                Modifier.weight(1f),
-                style = MaterialTheme.typography.bodySmall,
-                color = LocalTones.current.failed.color,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
+}
+
+/**
+ * Which model answers, and changing it (OpenWeights' ModelPickerSheet): the models that can
+ * chat, each with what it runs on and what choosing it does to memory, then the library.
+ * The list is a plain scrolling column capped by the screen, not a lazy list in a weight: the
+ * sheet's height fed the list's and the list's the sheet's, and the open sheet rose and fell.
+ */
+@Composable
+private fun ModelPickerSheet(
+    installed: List<ModelEntry>,
+    options: List<ModelEntry>,
+    active: ModelEntry,
+    resident: List<ResidentInfo>,
+    limit: Int,
+    onSelect: (ModelEntry) -> Unit,
+    onManage: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val listMax = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * LIST_SHARE).toDp() }
+    ActionsSheet(onDismiss) {
+        Column(Modifier.heightIn(max = listMax).verticalScroll(rememberScrollState())) {
+            options.forEach { option ->
+                PickerRow(
+                    name = ModelNames.shown(option, installed),
+                    detail = listOfNotNull(
+                        shortProcessor(option.backend),
+                        option.contextLength?.let { stringResource(R.string.host_model_context, Format.window(it)) },
+                        switchConsequence(option, resident, limit, installed),
+                    ).joinToString(" · "),
+                    active = option.id == active.id,
+                    onClick = { onSelect(option) },
+                )
+            }
+        }
+        HorizontalDivider(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+        Row(
+            Modifier.fillMaxWidth().clickable(onClick = onManage).padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(Icons.Rounded.Tune, contentDescription = null, modifier = Modifier.size(TICK))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.chat_manage_models), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    stringResource(R.string.chat_manage_models_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(TICK).clearAndSetSemantics {},
             )
-            TextButton(onClick = { model.retry(entry.id) }) { Text(stringResource(R.string.host_retry)) }
+        }
+    }
+}
+
+/** One model: a tick when it is the one answering, its name, and a line on what it is. */
+@Composable
+private fun PickerRow(name: String, detail: String, active: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (active) {
+            Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.chat_model_current), modifier = Modifier.size(TICK))
+        } else {
+            Spacer(Modifier.size(TICK))
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(name, style = MaterialTheme.typography.titleSmall)
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -286,36 +400,38 @@ private fun shortProcessor(backend: String?): String = stringResource(
     },
 )
 
-@OptIn(ExperimentalLayoutApi::class)
+/** The conversation, capped to a readable width, with the way back to the latest message. */
 @Composable
-private fun Conversation(chat: ChatState, modelName: String, model: MainViewModel, target: String, modifier: Modifier, onSuggestion: (String) -> Unit) {
-    // Opened at the newest message: started at the top, the first frame drew the oldest one,
-    // on a dark theme a light bubble flashing in the middle before the jump to the end.
+private fun Transcript(chat: ChatState, modelName: String, model: MainViewModel, target: String, modifier: Modifier, onSuggestion: (String) -> Unit) {
+    // Opened at the newest message: started at the top, the first frame drew the oldest one.
     val list =
         rememberLazyListState(initialFirstVisibleItemIndex = chat.messages.lastIndex.coerceAtLeast(0), initialFirstVisibleItemScrollOffset = Int.MAX_VALUE)
-    val last = chat.messages.lastOrNull()
     var follow by rememberFollow(list, chat)
     if (chat.messages.isEmpty()) {
         Welcome(modelName, modifier, onSuggestion)
         return
     }
+    val last = chat.messages.lastOrNull()
     val speaking by model.reader.speaking.collectAsState()
+    val status by model.status.collectAsState()
     val scope = rememberCoroutineScope()
+    val away by remember { derivedStateOf { list.canScrollForward } }
     Box(modifier.fillMaxWidth()) {
         LazyColumn(
-            Modifier.fillMaxSize(),
+            Modifier.fillMaxSize().wrapContentWidth().widthIn(max = READABLE_WIDTH),
             state = list,
-            contentPadding = PaddingValues(vertical = Dimens.row),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             items(chat.messages, key = { it.id }) { message ->
                 if (message.fromUser) {
-                    Asked(message)
+                    UserTurn(message)
                 } else {
                     // Only the last reply can be asked again, and only once nothing is being written.
                     val again = message.id == last?.id && !chat.running && chat.messages.getOrNull(chat.messages.size - 2)?.fromUser == true
-                    Reply(
+                    AssistantTurn(
                         message,
+                        phase = if (message.running) replyPhase(status, message) else null,
                         speaking = speaking == message.id,
                         onReadAloud = { if (speaking == message.id) model.reader.stop() else model.reader.speak(message.id, message.content) },
                         onRegenerate = if (again) ({ model.regenerateChat(target) }) else null,
@@ -323,19 +439,42 @@ private fun Conversation(chat: ChatState, modelName: String, model: MainViewMode
                 }
             }
         }
-        // Scrolled away while a reply is written: the way back, which also resumes following.
-        if (!follow && list.canScrollForward) {
+        // Scrolled away from the end: the way back, which also resumes following.
+        AnimatedVisibility(
+            visible = !follow && away,
+            enter = fadeIn() + scaleIn(initialScale = 0.8f),
+            exit = fadeOut() + scaleOut(targetScale = 0.8f),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
+        ) {
             SmallFloatingActionButton(
                 onClick = {
                     follow = true
                     scope.launch { list.scrollToItem(chat.messages.lastIndex, Int.MAX_VALUE) }
                 },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                shape = CircleShape,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurface,
             ) {
-                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = stringResource(R.string.chat_latest))
+                Icon(Icons.Rounded.ArrowDownward, contentDescription = stringResource(R.string.chat_latest), modifier = Modifier.size(18.dp))
             }
         }
+    }
+}
+
+/**
+ * What a reply is waiting on, from the engine rather than assumed: behind another app's
+ * request, the model loading into memory, the prompt being read, thinking, or writing.
+ */
+private fun replyPhase(status: EngineStatus?, message: ChatMessage): Int {
+    val job = status?.running
+    val ours = job?.client == CONSOLE_KEY
+    return when {
+        message.content.isNotEmpty() -> R.string.chat_phase_writing
+        message.reasoning.isNotEmpty() -> R.string.chat_reasoning_now
+        status?.lane == LaneState.LOADING && (ours || status.loading == message.model) -> R.string.chat_phase_loading
+        job != null && !ours -> R.string.chat_phase_queued
+        status?.lane == LaneState.LOADING -> R.string.chat_phase_queued
+        else -> R.string.chat_waiting
     }
 }
 
@@ -343,8 +482,7 @@ private fun Conversation(chat: ChatState, modelName: String, model: MainViewMode
  * Whether the list follows the end of the conversation. Following the end is a decision, not
  * a measurement: a growing reply is taller than the screen long before it ends, so "is the
  * end in view" turns false on its own. Sending turns following on; a finger on the list turns
- * it off at once (until then each streamed piece scrolled back under the thumb); scrolling
- * back to the end turns it on.
+ * it off at once; scrolling back to the end turns it on.
  */
 @Composable
 private fun rememberFollow(list: LazyListState, chat: ChatState): MutableState<Boolean> {
@@ -368,11 +506,14 @@ private fun rememberFollow(list: LazyListState, chat: ChatState): MutableState<B
     return follow
 }
 
-/** An empty chat: which model answers, where replies come from, and three ways to begin. */
+/** An empty chat: the mark, which model answers, where replies come from, and three ways to begin. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Welcome(modelName: String, modifier: Modifier, onSuggestion: (String) -> Unit) {
-    Column(modifier.fillMaxWidth().padding(vertical = Dimens.gutter), verticalArrangement = Arrangement.Center) {
+    Column(
+        modifier.fillMaxWidth().wrapContentWidth().widthIn(max = READABLE_WIDTH).padding(horizontal = 16.dp, vertical = Dimens.gutter),
+        verticalArrangement = Arrangement.Center,
+    ) {
         Mark(48.dp)
         Text(stringResource(R.string.chat_welcome, breakable(modelName)), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.headlineSmall)
         Text(
@@ -390,226 +531,62 @@ private fun Welcome(modelName: String, modifier: Modifier, onSuggestion: (String
     }
 }
 
+/**
+ * Thinking on or off, where the message is written (OpenWeights' ThinkChip): the word, the
+ * icon and the fill all change, so any one of them says which way it is set.
+ */
 @Composable
-private fun Asked(message: ChatMessage) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        Surface(
-            shape = RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp),
-            color = MaterialTheme.colorScheme.onSurface,
-            contentColor = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.widthIn(max = 340.dp),
-        ) {
-            SelectionContainer { Text(message.content, Modifier.padding(horizontal = 14.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyLarge) }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun Reply(message: ChatMessage, speaking: Boolean, onReadAloud: () -> Unit, onRegenerate: (() -> Unit)?) {
-    val context = LocalContext.current
-    var reporting by rememberSaveable(message.id) { mutableStateOf(false) }
-    var more by rememberSaveable(message.id) { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Mark(20.dp)
-            Text(message.model.orEmpty(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (message.reasoning.isNotEmpty()) {
-            Expandable(
-                stringResource(R.string.chat_reasoning),
-                pluralStringResource(R.plurals.characters, message.reasoning.length, Format.count(message.reasoning.length)),
-            ) {
-                SelectionContainer {
-                    Text(message.reasoning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-        if (message.content.isNotEmpty()) {
-            SelectionContainer {
-                // While it streams, a span the model opened and has not closed shows styled, not as raw asterisks.
-                val content = if (message.running) ChatText.closeOpen(message.content) else message.content
-                Text(ChatText.styled(content, MaterialTheme.colorScheme.surfaceContainer), style = MaterialTheme.typography.bodyLarge)
-            }
-        }
-        ReplyStatus(message)
-        if (!message.running && (message.content.isNotEmpty() || message.reasoning.isNotEmpty())) {
-            ReplyActions(message, speaking, onCopy = { copy(context, message.content) }, onReadAloud = onReadAloud, onMore = { more = true })
-        }
-    }
-    if (more) {
-        MoreActions(
-            onRegenerate = onRegenerate?.let { regenerate ->
-                {
-                    more = false
-                    regenerate()
-                }
-            },
-            onReport = {
-                more = false
-                reporting = true
-            },
-            onDismiss = { more = false },
-        )
-    }
-    if (reporting) {
-        val chooser = stringResource(R.string.report_chooser)
-        ReportDialog(
-            model = message.model.orEmpty(),
-            reply = message.content,
-            version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-            onDismiss = { reporting = false },
-            onShare = { subject, text ->
-                reporting = false
-                ContentReport.share(context, subject, text, chooser)
-            },
-            reasoning = message.reasoning,
-        )
-    }
+private fun ThinkChip(thinking: Boolean, enabled: Boolean, onThinking: (Boolean) -> Unit) {
+    FilterChip(
+        selected = thinking,
+        onClick = { onThinking(!thinking) },
+        enabled = enabled,
+        label = { Text(stringResource(if (thinking) R.string.chat_thinking_on else R.string.chat_thinking_off), style = MaterialTheme.typography.labelMedium) },
+        leadingIcon = { Icon(if (thinking) Icons.Rounded.Check else Icons.Rounded.Bolt, contentDescription = null, modifier = Modifier.size(16.dp)) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+            selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
+        ),
+        modifier = Modifier.padding(start = 8.dp),
+    )
 }
 
 /**
- * Copy and read aloud in one tap under every reply, the rarer actions behind "more", and the
- * reply's own figures. A flow row: at a large font scale the figures drop to their own line
- * rather than being squeezed (OpenWeights' MessageActions).
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ReplyActions(message: ChatMessage, speaking: Boolean, onCopy: () -> Unit, onReadAloud: () -> Unit, onMore: () -> Unit) {
-    FlowRow(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (message.content.isNotEmpty()) {
-                ReplyAction(Icons.Rounded.ContentCopy, stringResource(R.string.chat_copy), onCopy)
-                ReplyAction(
-                    if (speaking) Icons.Rounded.StopCircle else Icons.AutoMirrored.Rounded.VolumeUp,
-                    stringResource(if (speaking) R.string.chat_stop_reading else R.string.chat_read_aloud),
-                    onReadAloud,
-                )
-            }
-            ReplyAction(Icons.Rounded.MoreHoriz, stringResource(R.string.chat_more), onMore)
-        }
-        message.result?.let { result ->
-            Text(
-                listOfNotNull(
-                    result.prefillTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.chat_prefill, Format.rate(it)) },
-                    result.decodeTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.chat_decode, Format.rate(it)) },
-                    Format.duration(result.totalMs),
-                ).joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-/** A quiet icon in a full touch target: these sit under every reply, so they must not compete with it. */
-@Composable
-private fun ReplyAction(icon: ImageVector, label: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(Dimens.touch)) {
-        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-    }
-}
-
-/**
- * The rarer actions for a reply. Reporting is here rather than under every reply: nothing is
- * sent anywhere by the app, the report is a text the person shares where they choose, and
- * Play's generative-AI policy asks only that it be reachable where the content appears.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MoreActions(onRegenerate: (() -> Unit)?, onReport: () -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Column(Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
-            onRegenerate?.let { SheetAction(Icons.Rounded.Refresh, stringResource(R.string.chat_regenerate), it) }
-            SheetAction(Icons.Rounded.Flag, stringResource(R.string.report_action), onReport)
-        }
-    }
-}
-
-@Composable
-private fun SheetAction(icon: ImageVector, label: String, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-        Text(label, style = MaterialTheme.typography.bodyLarge)
-    }
-}
-
-/** Where a reply stands: being read or written, refused or stopped. Its figures sit with its actions. */
-@Composable
-private fun ReplyStatus(message: ChatMessage) {
-    val tones = LocalTones.current
-    if (message.running && message.content.isEmpty()) {
-        Text(
-            stringResource(if (message.reasoning.isEmpty()) R.string.chat_waiting else R.string.chat_reasoning_now),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        LinearProgressIndicator(Modifier.fillMaxWidth(), color = tones.working.color, trackColor = tones.working.container)
-    }
-    message.failure?.let { failure ->
-        Text(
-            failure.status?.let { stringResource(R.string.chat_http_error, it, failure.message.orEmpty()) } ?: failure.message.orEmpty(),
-            style = MaterialTheme.typography.bodySmall,
-            color = tones.failed.color,
-        )
-    }
-    if (message.stopped) {
-        Text(
-            stringResource(R.string.chat_stopped),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-/**
- * The message being written, with dictation and send below it (OpenWeights' composer, without
- * its attachments and commands): one rounded field the width of the screen, its border the
- * focus indicator, and one button that sends or, while a reply is written, stops it.
+ * Where the message is written (OpenWeights' composer, without attachments or commands): one
+ * rounded container with the text above and the controls beneath, its border the focus
+ * indicator; thinking on the left, dictation and one button that sends or stops on the right.
  */
 @Composable
-private fun Composer(running: Boolean, model: MainViewModel, onSend: (String) -> Unit, onStop: () -> Unit) {
+private fun Composer(running: Boolean, loading: Boolean, model: MainViewModel, leading: @Composable () -> Unit, onSend: (String) -> Unit, onStop: () -> Unit) {
     var draft by rememberSaveable { mutableStateOf("") }
     var focused by remember { mutableStateOf(false) }
     val dictating by model.dictation.state.collectAsState()
     val speechError by model.reader.error.collectAsState()
-    // Leaving the chat, or the app (Home, the lock button), while listening must not keep the
-    // microphone or type into a draft no one is looking at.
+    // Leaving the chat, or the app, while listening must not keep the microphone.
     DisposableEffect(Unit) { onDispose { model.dictation.stop() } }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { model.dictation.stop() }
     val border by animateColorAsState(
         if (focused || dictating.listening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
         label = "composer border",
     )
-    Column(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)) {
+    Column(Modifier.fillMaxWidth().wrapContentWidth().widthIn(max = READABLE_WIDTH).padding(horizontal = 12.dp, vertical = 8.dp)) {
         (dictating.error ?: speechError)?.let {
-            Text(it, Modifier.padding(start = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.bodySmall, color = LocalTones.current.failed.color)
+            Text(it, Modifier.padding(start = 4.dp, bottom = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
         Column(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(COMPOSER_CORNER))
                 .background(MaterialTheme.colorScheme.surfaceContainer)
-                .border(1.dp, border, RoundedCornerShape(24.dp)),
+                .border(1.dp, border, RoundedCornerShape(COMPOSER_CORNER)),
         ) {
             BasicTextField(
                 value = draft,
                 onValueChange = { draft = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 4.dp)
+                    .padding(horizontal = 18.dp, vertical = 10.dp)
                     .onFocusChanged { focused = it.isFocused },
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -628,8 +605,9 @@ private fun Composer(running: Boolean, model: MainViewModel, onSend: (String) ->
                     }
                 },
             )
-            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Spacer(Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                leading()
+                if (loading) LoadingHint(Modifier.weight(1f).padding(start = 8.dp)) else Spacer(Modifier.weight(1f))
                 if (model.dictation.available) {
                     DictateButton(dictating.listening) {
                         if (dictating.listening) {
@@ -653,6 +631,20 @@ private fun Composer(running: Boolean, model: MainViewModel, onSend: (String) ->
     }
 }
 
+/** Between the controls while the chosen model comes into memory: sending still works, and waits. */
+@Composable
+private fun LoadingHint(modifier: Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            stringResource(R.string.chat_loading_model),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
+    }
+}
+
 /**
  * The microphone. Permission is asked on the first tap, never at launch, and stopping never
  * asks: a permission revoked mid-session must not turn Stop into another request.
@@ -667,7 +659,6 @@ private fun DictateButton(listening: Boolean, onDictate: () -> Unit) {
             val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
             if (listening || granted) onDictate() else microphone.launch(Manifest.permission.RECORD_AUDIO)
         },
-        modifier = Modifier.size(Dimens.touch),
     ) {
         Icon(
             if (listening) Icons.Rounded.Stop else Icons.Rounded.Mic,
@@ -704,3 +695,11 @@ private fun SendButton(running: Boolean, enabled: Boolean, onClick: () -> Unit) 
 
 /** Eight lines of draft before it scrolls: past that the field eats the conversation. */
 private const val MAX_LINES = 8
+
+/** Past seventy or eighty characters a line, prose stops being comfortable; on phones a no-op. */
+private val READABLE_WIDTH = 720.dp
+private val COMPOSER_CORNER = 24.dp
+private val TICK = 20.dp
+
+/** The share of the screen the picker's list may take before it scrolls, so its footer stays in view. */
+private const val LIST_SHARE = 0.55f

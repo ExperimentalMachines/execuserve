@@ -143,6 +143,9 @@ android {
 
 dependencies {
     implementation(libs.zxing.core)
+    implementation(libs.markdown.renderer)
+    implementation(libs.markdown.renderer.m3)
+    implementation(libs.markdown.renderer.code)
     implementation(project(":shared:host"))
     implementation(project(":shared:catalog"))
     implementation(project(":android:executorch"))

@@ -52,6 +52,8 @@ data class ChatMessage(
     val result: TestResult? = null,
     val failure: TestFailure? = null,
     val stopped: Boolean = false,
+    /** How long the model thought before answering, once it has; null while it thinks or if it did not. */
+    val reasoningMs: Long? = null,
 )
 
 /** The console's chat: one conversation in memory, gone when the app process is. */
@@ -62,12 +64,6 @@ data class ChatState(
     val thinking: Boolean = false,
 ) {
     val running: Boolean get() = messages.lastOrNull()?.running == true
-}
-
-sealed interface BenchmarkState {
-    data object Idle : BenchmarkState
-    data class Running(val model: String, val finished: Int) : BenchmarkState
-    data class Done(val model: String, val runs: List<JobRecord>) : BenchmarkState
 }
 
 sealed interface CatalogState {
@@ -162,24 +158,6 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     /** Every request the server finished, newest first, across restarts. */
     val runs: StateFlow<List<JobRecord>> = graph.history.runs
-
-    private val _benchmark = MutableStateFlow<BenchmarkState>(BenchmarkState.Idle)
-    val benchmark: StateFlow<BenchmarkState> = _benchmark.asStateFlow()
-
-    /** Measures [model] three times through the engine; the runs land in the history too. */
-    fun runBenchmark(model: String) {
-        if (_benchmark.value is BenchmarkState.Running || server.value !is ServeHost.State.Running) return
-        _benchmark.value = BenchmarkState.Running(model, 0)
-        viewModelScope.launch {
-            val done = graph.host.benchmark(model) {
-                _benchmark.update { state ->
-                    (state as? BenchmarkState.Running)?.let { it.copy(finished = it.finished + 1) }
-                        ?: state
-                }
-            }
-            _benchmark.value = BenchmarkState.Done(model, done)
-        }
-    }
 
     fun clearHistory() = viewModelScope.launch { graph.history.clear() }
 
@@ -291,10 +269,14 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             var result: TestResult? = null
             var failure: TestFailure? = null
             var stopped = false
+            val clock = ThoughtClock()
             try {
                 val key = graph.settings.keyFor(CONSOLE_KEY, FORMER_CONSOLE_KEYS)
                 result = client.chat(call, "http://127.0.0.1:$port/v1", key.secret, ConsoleChat.body(model, turns, thinking)) { content, reasoning ->
-                    updateReply(replyId) { it.copy(content = it.content + content, reasoning = it.reasoning + reasoning) }
+                    clock.piece(reasoning, content)
+                    updateReply(replyId) {
+                        it.copy(content = it.content + content, reasoning = it.reasoning + reasoning, reasoningMs = clock.thought)
+                    }
                 }
             } catch (_: StoppedByUser) {
                 stopped = true
@@ -303,9 +285,27 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             } finally {
                 // Whatever happened, the reply stops running: one left running would block every
                 // later send (agy review).
-                updateReply(replyId) { it.copy(running = false, result = result, failure = failure, stopped = stopped) }
+                clock.end()
+                updateReply(replyId) { it.copy(running = false, result = result, failure = failure, stopped = stopped, reasoningMs = clock.thought) }
                 if (chatCall === call) chatCall = null
             }
+        }
+    }
+
+    /** How long a reply thought: from its first reasoning to its first answer, or to its end. */
+    private class ThoughtClock {
+        private var from = 0L
+        var thought: Long? = null
+            private set
+
+        fun piece(reasoning: String, content: String) {
+            val now = System.currentTimeMillis()
+            if (reasoning.isNotEmpty() && from == 0L) from = now
+            if (content.isNotEmpty() && from > 0 && thought == null) thought = now - from
+        }
+
+        fun end() {
+            if (from > 0 && thought == null) thought = System.currentTimeMillis() - from
         }
     }
 

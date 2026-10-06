@@ -275,10 +275,6 @@ class ServeHost(
     /** Frees memory the system asked back; the next request reloads what it needs. */
     suspend fun evictAll() = act { it.evictIdle(force = true) }
 
-    /** Measures [model] with [Benchmark]; empty when the server is not running. */
-    suspend fun benchmark(model: String, onRun: (org.experimentalmachines.execuserve.engine.JobRecord) -> Unit = {}) =
-        _engine.value?.let { Benchmark.run(it, model, onRun) }.orEmpty()
-
     /** Unloads a model before its files are deleted; a new install under its id starts clean. */
     suspend fun release(entry: ModelEntry) {
         platform.setQuarantined(entry.id, false)

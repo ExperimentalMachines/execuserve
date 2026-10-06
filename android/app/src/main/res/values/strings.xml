@@ -98,11 +98,6 @@
     <string name="heat_critical">Critical</string>
 
     <!-- Shared labels -->
-    <string name="try_model">Model</string>
-    <plurals name="characters">
-        <item quantity="one">%s character</item>
-        <item quantity="other">%s characters</item>
-    </plurals>
     <string name="fact_cached">Cached</string>
 
     <!-- host.Outcome -->
@@ -127,24 +122,12 @@
 
     <!-- Runs -->
     <string name="runs_all">All models</string>
-    <string name="runs_compare">Compare models</string>
-    <string name="runs_benchmark">Benchmark</string>
-    <string name="runs_compare_close">Close comparison</string>
-    <string name="runs_benchmark_close">Close benchmark</string>
     <string name="runs_kept_title">Privacy and retention</string>
-    <string name="runs_col_identity">Model / client</string>
-    <string name="runs_col_tokens">In → out</string>
-    <string name="runs_col_total">Total</string>
-    <string name="runs_col_rate">Tok/s</string>
-    <string name="compare_how">How these are measured</string>
-    <plurals name="bucket_rate">
-        <item quantity="one">%2$s tok/s median, %1$s, %3$d run</item>
-        <item quantity="other">%2$s tok/s median, %1$s, %3$d runs</item>
-    </plurals>
     <string name="runs_export">Export all as CSV</string>
     <string name="runs_clear">Clear all</string>
     <string name="runs_clear_title">Clear the request history?</string>
     <string name="runs_clear_body">Every stored request goes, on this phone and in the API. The counters since hosting started are kept.</string>
+    <string name="runs_show_more">Show %1$s more (%2$s left)</string>
     <string name="runs_none">No requests yet. They appear here as they finish, and stay across restarts.</string>
     <string name="runs_see_all">See all requests</string>
     <plurals name="runs_count">
@@ -171,32 +154,6 @@
     <string name="check_phases">Queue, load and prompt add up to more than the time to the first token.</string>
     <string name="check_first_token">The first token is timed after the request ended.</string>
     <string name="check_cache">More tokens reused than the prompt held.</string>
-    <string name="compare_title">By model</string>
-    <string name="compare_note">Ordinary requests only; benchmarks are kept apart. Prompt processing counts cold prompts only, since a cached one reads a fraction of its tokens. Speeds are kept per context size, because generation slows as the context grows. Each figure is a median, with the number of runs behind it.</string>
-    <string name="compare_runs">%1$s runs, %2$s failed</string>
-    <string name="compare_first_token">First token</string>
-    <string name="compare_prompt">Prompt processing</string>
-    <string name="compare_writing">Generation</string>
-    <string name="compare_cache">Cache</string>
-    <plurals name="compare_cache_value">
-        <item quantity="one">%1$s of prompt tokens reused, in %2$s run</item>
-        <item quantity="other">%1$s of prompt tokens reused, in %2$s runs</item>
-    </plurals>
-    <string name="compare_threads">Threads</string>
-    <string name="compare_threads_mixed">%1$s (mixed: speeds combine settings)</string>
-    <plurals name="spread">
-        <item quantity="one">%1$s median, %2$d run</item>
-        <item quantity="other">%1$s median, %2$d runs</item>
-    </plurals>
-    <string name="bucket_short">context under 512 tokens</string>
-    <string name="bucket_medium">context 512 to 2k tokens</string>
-    <string name="bucket_long">context over 2k tokens</string>
-    <string name="bench_title">Benchmark</string>
-    <string name="bench_note" tools:ignore="PluralsCandidate">Three cold runs of one model: a prompt read in a single runtime call, so its token count is exact, then up to %1$d tokens written. Counts are what the runtime reported. Runs queue behind real requests.</string>
-    <string name="bench_run">Run benchmark</string>
-    <string name="bench_needs_server">Start hosting to run a benchmark.</string>
-    <string name="bench_progress">Run %1$d of %2$d</string>
-    <string name="bench_result">Prompt %1$s tok/s over %2$s tokens; writing %3$s tok/s over %4$s tokens</string>
 
     <!-- Models -->
     <string name="models_on_phone">On this phone</string>
@@ -425,10 +382,30 @@
     <string name="chat_send">Send</string>
     <string name="chat_stop">Stop</string>
     <string name="chat_new">New chat</string>
-    <string name="chat_think">Reasoning</string>
-    <string name="chat_reasoning">Reasoning</string>
     <string name="chat_reasoning_now">Thinking…</string>
     <string name="chat_waiting">Reading your message…</string>
+    <string name="chat_model_current">In use</string>
+    <string name="chat_message_actions">Message actions</string>
+    <string name="chat_copy_message">Copy text</string>
+    <string name="chat_thought">Thought about it</string>
+    <string name="chat_thought_for">Thought for %1$s</string>
+    <string name="chat_show_reasoning">Show thinking</string>
+    <string name="chat_hide_reasoning">Hide thinking</string>
+    <string name="chat_thinking_on">Thinking</string>
+    <string name="chat_thinking_off">No thinking</string>
+    <string name="chat_phase_writing">Writing…</string>
+    <string name="chat_loading_model">Loading the model…</string>
+    <string name="chat_manage_models">Manage models</string>
+    <string name="chat_manage_models_note">Download, import or remove models in the Library</string>
+    <string name="stat_reused">reused</string>
+    <string name="stat_tokens">tokens</string>
+    <string name="stat_total_time">total time</string>
+    <string name="stat_prefill">Prefill</string>
+    <string name="stat_decode">Decode</string>
+    <string name="stat_tokens_value">%1$s tokens</string>
+    <string name="stat_rate">%1$s tok/s</string>
+    <string name="chat_phase_loading">Loading the model into memory…</string>
+    <string name="chat_phase_queued">Waiting for another request to finish…</string>
     <string name="chat_stopped">Stopped</string>
     <string name="chat_http_error">The server said %1$d: %2$s</string>
     <string name="chat_prefill">Prefill %1$s tok/s</string>
@@ -438,7 +415,6 @@
     <string name="chat_switch_unloads">loads, unloading %1$s</string>
     <string name="chat_no_template_title">No installed model can chat</string>
     <string name="chat_no_template_note">These models have no chat template, so they answer raw prompts only, through the Completions API. Get a chat model from the Library.</string>
-    <string name="runs_more">Showing the newest %1$s of %2$s. Export all as CSV for the rest.</string>
     <string name="chat_switch_loads">loads into memory</string>
     <string name="chat_load_failed">couldn\'t load</string>
     <string name="now_title">Now</string>

@@ -278,35 +278,3 @@ private class FakeLibrary(private val models: List<ModelEntry>) : ModelLibrary {
         rescans++
     }
 }
-
-class BenchmarkTest {
-    @Test
-    fun theBenchmarkCountsOnlyWhatTheRuntimeReported() = runBlocking<Unit> {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        val lane = Executors.newSingleThreadExecutor()
-        try {
-            val runtime = FakeRuntime(reply = { (1..200).map { " $it," } })
-            val engine = org.experimentalmachines.execuserve.engine.Engine(
-                runtime,
-                org.experimentalmachines.execuserve.engine.StaticModelSource(listOf(ModelEntry("m", ModelFiles("/m.pte", "/m.json"), "qwen3", 1, 4096))),
-                lane.asCoroutineDispatcher(),
-                scope,
-            ).also { it.start() }
-            val runs = Benchmark.run(engine, "m")
-            assertEquals(Benchmark.REPEATS, runs.size)
-            runs.forEach { run ->
-                assertEquals(Benchmark.API, run.api)
-                // One runtime call: nothing about the prompt is estimated, and nothing reused.
-                assertEquals(0, run.estimatedPromptTokens, run.toString())
-                assertEquals(0, run.cachedTokens, run.toString())
-                assertEquals(Benchmark.DECODE_TOKENS, run.completionTokens)
-            }
-            // Every repetition read the prompt from a reset runtime.
-            assertEquals(Benchmark.REPEATS, runtime.log.count { it.startsWith("generate ") })
-            engine.stop(0)
-        } finally {
-            scope.cancel()
-            lane.shutdownNow()
-        }
-    }
-}

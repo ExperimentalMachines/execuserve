@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -27,11 +28,14 @@ import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.engine.ModelFiles
 import org.experimentalmachines.execuserve.engine.StaticModelSource
 import org.experimentalmachines.execuserve.testing.FakeRuntime
+import java.net.InetAddress
+import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.Executors
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -86,6 +90,28 @@ class ProgressTest {
     @Test
     fun nobodyGetsProgressWithoutAskingForIt() {
         assertTrue(stream(returnProgress = false).none { "prompt_progress" in it })
+    }
+
+    @Test
+    fun aPortAnotherAppHoldsIsReportedNotThrownOnAnotherThread() = runBlocking {
+        val models = listOf(ModelEntry("lfm", ModelFiles("/m/l.pte", "/m/l.json"), "lfm2.5", 1, 4_096))
+        val engine = Engine(FakeRuntime(), StaticModelSource(models), lane.asCoroutineDispatcher(), scope).also { it.start() }
+        val uncaught = mutableListOf<Throwable>()
+        val before = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { _, failure -> synchronized(uncaught) { uncaught += failure } }
+        ServerSocket(0, 0, InetAddress.getByName("127.0.0.1")).use { taken ->
+            val server = ExecuServer(ServerContext(engine, ServerSettings(port = taken.localPort), StaticKeys(listOf(key)), { emptySet() }, "test", { 0 }))
+            try {
+                assertFailsWith<ServerStartFailure> { server.start() }
+                // CIO's accept coroutine fails after start returns; give it the time to.
+                delay(500)
+                assertEquals(emptyList(), synchronized(uncaught) { uncaught.toList() })
+            } finally {
+                Thread.setDefaultUncaughtExceptionHandler(before)
+                server.stop()
+                engine.stop(0)
+            }
+        }
     }
 
     @Test

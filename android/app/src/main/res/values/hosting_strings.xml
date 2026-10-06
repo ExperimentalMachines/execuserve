@@ -20,8 +20,6 @@
     <string name="host_memory_free">Free memory</string>
     <string name="host_battery">Battery</string>
     <string name="host_model_details">Model details</string>
-    <string name="host_diagnostics">Diagnostics</string>
-    <string name="host_diagnostics_hint">Compare models and run benchmarks</string>
     <string name="host_model_context">%1$s-token context</string>
     <string name="host_models_note">Unloading frees memory. The model stays installed and loads again when a request needs it.</string>
     <string name="host_in_memory">In memory</string>

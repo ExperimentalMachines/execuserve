@@ -1,10 +1,12 @@
 package org.experimentalmachines.execuserve.server
 
+import io.ktor.server.application.serverConfig
 import io.ktor.server.cio.CIO
 import io.ktor.server.cio.CIOApplicationEngine
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
+import kotlinx.coroutines.CoroutineExceptionHandler
 
 /** The server could not start; [message] says why in words a person can act on. */
 class ServerStartFailure(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -35,8 +37,16 @@ class ExecuServer(private val ctx: ServerContext) {
         }
         var last: Throwable? = null
         for (hosts in attempts) {
+            // CIO accepts in a coroutine of its own, which rethrows a failed bind after
+            // startSuspend has already reported it here: with no handler, that second copy was
+            // uncaught and took the app down whenever another app held the port.
+            val config = serverConfig {
+                parentCoroutineContext = CoroutineExceptionHandler { _, _ -> }
+                module { execuServe(ctx) }
+            }
             val candidate = embeddedServer(
                 CIO,
+                config,
                 configure = {
                     hosts.forEach { h ->
                         connector {
@@ -48,7 +58,7 @@ class ExecuServer(private val ctx: ServerContext) {
                     shutdownGracePeriod = GRACE_MS
                     shutdownTimeout = TIMEOUT_MS
                 },
-            ) { execuServe(ctx) }
+            )
             try {
                 candidate.startSuspend(wait = false)
                 server = candidate

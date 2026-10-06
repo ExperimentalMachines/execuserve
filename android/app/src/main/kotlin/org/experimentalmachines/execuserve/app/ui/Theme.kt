@@ -216,6 +216,9 @@ object Dimens {
     val columns = 1200.dp
 }
 
+/** Whether the app is drawn dark: its own answer, which can differ from the system's. */
+val LocalDark = staticCompositionLocalOf { false }
+
 @Composable
 fun ExecuServeTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
     val dark = when (mode) {
@@ -237,7 +240,7 @@ fun ExecuServeTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () 
             }
         }
     }
-    CompositionLocalProvider(LocalTones provides tonesOf(dark)) {
+    CompositionLocalProvider(LocalTones provides tonesOf(dark), LocalDark provides dark) {
         MaterialTheme(colorScheme = scheme, typography = Type, content = content)
     }
 }
