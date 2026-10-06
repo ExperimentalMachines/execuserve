@@ -282,7 +282,10 @@ private fun shortProcessor(backend: String?): String = stringResource(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Conversation(chat: ChatState, modelName: String, model: MainViewModel, target: String, modifier: Modifier, onSuggestion: (String) -> Unit) {
-    val list = rememberLazyListState()
+    // Opened at the newest message: started at the top, the first frame drew the oldest one,
+    // on a dark theme a light bubble flashing in the middle before the jump to the end.
+    val list =
+        rememberLazyListState(initialFirstVisibleItemIndex = chat.messages.lastIndex.coerceAtLeast(0), initialFirstVisibleItemScrollOffset = Int.MAX_VALUE)
     val last = chat.messages.lastOrNull()
     // Following the end is a decision, not a measurement: a growing reply is taller than the
     // screen long before it ends, so "is the end in view" turns false on its own. Sending
