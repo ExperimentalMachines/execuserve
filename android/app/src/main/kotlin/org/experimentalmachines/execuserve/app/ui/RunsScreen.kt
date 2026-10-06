@@ -320,25 +320,39 @@ private const val PAGE = 25
 private val WIDE_LIST = 760.dp
 private val LABEL_WIDTH = 112.dp
 
-/** The request running now, how many wait, and Cancel; only while there is one. One runs at a time. */
+/** What the lane is doing, in the words the live panel uses. */
+private fun phaseWords(lane: org.experimentalmachines.execuserve.engine.LaneState): Int = when (lane) {
+    org.experimentalmachines.execuserve.engine.LaneState.LOADING -> R.string.now_loading
+    org.experimentalmachines.execuserve.engine.LaneState.PREFILLING -> R.string.now_reading
+    else -> R.string.now_writing
+}
+
+/** The request running or the model loading now, how many wait, and Cancel; only while the lane is busy or anything waits. */
 @Composable
 private fun NowPanel(model: MainViewModel, installed: List<org.experimentalmachines.execuserve.engine.ModelEntry>, modifier: Modifier = Modifier) {
     val status by model.status.collectAsState()
-    val job = status?.running ?: return
-    val name = installed.firstOrNull { it.id == job.model }?.let { org.experimentalmachines.execuserve.host.ModelNames.shown(it, installed) } ?: job.model
-    val phase = when (status?.lane) {
-        org.experimentalmachines.execuserve.engine.LaneState.LOADING -> stringResource(R.string.now_loading)
-        org.experimentalmachines.execuserve.engine.LaneState.PREFILLING -> stringResource(R.string.now_reading)
-        else -> stringResource(R.string.now_writing)
-    }
-    Panel(stringResource(R.string.now_title), modifier, trailing = { Action(stringResource(R.string.action_cancel), { model.cancelJob(job.id) }) }) {
-        Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-        Text(
-            listOf(phase, clientName(job.client)).joinToString(" · "),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        val waiting = status?.queued ?: 0
+    val current = status ?: return
+    val job = current.running
+    val waiting = current.queued
+    // A load with no request behind it (startup, Load) and requests waiting with none running
+    // yet are work too: the panel shows whenever the lane is busy or anything waits.
+    val loading = current.lane == org.experimentalmachines.execuserve.engine.LaneState.LOADING
+    if (job == null && waiting == 0 && !loading) return
+    fun nameOf(id: String) = installed.firstOrNull { it.id == id }?.let { org.experimentalmachines.execuserve.host.ModelNames.shown(it, installed) } ?: id
+    val phase = stringResource(phaseWords(current.lane))
+    Panel(
+        stringResource(R.string.now_title),
+        modifier,
+        trailing = { job?.let { Action(stringResource(R.string.action_cancel), { model.cancelJob(it.id) }) } },
+    ) {
+        (job?.model ?: current.loading)?.let { Text(nameOf(it), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium) }
+        if (job != null || loading) {
+            Text(
+                listOfNotNull(phase, job?.let { clientName(it.client) }).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Text(
             pluralStringResource(R.plurals.now_waiting, waiting, waiting),
             style = MaterialTheme.typography.bodySmall,
