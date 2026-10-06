@@ -170,6 +170,8 @@ private fun Controls(installed: List<ModelEntry>, entry: ModelEntry, chat: ChatS
             TextButton(onClick = { picking = true }, enabled = !chat.running) {
                 Column(Modifier.weight(1f, fill = false)) {
                     Text(ModelNames.shown(entry, installed), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+                    // Each part kept whole: beside the Think chip on a narrow phone the line
+                    // wraps at the separator rather than cutting "4k context" short.
                     Text(
                         listOfNotNull(
                             shortProcessor(entry.backend),
@@ -177,8 +179,8 @@ private fun Controls(installed: List<ModelEntry>, entry: ModelEntry, chat: ChatS
                                 stringResource(R.string.host_model_context, Format.window(it))
                             },
                         )
-                            .joinToString(" · "),
-                        maxLines = 1,
+                            .joinToString(" · ") { it.replace(' ', '\u00A0') },
+                        maxLines = 2,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
