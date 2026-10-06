@@ -19,7 +19,8 @@ class HostSettingsTest {
 
     @Test
     fun untouchedSettingsAreTheEngineAndServerDefaults() {
-        assertEquals(EngineConfig(), HostSettings().engineConfig())
+        // But thinking: the app's default is off, so an app that did not ask for reasoning gets text.
+        assertEquals(EngineConfig(defaultThinking = false), HostSettings().engineConfig())
         assertEquals(ServerSettings(), HostSettings().serverSettings())
     }
 

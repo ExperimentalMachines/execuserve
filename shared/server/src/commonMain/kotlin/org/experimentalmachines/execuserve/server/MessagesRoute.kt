@@ -347,11 +347,14 @@ internal object MessagesTranslate {
     }
 
     /**
-     * Reasoning on or off. `adaptive` lets the model decide, which for a hybrid model is the
-     * server's default and then the template's, so it maps to no preference.
+     * Reasoning on or off. Absent means off, as on Anthropic's API. `adaptive` lets the model
+     * decide, which for a hybrid model is the server's default and then the template's.
      */
     private fun thinking(request: MessagesRequest): Boolean? = when (val type = request.thinking?.type) {
-        null, "adaptive" -> null
+        // Anthropic's API thinks only when asked: a client that sent no thinking field
+        // reads content[0].text and must find text there.
+        null -> false
+        "adaptive" -> null
         "enabled" -> true
         "disabled" -> false
         else -> throw ApiError.badRequest("Unknown thinking type '$type'", "thinking")

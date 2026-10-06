@@ -40,7 +40,12 @@ data class HostSettings(
     val allowExternalStart: Boolean = true,
     val wake: WakePolicy = WakePolicy.ALWAYS,
     val theme: ThemeMode = ThemeMode.SYSTEM,
-    val thinking: ThinkingDefault = ThinkingDefault.MODEL,
+    /**
+     * Whether a model that can think does, when a request does not say. Off: an app that did
+     * not ask for reasoning gets an answer, not a max_tokens budget spent thinking (a Qwen3
+     * reply to "say hi" in 16 tokens was all thinking and no text).
+     */
+    val thinking: ThinkingDefault = ThinkingDefault.OFF,
     val temperature: Float = ENGINE.defaultTemperature,
     val keepReasoningInHistory: Boolean = ENGINE.keepReasoningInHistory,
     val maxQueued: Int = ENGINE.maxQueued,

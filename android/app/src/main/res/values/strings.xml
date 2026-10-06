@@ -217,7 +217,7 @@
     <string name="settings_model">Replies</string>
     <string name="settings_reasoning">Reasoning</string>
     <string name="settings_when_unset">Used when the client does not set it</string>
-    <string name="thinking_model">Default</string>
+    <string name="thinking_model">Model decides</string>
     <string name="thinking_on">On</string>
     <string name="thinking_off">Off</string>
     <string name="settings_temperature">Temperature</string>
@@ -298,6 +298,10 @@
     <plurals name="notif_answering">
         <item quantity="one">Writing a reply for %2$s, %1$d token</item>
         <item quantity="other">Writing a reply for %2$s, %1$d tokens</item>
+    </plurals>
+    <plurals name="notif_queued">
+        <item quantity="one">%d request waiting to start</item>
+        <item quantity="other">%d requests waiting to start</item>
     </plurals>
     <plurals name="notif_waiting">
         <item quantity="one">%1$s; %2$d waiting</item>
@@ -418,7 +422,7 @@
         <item quantity="one">%d more waiting · one request runs at a time</item>
         <item quantity="other">%d more waiting · one request runs at a time</item>
     </plurals>
-    <string name="models_memory_on_hosting">Load them into memory, and choose which load when hosting starts, on Hosting.</string>
+    <string name="models_memory_on_hosting">A model loads into memory when an app asks for it. Hosting shows each model\'s ID and chooses which load at start.</string>
     <string name="models_use_on_hosting">Use on Hosting</string>
     <string name="models_resolve_on_hosting">Resolve on Hosting</string>
     <plurals name="notif_ready_models">

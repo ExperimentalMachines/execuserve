@@ -158,7 +158,8 @@ class MessagesTest {
             "/v1/messages" to """{"model":"qwen3-1.7b","max_tokens":64,"system":[{"type":"text","text":"Be brief.","cache_control":{"type":"ephemeral"}}],
                 "messages":[{"role":"user","content":[{"type":"text","text":"Hi"}]}]}""",
             "/v1/chat/completions" to
-                """{"model":"qwen3-1.7b","max_tokens":64,"messages":[{"role":"system","content":"Be brief."},{"role":"user","content":"Hi"}]}""",
+                // Thinking off on both: absent on the Messages API means off.
+                """{"model":"qwen3-1.7b","max_tokens":64,"chat_template_kwargs":{"enable_thinking":false},"messages":[{"role":"system","content":"Be brief."},{"role":"user","content":"Hi"}]}""",
         ).map { (path, body) -> promptFor(path, body) }
         assertTrue("<|im_start|>system\nBe brief.<|im_end|>" in prompts[0], prompts[0])
         assertEquals(prompts[2], prompts[0])
@@ -192,7 +193,7 @@ class MessagesTest {
         )
         val chat = promptFor(
             "/v1/chat/completions",
-            """{"model":"qwen3-1.7b","max_tokens":64,
+            """{"model":"qwen3-1.7b","max_tokens":64,"chat_template_kwargs":{"enable_thinking":false},
             "tools":[{"type":"function","function":{"name":"get_weather","description":"Weather","parameters":{"type":"object","properties":{"city":{"type":"string"}}}}}],
             "messages":[{"role":"user","content":"Weather?"},
             {"role":"assistant","content":null,"tool_calls":[{"id":"call_1","type":"function","function":{"name":"get_weather","arguments":"{\"city\":\"Manila\"}"}}]},

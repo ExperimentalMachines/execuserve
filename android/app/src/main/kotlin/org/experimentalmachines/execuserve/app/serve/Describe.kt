@@ -28,16 +28,17 @@ object Describe {
     }
 
     /** One line: whether requests are refused, else what the lane is doing and how many wait. */
-    private fun activity(context: Context, status: EngineStatus?): String {
-        if (status == null) return context.getString(R.string.status_engine_starting)
+    private fun activity(context: Context, status: EngineStatus?): String = when {
+        status == null -> context.getString(R.string.status_engine_starting)
         // Refusing new requests matters more than being idle: said first.
-        when (status.admission) {
-            Admission.PAUSED_THERMAL -> return context.getString(R.string.status_paused_hot)
-            Admission.PAUSED_BATTERY -> return context.getString(R.string.status_paused_battery)
-            else -> Unit
-        }
-        val now = laneLine(context, status)
-        return if (status.queued > 0) context.resources.getQuantityString(R.plurals.notif_waiting, status.queued, now, status.queued) else now
+        status.admission == Admission.PAUSED_THERMAL -> context.getString(R.string.status_paused_hot)
+        status.admission == Admission.PAUSED_BATTERY -> context.getString(R.string.status_paused_battery)
+        // Between requests the lane is idle for a moment with one already queued: that is
+        // not "ready", it is a request about to start.
+        status.lane == LaneState.IDLE && status.queued > 0 ->
+            context.resources.getQuantityString(R.plurals.notif_queued, status.queued, status.queued)
+        status.queued > 0 -> context.resources.getQuantityString(R.plurals.notif_waiting, status.queued, laneLine(context, status), status.queued)
+        else -> laneLine(context, status)
     }
 
     private fun laneLine(context: Context, status: EngineStatus): String {
