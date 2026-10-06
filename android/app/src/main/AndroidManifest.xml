@@ -13,6 +13,20 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Lets the start confirmation hide other apps' overlays, so it cannot be tapjacked. -->
     <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
+    <!-- Dictation in the chat, on the phone's own recogniser; asked for on the first tap. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Dictation is optional: Play must not hide the app from phones without a microphone. -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!-- Package visibility for the on-device recogniser and the text-to-speech engine. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
     <application
         android:name=".ExecuServeApp"

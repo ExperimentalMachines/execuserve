@@ -28,4 +28,5 @@
     <string name="gpu_refused">This tablet\'s GPU cannot run Vulkan builds. The same model\'s CPU build runs anywhere.</string>
     <string name="npu_refused">This tablet\'s NPU cannot run Qualcomm builds. Try the same model\'s CPU build; it does not need the NPU.</string>
     <string name="npu_mediatek_refused">This tablet\'s NPU cannot run MediaTek builds. Try the same model\'s CPU build; it does not need the NPU.</string>
+    <string name="dictation_unavailable">This tablet has no offline speech recognition, and ExecuServe will not use the online kind.</string>
 </resources>

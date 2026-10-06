@@ -4,11 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
@@ -37,6 +39,7 @@ import androidx.compose.ui.unit.dp
  * The rail and the two-column layout have independent breakpoints; columns are measured
  * after the rail and page gutters, and leave more room when text is enlarged.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ConsoleFrame(
     tab: Int,
@@ -85,7 +88,10 @@ internal fun ConsoleFrame(
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 topBar = header,
                 bottomBar = {
-                    if (!rail) {
+                    // While typing on a phone the keyboard has the bottom of the screen: the
+                    // tabs would only take rows from what is being written. Back closes the
+                    // keyboard and brings them back.
+                    if (!rail && !WindowInsets.isImeVisible) {
                         NavigationBar(
                             containerColor = MaterialTheme.colorScheme.surface,
                             windowInsets = WindowInsets(0, 0, 0, 0),

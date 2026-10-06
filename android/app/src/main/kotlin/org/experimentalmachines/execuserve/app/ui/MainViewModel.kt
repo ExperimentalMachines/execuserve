@@ -222,6 +222,23 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     /** Leaving the console closes a reply's socket, so the server stops writing to nobody. */
     override fun onCleared() {
         chatCall?.cancel()
+        dictation.stop()
+        reader.release()
+    }
+
+    /** Speech in and out for the chat, both on this phone only. */
+    val dictation = Dictation(app)
+    val reader = SpeechReader(app)
+
+    /** Asks the last question again in place of its reply, as when it was first asked. */
+    fun regenerateChat(model: String) {
+        val messages = _chat.value.messages
+        val reply = messages.lastOrNull() ?: return
+        val question = messages.getOrNull(messages.size - 2) ?: return
+        if (reply.fromUser || reply.running || !question.fromUser) return
+        if (reader.speaking.value == reply.id) reader.stop()
+        _chat.update { it.copy(messages = it.messages.dropLast(2)) }
+        sendChat(question.content, model)
     }
 
     /**
