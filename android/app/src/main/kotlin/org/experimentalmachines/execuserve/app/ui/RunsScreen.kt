@@ -109,21 +109,20 @@ fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
 }
 
 /** The list's title, its count and actions, the model filter, or that there is nothing yet. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RunsHead(count: Int, any: Boolean, onExport: () -> Unit, onClear: () -> Unit, filters: @Composable () -> Unit) {
     PanelPart(top = true) {
         Column(Modifier.padding(top = Dimens.gutter), verticalArrangement = Arrangement.spacedBy(Dimens.row)) {
-            PanelTitle(
-                pluralStringResource(R.plurals.runs_count, count, Format.count(count)),
-                trailing = {
-                    if (any) {
-                        Row {
-                            Action(stringResource(R.string.runs_export), onClick = onExport)
-                            Action(stringResource(R.string.runs_clear), onClick = onClear, destructive = true)
-                        }
-                    }
-                },
-            )
+            // The count alone on its line and the actions under it: side by side they left the
+            // count a letter a line on a small phone with large text.
+            PanelTitle(pluralStringResource(R.plurals.runs_count, count, Format.count(count)))
+            if (any) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
+                    Action(stringResource(R.string.runs_export), onClick = onExport)
+                    Action(stringResource(R.string.runs_clear), onClick = onClear, destructive = true)
+                }
+            }
             filters()
             if (count == 0) {
                 Text(
@@ -236,7 +235,7 @@ fun RunRow(run: JobRecord, name: String) {
                 run.prefillTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.chat_prefill, Format.rate(it)) },
                 run.decodeTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.chat_decode, Format.rate(it)) },
             )
-            if (rates.isNotEmpty()) Text(rates.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = muted)
+            if (rates.isNotEmpty()) Text(rates.joinToString(" · ") { it.replace(' ', '\u00A0') }, style = MaterialTheme.typography.bodySmall, color = muted)
             Text(clientName(run.client), style = MaterialTheme.typography.bodySmall, color = muted)
             if (open) RunDetail(run, checks)
         }

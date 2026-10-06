@@ -274,8 +274,8 @@ private fun chatBody(id: String, created: Long, result: GenerationResult): JsonO
 )
 
 internal suspend fun ApplicationCall.submit(ctx: ServerContext, request: GenerationRequest): Job = try {
-    resolveModel(ctx, request.model)
-    ctx.engine.submit(request)
+    // Submitted under the resolved id: on a model's endpoint the name asked for may be any.
+    ctx.engine.submit(request.copy(model = resolveModel(ctx, request.model).id))
 } catch (refusal: Refusal) {
     throw refusalError(refusal)
 }
@@ -464,6 +464,11 @@ private class CompletionStream(private val id: String, private val created: Long
  * only from loopback, and only when the user opened loopback.
  */
 internal fun ApplicationCall.client(ctx: ServerContext): ClientId {
+    // Anthropic's SDKs send the key as x-api-key on every route, /v1/models included.
+    request.headers[API_KEY_HEADER]?.let { presented ->
+        val key = ctx.keys.verify(presented.trim()) ?: throw ApiError.unauthorized()
+        return ClientId("key:${key.id}", key.name)
+    }
     val header = request.headers[HttpHeaders.Authorization]
     if (header != null) {
         val token = header.takeIf { it.startsWith("Bearer ", ignoreCase = true) }?.substring(BEARER.length)?.trim()
@@ -476,6 +481,9 @@ internal fun ApplicationCall.client(ctx: ServerContext): ClientId {
     }
     throw ApiError.unauthorized()
 }
+
+/** Anthropic's header for the API key. */
+internal const val API_KEY_HEADER = "x-api-key"
 
 internal fun isLoopbackPeer(address: String): Boolean {
     val a = address.lowercase().removePrefix("/")

@@ -67,8 +67,15 @@
     </plurals>
     <string name="host_last_rates">Prefill %1$s tok/s · Decode %2$s tok/s</string>
     <string name="host_model_browser_on">This model\'s browser chat, %1$s</string>
-    <string name="host_model_id_any">Model ID (any installed model\'s works)</string>
     <string name="change_memory_limit">Change memory limit</string>
     <string name="change_startup_models">Change the models loaded when hosting starts</string>
     <string name="memory_threads_note">Keeping more than one model in memory uses Automatic CPU threads, and changing the limit can unload the models in memory; they load again when a request needs them. Changes save at once.</string>
+    <string name="connect_models_title">Models</string>
+    <string name="connect_models_note">Every model shares the address above. An app picks one by sending its ID as \"model\" in each request.</string>
+    <string name="connect_model_in_memory">In memory: answers at once</string>
+    <string name="connect_model_loads">Loads into memory when first asked</string>
+    <string name="connect_model_swaps">Loads when asked, unloading %1$s first</string>
+    <string name="connect_models_queue">Requests run one at a time, whichever model they name. Loading a model takes a while, so an app that switches models waits for each load.</string>
+    <string name="connect_model_address_title">For apps that can\'t choose a model</string>
+    <string name="connect_model_address_note">Each model also has its own address. Requests sent there use that model whatever their \"model\" field says.</string>
 </resources>

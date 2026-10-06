@@ -272,6 +272,19 @@ fun largeText(): Boolean = androidx.compose.ui.platform.LocalDensity.current.fon
 
 private const val LARGE_TEXT = 1.3f
 
+/**
+ * This style, grown with the system font size only up to [max] times: for the app's own
+ * frame (its name, the tab labels), which has a fixed width and broke words in half at 200%.
+ * Content keeps growing in full.
+ */
+@Composable
+fun androidx.compose.ui.text.TextStyle.capped(max: Float = LARGE_TEXT): androidx.compose.ui.text.TextStyle {
+    val scale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+    if (scale <= max) return this
+    val k = max / scale
+    return copy(fontSize = fontSize * k, lineHeight = if (lineHeight.isSp) lineHeight * k else lineHeight)
+}
+
 /** Added to the row gap under a panel's heading, so the heading reads as the group's and not as its first row. */
 private val TITLE_SPACE = 4.dp
 

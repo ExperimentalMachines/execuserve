@@ -28,7 +28,11 @@ internal fun ApplicationCall.hostedModels(ctx: ServerContext): List<ModelEntry> 
 /** Resolve aliases before comparing, so a scoped endpoint accepts its model's aliases. */
 internal fun ApplicationCall.resolveModel(ctx: ServerContext, name: String): ModelEntry {
     val scope = hostedModel(ctx)
+    // On a model's own endpoint, a name this server does not know (an app's fixed "gpt-4o",
+    // or nothing) means that model: the base URL already chose it. Naming another installed
+    // model is still a mistake worth saying.
     val entry = ctx.engine.resolve(name)
+        ?: scope
         ?: throw ApiError.modelNotFound(name, hostedModels(ctx).map { it.id })
     if (scope != null && entry.id != scope.id) {
         throw ApiError.badRequest(

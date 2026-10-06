@@ -170,19 +170,32 @@ private fun StatusPanel(
     val look = ServerLook.of(server, status)
     val tone = LocalTones.current.of(look.mood)
     Panel {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        val state: @Composable (Modifier) -> Unit = { modifier ->
+            Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Dot(tone.color, 10.dp)
                     Text(stringResource(look.words), style = MaterialTheme.typography.titleLarge, color = tone.color)
                 }
                 Text(activityLine(server, look, status, installed), style = MaterialTheme.typography.bodyMedium)
             }
+        }
+        val action: @Composable () -> Unit = {
             when (server) {
                 is ServeHost.State.Running -> OutlineButton(stringResource(R.string.action_stop_hosting), onStop)
                 // Nothing to serve yet: the models panel below offers the catalog instead.
                 is ServeHost.State.Stopped -> if (installed.isNotEmpty()) Button(onClick = onStart) { Text(stringResource(R.string.action_start_hosting)) }
                 else -> Unit
+            }
+        }
+        // Beside the state while it fits; under it with large text, where the side column
+        // left the state a word or two a line.
+        if (largeText()) {
+            state(Modifier.fillMaxWidth())
+            action()
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                state(Modifier.weight(1f))
+                action()
             }
         }
         if (server is ServeHost.State.Running && recovery != null) {
@@ -538,8 +551,8 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
             // What a client needs, together: the base URL, a model ID and (below) the key.
             val first = running.endpoints.first()
             CopyRow(first.url, label = stringResource(R.string.host_api_base, stringResource(first.network.words)), qr = true)
-            val example = installed.firstOrNull { it.id == settings.defaultModel } ?: installed.first()
-            CopyRow(example.id, label = stringResource(R.string.host_model_id_any))
+            KeyRow(key)
+            ApiModels(installed, model, settings.memoryLimit, first.url)
             CopyRow(first.url.removeSuffix("/v1").trimEnd('/') + "/", label = stringResource(R.string.connect_browser_chat), qr = true)
         } else {
             Text(
@@ -547,13 +560,7 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-        Expandable(stringResource(R.string.host_access_key), stringResource(R.string.host_access_key_hint)) {
-            if (key != null) {
-                CopyRow(key.secret, label = key.name, shown = key.secret.take(KEY_HEAD) + "…" + key.secret.takeLast(KEY_TAIL), qr = true, sensitive = true)
-            } else {
-                Text(stringResource(R.string.host_no_key), style = MaterialTheme.typography.bodySmall)
-            }
+            KeyRow(key)
         }
         if (running != null) {
             Expandable(stringResource(R.string.host_all_models_endpoint), stringResource(R.string.host_all_models_hint)) {
@@ -587,6 +594,56 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
         )
     }
 }
+
+/** The API key, beside the address it goes with: shown by its ends until opened. */
+@Composable
+private fun KeyRow(key: ApiKey?) {
+    Expandable(stringResource(R.string.host_access_key), stringResource(R.string.host_access_key_hint)) {
+        if (key != null) {
+            CopyRow(key.secret, label = key.name, shown = key.secret.take(KEY_HEAD) + "…" + key.secret.takeLast(KEY_TAIL), qr = true, sensitive = true)
+        } else {
+            Text(stringResource(R.string.host_no_key), style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/**
+ * How another app reaches each model: every model shares the one address and is chosen by
+ * the request's "model" field. Each row is the ID to send, whether it is in memory, and what
+ * asking for it does now; an app that cannot set the field gets a model's own address.
+ */
+@Composable
+private fun ApiModels(installed: List<ModelEntry>, model: MainViewModel, limit: Int, base: String) {
+    val status by model.status.collectAsState()
+    val resident = status?.resident.orEmpty()
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.row)) {
+        Text(stringResource(R.string.connect_models_title), style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.connect_models_note), style = MaterialTheme.typography.bodySmall, color = muted)
+        installed.forEach { entry ->
+            val id = requestId(entry, installed)
+            val state = when {
+                resident.any { it.id == entry.id } -> stringResource(R.string.connect_model_in_memory)
+                resident.size >= limit -> resident.minByOrNull { it.lastUsedMs }?.let { evicted ->
+                    stringResource(R.string.connect_model_swaps, installed.firstOrNull { it.id == evicted.id }?.let { requestId(it, installed) } ?: evicted.id)
+                } ?: stringResource(R.string.connect_model_loads)
+                else -> stringResource(R.string.connect_model_loads)
+            }
+            CopyRow(id, label = state)
+        }
+        Text(stringResource(R.string.connect_models_queue), style = MaterialTheme.typography.bodySmall, color = muted)
+        Expandable(stringResource(R.string.connect_model_address_title)) {
+            Text(stringResource(R.string.connect_model_address_note), style = MaterialTheme.typography.bodySmall, color = muted)
+            installed.forEach { entry ->
+                CopyRow(base.removeSuffix("/v1").trimEnd('/') + "/models/" + requestId(entry, installed) + "/v1", label = ModelNames.shown(entry, installed))
+            }
+        }
+    }
+}
+
+/** The shortest name that picks [entry]: its alias when no other installed model shares it. */
+internal fun requestId(entry: ModelEntry, installed: List<ModelEntry>): String =
+    entry.aliases.firstOrNull { alias -> installed.none { it.id != entry.id && alias in it.aliases } } ?: entry.id
 
 /** The phone's state, and what hosting has done; the requests themselves are on their own tab. */
 @OptIn(ExperimentalLayoutApi::class)

@@ -228,8 +228,11 @@ class ServeHost(
     suspend fun stop() = lock.withLock {
         if (_state.value is State.Stopped) return@withLock
         _state.value = State.Stopping
-        runCatching { server?.stop() }
+        // The engine first: it refuses new work, gives the reply in progress its grace, then
+        // fails it, and each open stream writes that failure as an error event. Closing the
+        // listener first cut those streams mid-sentence with nothing to say why.
         runCatching { _engine.value?.stop(STOP_GRACE_MS) }
+        runCatching { server?.stop() }
         engineScope?.cancel()
         lane?.close()
         server = null

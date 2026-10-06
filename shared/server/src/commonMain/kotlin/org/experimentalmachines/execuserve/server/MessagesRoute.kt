@@ -89,14 +89,10 @@ private suspend fun ApplicationCall.answerMessages(ctx: ServerContext) {
  * `auth_token`) and open loopback work as on every other route. A key presented either way
  * is the same client, so limits and the reply ledger follow the key, not the header.
  */
-private fun ApplicationCall.anthropicClient(ctx: ServerContext): ClientId {
-    val presented = request.headers[API_KEY_HEADER] ?: return try {
-        client(ctx)
-    } catch (refused: ApiError) {
-        throw unauthorized()
-    }
-    val key = ctx.keys.verify(presented.trim()) ?: throw unauthorized()
-    return ClientId("key:${key.id}", key.name)
+private fun ApplicationCall.anthropicClient(ctx: ServerContext): ClientId = try {
+    client(ctx)
+} catch (refused: ApiError) {
+    throw unauthorized()
 }
 
 private fun unauthorized() = ApiError(
@@ -462,6 +458,5 @@ internal class MessagesStream(private val id: String, private val model: String)
     }
 }
 
-private const val API_KEY_HEADER = "x-api-key"
 private const val TOOL_USE_PREFIX = "toolu_"
 private const val ENGINE_CALL_PREFIX = "call_"

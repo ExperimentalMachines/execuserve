@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /**
@@ -69,7 +70,15 @@ internal fun ConsoleFrame(
                                 selected = tab == index,
                                 onClick = { onTabSelect(index) },
                                 icon = { NavGlyph(index, tab == index) },
-                                label = { Text(stringResource(label)) },
+                                label = {
+                                    Text(
+                                        stringResource(label),
+                                        style = MaterialTheme.typography.labelMedium.capped(),
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                },
                                 colors = NavigationRailItemDefaults.colors(
                                     indicatorColor = MaterialTheme.colorScheme.primaryContainer,
                                     selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -101,7 +110,15 @@ internal fun ConsoleFrame(
                                     selected = tab == index,
                                     onClick = { onTabSelect(index) },
                                     icon = { NavGlyph(index, tab == index) },
-                                    label = { Text(stringResource(label)) },
+                                    label = {
+                                        Text(
+                                            stringResource(label),
+                                            style = MaterialTheme.typography.labelMedium.capped(),
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    },
                                     colors = NavigationBarItemDefaults.colors(
                                         indicatorColor = MaterialTheme.colorScheme.primaryContainer,
                                         selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,

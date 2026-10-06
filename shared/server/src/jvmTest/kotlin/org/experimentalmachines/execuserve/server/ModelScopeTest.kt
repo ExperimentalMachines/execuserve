@@ -79,6 +79,25 @@ class ModelScopeTest {
     private fun body(model: String) = """{"model":"$model","messages":[{"role":"user","content":"Hi"}],"max_tokens":20}"""
 
     @Test
+    fun aModelsOwnEndpointAnswersANameItDoesNotKnow() = serve { http, _ ->
+        // An app with a fixed model name ("gpt-4o") pointed at a model's base URL.
+        for (route in listOf("chat/completions", "messages")) {
+            val reply = http.send("/models/alpha/v1/$route", body("gpt-4o"), anthropic = route == "messages")
+            assertEquals(HttpStatusCode.OK, reply.status, reply.bodyAsText())
+            assertEquals("alpha", json(reply.bodyAsText())["model"]!!.jsonPrimitive.content)
+        }
+        // Without a mount, an unknown name is still not found.
+        assertEquals(HttpStatusCode.NotFound, http.send("/v1/chat/completions", body("gpt-4o")).status)
+    }
+
+    @Test
+    fun anthropicsKeyHeaderWorksOnEveryRoute() = serve { http, _ ->
+        val models = http.get("/v1/models") { header("x-api-key", "sk-one") }
+        assertEquals(HttpStatusCode.OK, models.status, models.bodyAsText())
+        assertEquals(HttpStatusCode.Unauthorized, http.get("/v1/models") { header("x-api-key", "wrong") }.status)
+    }
+
+    @Test
     fun modelsReportTheDelegateTheInstallRecorded() = serve(
         models = listOf(
             ModelEntry("qwen3-0.6b-8da4w-2k-vulkan", ModelFiles("/g.pte", "/g.json"), "qwen3", backend = "vulkan"),

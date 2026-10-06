@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.engine.EngineStatus
@@ -112,14 +113,16 @@ private fun Header(tab: String, server: ServeHost.State?, status: EngineStatus?)
                 heading()
                 contentDescription = "$name, $tab"
             },
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.headlineSmall.capped(),
             fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         if (server != null) {
             val look = ServerLook.of(server, status)
             val tone = LocalTones.current.of(look.mood)
             Dot(tone.color, 8.dp)
-            Text(stringResource(look.words), style = MaterialTheme.typography.labelLarge, color = tone.color)
+            Text(stringResource(look.words), style = MaterialTheme.typography.labelLarge.capped(), color = tone.color, maxLines = 1)
             Spacer(Modifier.width(4.dp))
         }
     }

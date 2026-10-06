@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -65,6 +66,28 @@ class ServeHostTest {
         assertIs<ServeHost.State.Stopped>(host.state.value)
         assertNull(host.engine)
         assertNull(host.status.first())
+    }
+
+    @Test
+    fun stoppingMidReplyTellsTheClientRatherThanCuttingTheStream() = runBlocking<Unit> {
+        val slow = FakeRuntime(window = 65_536, reply = { List(5_000) { "word$it " } }).apply { tokenDelayMs = 10 }
+        val stopping = ServeHost(FakePlatform(slow), store, library, history, scope)
+        stopping.start(onWedged = {})
+        val body = """{"model":"qwen3-1.7b","stream":true,"max_tokens":5000,"messages":[{"role":"user","content":"Hi"}]}"""
+        val connection = (URI("http://127.0.0.1:$port/v1/chat/completions").toURL().openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            doOutput = true
+            setRequestProperty("Authorization", "Bearer ${key.secret}")
+            setRequestProperty("Content-Type", "application/json")
+            outputStream.use { it.write(body.toByteArray()) }
+        }
+        val lines = connection.inputStream.bufferedReader()
+        withTimeout(10_000) { while (lines.readLine()?.startsWith("data: ") != true) Unit }
+        val stop = async(Dispatchers.Default) { stopping.stop() }
+        val rest = lines.readText()
+        stop.await()
+        // An error event the SDKs raise, not a stream that merely ends mid-sentence.
+        assertTrue("\"error\"" in rest, "${Regex("word[0-9]").findAll(rest).count()} words; " + rest.takeLast(300))
     }
 
     @Test
