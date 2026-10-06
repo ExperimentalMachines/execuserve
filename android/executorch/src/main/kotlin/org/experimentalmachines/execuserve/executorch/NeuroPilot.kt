@@ -177,7 +177,7 @@ internal class NeuroPilotTokens(private val sink: (String) -> Unit) {
 }
 
 /** MemAvailable from the kernel: what can be had without killing an app. */
-private fun availableMemory(): Long? = runCatching {
+internal fun availableMemory(): Long? = runCatching {
     File("/proc/meminfo").useLines { lines -> lines.firstOrNull { it.startsWith("MemAvailable:") } }
         ?.split(Regex("\\s+"))?.getOrNull(1)?.toLongOrNull()?.times(KIB)
 }.getOrNull()

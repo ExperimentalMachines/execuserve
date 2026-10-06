@@ -26,13 +26,14 @@ internal val ApplicationCall.routeParameters
 internal fun ApplicationCall.hostedModels(ctx: ServerContext): List<ModelEntry> = hostedModel(ctx)?.let(::listOf) ?: ctx.engine.installed()
 
 /** Resolve aliases before comparing, so a scoped endpoint accepts its model's aliases. */
-internal fun ApplicationCall.resolveModel(ctx: ServerContext, name: String): ModelEntry {
+internal fun ApplicationCall.resolveModel(ctx: ServerContext, name: String, fromBody: Boolean = true): ModelEntry {
     val scope = hostedModel(ctx)
-    // On a model's own endpoint, a name this server does not know (an app's fixed "gpt-4o",
-    // or nothing) means that model: the base URL already chose it. Naming another installed
-    // model is still a mistake worth saying.
+    // On a model's own endpoint, a request body's name this server does not know (an app's
+    // fixed "gpt-4o", or nothing) means that model: the base URL already chose it. A name in
+    // the path is an address, and a wrong one is an error (/models/A/v1/models/typo must not
+    // answer A, nor unload A). Naming another installed model is a mistake worth saying.
     val entry = ctx.engine.resolve(name)
-        ?: scope
+        ?: scope?.takeIf { fromBody }
         ?: throw ApiError.modelNotFound(name, hostedModels(ctx).map { it.id })
     if (scope != null && entry.id != scope.id) {
         throw ApiError.badRequest(

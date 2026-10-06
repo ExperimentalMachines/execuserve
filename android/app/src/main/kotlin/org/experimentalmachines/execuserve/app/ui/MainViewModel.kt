@@ -342,8 +342,10 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     fun bytesFreedBy(entry: ModelEntry): Long = graph.models.bytesFreedBy(entry)
 
     fun delete(entry: ModelEntry) = viewModelScope.launch {
-        graph.host.release(entry)
+        // Deleted only once nothing holds it; otherwise it stays, and can be deleted again.
+        if (!graph.host.release(entry)) return@launch
         graph.models.delete(entry)
+        graph.host.released(entry)
         graph.settings.update { it.copy(defaultModel = it.defaultModel.takeUnless { id -> id == entry.id }, preloadModels = it.preloadModels - entry.id) }
     }
 

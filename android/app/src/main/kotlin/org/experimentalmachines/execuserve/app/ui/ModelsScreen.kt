@@ -2,6 +2,7 @@ package org.experimentalmachines.execuserve.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -231,7 +232,8 @@ private fun InstalledRow(entry: ModelEntry, name: String, status: EngineStatus?,
                 Text(stringResource(R.string.model_did_not_load, broken), color = tones.failed.color, style = MaterialTheme.typography.bodySmall)
             }
             // Pulled left by a text button's own padding, so the labels line up with the text above.
-            Row(Modifier.offset(x = -ACTION_INSET)) {
+            // Wraps rather than squeezes at large text on a narrow phone.
+            FlowRow(Modifier.offset(x = -ACTION_INSET)) {
                 Action(stringResource(if (broken != null) R.string.models_resolve_on_hosting else R.string.models_use_on_hosting), onClick = onHosting)
                 Action(stringResource(R.string.action_delete), onClick = onDelete, destructive = true)
             }

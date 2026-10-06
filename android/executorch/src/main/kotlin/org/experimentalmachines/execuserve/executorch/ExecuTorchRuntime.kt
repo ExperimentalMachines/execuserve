@@ -115,6 +115,16 @@ class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { tr
                     "Use the same model with a smaller window.",
             )
         }
+        // And what is free now, after the engine made room: a model that fits the phone may
+        // still not fit beside what other apps hold, and loading it anyway gets something
+        // killed, possibly the app calling this one (codex review).
+        val available = availableMemory() ?: return
+        if (need > available) {
+            throw RuntimeFailure(
+                "This build needs about ${gb(need)} of memory once loaded, and ${gb(available)} is free now. " +
+                    "Close other apps or unload other models, then try again.",
+            )
+        }
     }
 
     private fun memTotal(): Long? = runCatching {

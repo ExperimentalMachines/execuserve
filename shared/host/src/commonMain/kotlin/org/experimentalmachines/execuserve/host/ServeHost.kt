@@ -282,9 +282,20 @@ class ServeHost(
     suspend fun evictAll() = act { it.evictIdle(force = true) }
 
     /** Unloads a model before its files are deleted; a new install under its id starts clean. */
-    suspend fun release(entry: ModelEntry) {
+    /**
+     * Unloads a model before its files are deleted: true once nothing holds it, false when the
+     * engine could not confirm that (deleting then would pull files from under a native load).
+     * [done] runs after the deletion so a new install under the same id is served again.
+     */
+    suspend fun release(entry: ModelEntry): Boolean {
         platform.setQuarantined(entry.id, false)
-        act { it.retire(entry.id) }
+        val engine = _engine.value ?: return true
+        return runCatching { engine.retire(entry.id) }.isSuccess
+    }
+
+    /** After a deletion: the id is free for a new install. */
+    fun released(entry: ModelEntry) {
+        _engine.value?.unretire(entry.id)
     }
 
     /** Records every quarantined model the library still has as failed; returns their ids. */

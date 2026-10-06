@@ -81,6 +81,14 @@ class ServeService : LifecycleService() {
         // what is true now, so a command that changes nothing leaves the right words (and
         // Stop) rather than a blank notification no later state replaces (codex review).
         promote(buildNotification(graph.host.state.value, graph.host.engine?.status?.value))
+        lastStartId = startId
+        // What the person wants is recorded when they ask, not when their turn comes: a Stop
+        // waiting behind a Restart that wedges must still stop hosting coming back (codex review).
+        when (intent?.action) {
+            ACTION_STOP -> wantServing = false
+            ACTION_START, ACTION_RESTART -> wantServing = true
+        }
+        if (intent?.action == ACTION_STOP) lifecycleScope.launch { graph.settings.setWasServing(false) }
         when (intent?.action) {
             ACTION_STOP -> command {
                 graph.settings.setWasServing(false)
@@ -101,6 +109,7 @@ class ServeService : LifecycleService() {
             // A sticky restart after the process died: the intent is gone, the settings are not.
             null -> command {
                 if (graph.settings.wasServing()) {
+                    wantServing = true
                     graph.settings.setRecovery(Recovery(System.currentTimeMillis(), afterWedge = graph.settings.wedged()))
                     graph.settings.setWedged(false)
                     serve()
@@ -129,8 +138,14 @@ class ServeService : LifecycleService() {
 
     private val commands = kotlinx.coroutines.sync.Mutex()
     private var pending = 0
+    private var lastStartId = 0
+
+    @Volatile
+    private var wantServing = false
 
     private suspend fun serve() {
+        // A Stop that arrived meanwhile wins: this start is no longer wanted.
+        if (!wantServing) return
         graph.settings.setWasServing(true)
         graph.host.start(onWedged = ::onWedged)
         val state = graph.host.state.value
@@ -297,9 +312,12 @@ class ServeService : LifecycleService() {
     private fun stopIfIdle() {
         if (settled && graph.host.state.value is ServeHost.State.Stopped && !graph.downloader.busy) {
             // A held update must not post the notification again after it is gone.
-            pendingNotify?.cancel()
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            // Only if no newer start has been sent meanwhile: stopSelf() would end the service
+            // under a command Android has not delivered yet (codex review).
+            if (stopSelfResult(lastStartId)) {
+                pendingNotify?.cancel()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            }
         }
     }
 

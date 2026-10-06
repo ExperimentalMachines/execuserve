@@ -97,6 +97,15 @@ class ModelScopeTest {
         assertEquals(HttpStatusCode.BadRequest, background.status, background.bodyAsText())
         val tokens = http.send("/v1/completions", """{"model":"first","prompt":[123, 456]}""")
         assertEquals(HttpStatusCode.BadRequest, tokens.status, tokens.bodyAsText())
+        // A field of the wrong kind is the client's mistake: 400, not 500.
+        val malformed = http.send("/v1/chat/completions", """{"model":"first","messages":[{"role":"user","content":"Hi"}],"response_format":{"type":{}}}""")
+        assertEquals(HttpStatusCode.BadRequest, malformed.status, malformed.bodyAsText())
+        val hot = http.send(
+            "/v1/messages",
+            """{"model":"first","max_tokens":5,"temperature":1.5,"messages":[{"role":"user","content":"Hi"}]}""",
+            anthropic = true,
+        )
+        assertEquals(HttpStatusCode.BadRequest, hot.status, hot.bodyAsText())
         assertEquals(0, engine.status.value.totals.completed)
     }
 
@@ -118,6 +127,10 @@ class ModelScopeTest {
             assertEquals(HttpStatusCode.OK, reply.status, reply.bodyAsText())
             assertEquals("alpha", json(reply.bodyAsText())["model"]!!.jsonPrimitive.content)
         }
+        // A name in the path is an address: a wrong one is not found, and unloads nothing.
+        assertEquals(HttpStatusCode.NotFound, http.getKey("/models/alpha/v1/models/typo").status)
+        assertEquals(HttpStatusCode.NotFound, http.send("/models/alpha/v1/execuserve/models/typo/unload", "{}").status)
+        assertEquals(HttpStatusCode.OK, http.send("/models/alpha/apply-template", body("gpt-4o")).status)
         // Without a mount, an unknown name is still not found.
         assertEquals(HttpStatusCode.NotFound, http.send("/v1/chat/completions", body("gpt-4o")).status)
     }
@@ -127,6 +140,17 @@ class ModelScopeTest {
         val models = http.get("/v1/models") { header("x-api-key", "sk-one") }
         assertEquals(HttpStatusCode.OK, models.status, models.bodyAsText())
         assertEquals(HttpStatusCode.Unauthorized, http.get("/v1/models") { header("x-api-key", "wrong") }.status)
+        // In Anthropic's shape for an Anthropic client.
+        val anthropic = json(
+            http.get("/v1/models") {
+                header("x-api-key", "sk-one")
+                header("anthropic-version", "2023-06-01")
+            }.bodyAsText(),
+        )
+        val first = anthropic["data"]!!.jsonArray.first().jsonObject
+        assertEquals("model", first["type"]!!.jsonPrimitive.content)
+        assertTrue("display_name" in first && "created_at" in first, first.toString())
+        assertEquals("false", anthropic["has_more"]!!.jsonPrimitive.content)
     }
 
     @Test

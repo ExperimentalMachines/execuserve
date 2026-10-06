@@ -3,7 +3,7 @@
   <ManuallySuppressedIssues/>
   <CurrentIssues>
     <ID>CyclomaticComplexMethod:Engine.kt$Engine$private fun generate(job: Job, resident: Resident, queueMs: Long, loadMs: Long)</ID>
-    <ID>CyclomaticComplexMethod:Engine.kt$Engine$private fun prepare(entry: ModelEntry, request: GenerationRequest): PreparedPrompt</ID>
+    <ID>CyclomaticComplexMethod:Engine.kt$Engine$private fun prepare(entry: ModelEntry, request: GenerationRequest, checkWindow: Boolean = true): PreparedPrompt</ID>
     <ID>CyclomaticComplexMethod:Engine.kt$Engine$private suspend fun reaperLoop()</ID>
     <ID>CyclomaticComplexMethod:Pipeline.kt$ReasoningSplitter$fun accept(text: String): Pair&lt;String, String&gt;</ID>
     <ID>LargeClass:Engine.kt$Engine</ID>

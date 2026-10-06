@@ -34,6 +34,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.put
@@ -97,6 +98,9 @@ fun Application.execuServe(ctx: ServerContext) {
             allowHeader("anthropic-version")
             allowHeader("anthropic-beta")
             allowHeader("anthropic-dangerous-direct-browser-access")
+            // OpenAI's SDKs send these when configured with an organization or project.
+            allowHeader("OpenAI-Organization")
+            allowHeader("OpenAI-Project")
             // The official JavaScript SDKs describe themselves in X-Stainless-* headers.
             allowHeaders { it.startsWith("x-stainless-", ignoreCase = true) }
             exposeHeader("x-execuserve-ignored")
@@ -149,15 +153,18 @@ private fun Route.apiRoutes(ctx: ServerContext) {
     get("/v1/models") {
         call.handle {
             client(ctx)
-            respondJson(ModelResponses.list(hostedModels(ctx).map { modelOut(ctx, it) }))
+            val models = hostedModels(ctx)
+            // Anthropic's SDKs read their own model objects (type, display_name, created_at)
+            // and page markers; everyone else gets OpenAI's list.
+            respondJson(if (speaksAnthropic()) anthropicModels(models) else ModelResponses.list(models.map { modelOut(ctx, it) }))
         }
     }
     get("/v1/models/{id...}") {
         call.handle {
             client(ctx)
             val name = routeParameters.getAll("id").orEmpty().joinToString("/")
-            val entry = resolveModel(ctx, name)
-            respondJson(modelOut(ctx, entry).toJson())
+            val entry = resolveModel(ctx, name, fromBody = false)
+            respondJson(if (speaksAnthropic()) anthropicModel(entry) else modelOut(ctx, entry).toJson())
         }
     }
     post("/v1/chat/completions") { call.handle { chat(ctx) } }
@@ -177,7 +184,7 @@ private fun Route.apiRoutes(ctx: ServerContext) {
     post("/v1/execuserve/models/{id}/load") {
         call.handle {
             val caller = client(ctx)
-            val id = resolveModel(ctx, routeParameters["id"].orEmpty()).id
+            val id = resolveModel(ctx, routeParameters["id"].orEmpty(), fromBody = false).id
             try {
                 ctx.engine.load(id)
             } catch (failure: RuntimeFailure) {
@@ -189,7 +196,7 @@ private fun Route.apiRoutes(ctx: ServerContext) {
     post("/v1/execuserve/models/{id}/unload") {
         call.handle {
             val caller = client(ctx)
-            ctx.engine.unload(resolveModel(ctx, routeParameters["id"].orEmpty()).id)
+            ctx.engine.unload(resolveModel(ctx, routeParameters["id"].orEmpty(), fromBody = false).id)
             respondJson(statusBody(ctx, caller.id))
         }
     }
@@ -237,7 +244,8 @@ private suspend fun ApplicationCall.applyTemplate(ctx: ServerContext) {
     val request = decode<ChatCompletionRequest>(tree)
     val entry = resolveModel(ctx, request.model)
     val prompt = try {
-        ctx.engine.render(Translate.chat(request, client, ctx.engine.templateFor(entry)))
+        // Rendered for the model resolved, which on a model's endpoint may not be the body's name.
+        ctx.engine.render(Translate.chat(request.copy(model = entry.id), client, ctx.engine.templateFor(entry)))
     } catch (refusal: Refusal) {
         throw refusalError(refusal)
     }
@@ -563,6 +571,14 @@ internal suspend fun ApplicationCall.handle(block: suspend ApplicationCall.() ->
         respondError(error)
     } catch (refusal: Refusal) {
         respondError(refusalError(refusal))
+    } catch (malformed: IllegalArgumentException) {
+        // A field of the wrong JSON kind deep in a body ({"type": {}} where a string belongs)
+        // surfaces from the JSON accessors: the client's mistake, said as a 400, not a 500.
+        if (malformed.message.orEmpty().contains("is not a Json")) {
+            runCatching { respondError(ApiError.badRequest("A field in the body has the wrong JSON type: ${malformed.message}")) }
+        } else {
+            runCatching { respondError(ApiError.internal(malformed.message ?: "error")) }
+        }
     } catch (cancelled: kotlinx.coroutines.CancellationException) {
         throw cancelled
     } catch (failure: Throwable) {
@@ -617,3 +633,20 @@ internal fun strictTools(tree: JsonObject): List<String> =
     } else {
         emptyList()
     }
+
+/** A model as Anthropic's Models API describes one. */
+@OptIn(kotlin.time.ExperimentalTime::class)
+private fun anthropicModel(entry: ModelEntry): JsonObject = buildJsonObject {
+    put("type", "model")
+    put("id", entry.id)
+    put("display_name", entry.id)
+    put("created_at", kotlin.time.Instant.fromEpochMilliseconds(entry.installedAtMs.coerceAtLeast(0)).toString())
+}
+
+/** Every model in one page, as Anthropic's list pages them. */
+private fun anthropicModels(models: List<ModelEntry>): JsonObject = buildJsonObject {
+    put("data", JsonArray(models.map(::anthropicModel)))
+    put("has_more", false)
+    put("first_id", models.firstOrNull()?.id?.let(::JsonPrimitive) ?: JsonNull)
+    put("last_id", models.lastOrNull()?.id?.let(::JsonPrimitive) ?: JsonNull)
+}

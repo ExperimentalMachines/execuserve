@@ -589,7 +589,8 @@ private fun Composer(running: Boolean, loading: Boolean, model: MainViewModel, l
                     .onFocusChanged { focused = it.isFocused },
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                maxLines = MAX_LINES,
+                // Fewer lines while typing in a short window, so the conversation keeps some room.
+                maxLines = if (typingInShortWindow()) SHORT_MAX_LINES else MAX_LINES,
                 decorationBox = { field ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (draft.isEmpty()) {
@@ -694,6 +695,7 @@ private fun SendButton(running: Boolean, enabled: Boolean, onClick: () -> Unit) 
 
 /** Eight lines of draft before it scrolls: past that the field eats the conversation. */
 private const val MAX_LINES = 8
+private const val SHORT_MAX_LINES = 3
 
 /** Past seventy or eighty characters a line, prose stops being comfortable; on phones a no-op. */
 private val READABLE_WIDTH = 720.dp

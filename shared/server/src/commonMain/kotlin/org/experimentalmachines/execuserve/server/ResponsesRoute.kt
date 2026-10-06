@@ -237,7 +237,15 @@ internal object ResponsesTranslate {
     private fun output(output: JsonElement?): String = when (output) {
         null, JsonNull -> ""
         is JsonPrimitive -> output.contentOrNull.orEmpty()
-        is JsonArray -> output.joinToString("\n") { (it as? JsonObject)?.string("text").orEmpty() }
+        // Text parts only, and anything else refused: an image a tool returned would otherwise
+        // reach the model as an empty result, and it would answer as if the tool said nothing.
+        is JsonArray -> output.joinToString("\n") { part ->
+            val obj = part as? JsonObject ?: throw ApiError.badRequest("Tool output parts must be objects", "input")
+            when (val type = obj.string("type")) {
+                "input_text", "output_text", "text" -> obj.string("text").orEmpty()
+                else -> throw ApiError.unsupported("input", "Tool output of type '$type' is not supported; this server reads text only.")
+            }
+        }
         else -> output.toString()
     }
 

@@ -61,6 +61,8 @@ internal suspend fun ApplicationCall.countTokens(ctx: ServerContext) = anthropic
     val request = decode<MessagesRequest>(tree).let { it.copy(maxTokens = it.maxTokens ?: 1) }
     val entry = resolveModel(ctx, request.model)
     val generation = MessagesTranslate.request(request.copy(model = entry.id), client, ctx.engine.templateFor(entry))
+    // Said to be an estimate where a client can see it; the body is Anthropic's shape.
+    response.header("x-execuserve-estimate", "characters/$CHARS_PER_TOKEN_HINT")
     respondJson(buildJsonObject { put("input_tokens", ctx.engine.estimatePromptTokens(generation)) })
 }
 
@@ -72,6 +74,14 @@ private suspend fun ApplicationCall.anthropic(block: suspend ApplicationCall.() 
         respondAnthropicError(error)
     } catch (refusal: Refusal) {
         respondAnthropicError(refusalError(refusal))
+    } catch (malformed: IllegalArgumentException) {
+        // A field of the wrong JSON kind deep in a body ({"type": {}} where a string belongs)
+        // surfaces from the JSON accessors: the client's mistake, said as a 400, not a 500.
+        if (malformed.message.orEmpty().contains("is not a Json")) {
+            runCatching { respondAnthropicError(ApiError.badRequest("A field in the body has the wrong JSON type: ${malformed.message}")) }
+        } else {
+            runCatching { respondAnthropicError(ApiError.internal(malformed.message ?: "error")) }
+        }
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (failure: Throwable) {
@@ -191,6 +201,8 @@ internal object MessagesTranslate {
         if (request.messages.size > Translate.MAX_MESSAGES) throw ApiError.badRequest("Too many messages", "messages")
         // A trailing assistant turn asks the model to continue it, and the templates can only
         // close a turn, never leave one open.
+        // Anthropic's range, narrower than OpenAI's 0 to 2.
+        request.temperature?.let { if (it < 0.0 || it > 1.0) throw ApiError.badRequest("temperature must be between 0 and 1", "temperature") }
         if (request.messages.last().role == "assistant") {
             throw ApiError.unsupported("messages", "Prefilling the assistant turn is not supported; the last message must be the user's.")
         }
@@ -494,3 +506,6 @@ private const val TOOL_USE_PREFIX = "toolu_"
 private const val ENGINE_CALL_PREFIX = "call_"
 
 private const val OMITTED = "omitted"
+
+/** The rate count_tokens estimates at, as its header names it. */
+private const val CHARS_PER_TOKEN_HINT = 4

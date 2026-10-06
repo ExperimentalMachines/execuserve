@@ -128,6 +128,9 @@ class Engine(
 
         data class Unload(val id: String?) : Action
 
+        /** Unloads [id] and forgets its replies: on the lane, where the reply cache is written. */
+        data class Retire(val id: String) : Action
+
         data class EvictIdle(val force: Boolean) : Action
 
         data object TrimResidents : Action
@@ -244,9 +247,13 @@ class Engine(
             queue.forEach { if (it is Item.Generate && it.job.model.id == entry.id) it.job.cancel(FailureKind.CANCELLED) }
         }
         current?.takeIf { it.model.id == entry.id }?.cancel(FailureKind.CANCELLED)
-        ledgers = ledgers.filterKeys { !it.startsWith(entry.id + "\u0000") }
         wake.trySend(Unit)
-        command(Action.Unload(entry.id))
+        command(Action.Retire(entry.id))
+    }
+
+    /** Serves [modelName] again: its files are gone and a new install may take the id (codex review). */
+    fun unretire(modelName: String) {
+        retiring = retiring - modelName
     }
 
     /** Models being deleted: refused by every path that could open them. */
@@ -324,7 +331,8 @@ class Engine(
         dropped.forEach { item ->
             when (item) {
                 is Item.Generate -> fail(item.job, FailureKind.SHUTTING_DOWN, "The server is stopping.")
-                is Item.Command -> item.done.complete(Unit)
+                // Never ran: said so, not acknowledged as if it had (codex review).
+                is Item.Command -> item.done.completeExceptionally(Refusal.Unavailable("The server is stopping."))
             }
         }
         _status.update { it.copy(admission = Admission.STOPPED) }
@@ -355,14 +363,15 @@ class Engine(
      * @throws Refusal as [submit] would.
      */
     /** About how many tokens [request]'s prompt is, rendered as it would be run: an estimate. */
-    fun estimatePromptTokens(request: GenerationRequest): Int = (render(request).length + CHARS_PER_TOKEN - 1) / CHARS_PER_TOKEN
+    fun estimatePromptTokens(request: GenerationRequest): Int = // Counted whatever its length: a count is how a client learns that it is too long.
+        (render(request, checkWindow = false).length + CHARS_PER_TOKEN - 1) / CHARS_PER_TOKEN
 
-    fun render(request: GenerationRequest): String {
+    fun render(request: GenerationRequest, checkWindow: Boolean = true): String {
         val entry = models.resolve(request.model) ?: throw Refusal.UnknownModel(request.model, models.all().map { it.id })
-        return prepare(entry, request.copy(client = ClientId(RENDER_ONLY, RENDER_ONLY))).text
+        return prepare(entry, request.copy(client = ClientId(RENDER_ONLY, RENDER_ONLY)), checkWindow).text
     }
 
-    private fun prepare(entry: ModelEntry, request: GenerationRequest): PreparedPrompt {
+    private fun prepare(entry: ModelEntry, request: GenerationRequest, checkWindow: Boolean = true): PreparedPrompt {
         val template = templateFor(entry)
         val bos = template?.bosToken?.takeUnless { runtime.tokenizerAddsBos(entry.files) }.orEmpty()
         val prepared = when (val input = request.input) {
@@ -408,7 +417,7 @@ class Engine(
         // Six characters a token is more than any shipped tokenizer averages on prose, so
         // a prompt refused here would certainly not have fitted. Anything closer is left to
         // the runtime, which knows; the estimate must never refuse what would have run.
-        if (window != null && prepared.text.length / GENEROUS_CHARS_PER_TOKEN >= window) {
+        if (checkWindow && window != null && prepared.text.length / GENEROUS_CHARS_PER_TOKEN >= window) {
             throw Refusal.TooLong(
                 "This prompt is about ${prepared.text.length / CHARS_PER_TOKEN} tokens; " +
                     "'${entry.id}' was exported with a $window-token window.",
@@ -801,22 +810,14 @@ class Engine(
                     residents.values
                         .filter { action.id == null || it.entry.id == action.id }
                         .forEach(::evict)
-                is Action.EvictIdle -> {
-                    val now = clock()
-                    val idleFor = config.idleUnloadMs
-                    residents.values
-                        .filter { action.force || (idleFor > 0 && now - it.lastUsedMs >= idleFor) }
-                        .forEach(::evict)
-                }
+                is Action.Retire -> forget(action.id)
+                is Action.EvictIdle -> evictIdleNow(action.force)
                 Action.TrimResidents -> trimResidents()
                 is Action.ForgetFailures -> {
                     broken.keys.retainAll(action.keep)
                     _status.update { it.copy(broken = broken.toMap()) }
                 }
-                is Action.SetFailure -> {
-                    if (action.reason == null) broken.remove(action.id) else broken[action.id] = action.reason
-                    _status.update { it.copy(broken = broken.toMap()) }
-                }
+                is Action.SetFailure -> setFailure(action.id, action.reason)
             }
             publishResidents()
         } finally {
@@ -825,11 +826,23 @@ class Engine(
         }
     }
 
-    /**
-     * Whether [entry] fits in memory beside the models already there. Each passed the phone on
-     * its own; two together could still take more than it has and get the app, or the apps
-     * calling it, killed (codex review). Unknown needs count as not fitting: alone is safe.
-     */
+    private fun evictIdleNow(force: Boolean) {
+        val now = clock()
+        val idleFor = config.idleUnloadMs
+        residents.values.filter { force || (idleFor > 0 && now - it.lastUsedMs >= idleFor) }.forEach(::evict)
+    }
+
+    private fun setFailure(id: String, reason: String?) {
+        if (reason == null) broken.remove(id) else broken[id] = reason
+        _status.update { it.copy(broken = broken.toMap()) }
+    }
+
+    /** Unloads [id] and forgets its replies. On the lane. */
+    private fun forget(id: String) {
+        residents[id]?.let(::evict)
+        ledgers = ledgers.filterKeys { !it.startsWith(id + "\u0000") }
+    }
+
     /** Evicts the least recently used until [entry] fits by count and by memory. */
     private fun makeRoomFor(entry: ModelEntry) {
         val capacity = minOf(config.maxResidentModels, runtime.maxResidentModels).coerceAtLeast(1)
@@ -838,6 +851,11 @@ class Engine(
         }
     }
 
+    /**
+     * Whether [entry] fits in memory beside the models already there. Each passed the phone on
+     * its own; two together could still take more than it has and get the app, or the apps
+     * calling it, killed (codex review). Unknown needs count as not fitting: alone is safe.
+     */
     private fun fitsBeside(entry: ModelEntry): Boolean {
         val budget = config.memoryBudgetBytes ?: return true
         val needs = residents.values.map { ModelMemory.needFor(it.entry) } + ModelMemory.needFor(entry)
@@ -947,7 +965,10 @@ class Engine(
                 onWedged()
             }
 
-            if (running == null && now >= idleCheckAt && !stopping) {
+            // Not while a model loads: the runtime's capacity is read under the lock a native
+            // load holds, and a hung load would then hang its own watchdog (codex review).
+            val quiet = running == null && loadingSince == 0L && !stopping
+            if (quiet && now >= idleCheckAt) {
                 idleCheckAt = now + IDLE_CHECK_MS
                 val capacity = minOf(config.maxResidentModels, runtime.maxResidentModels).coerceAtLeast(1)
                 if (_status.value.resident.size > capacity) {
