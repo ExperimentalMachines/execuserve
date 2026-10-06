@@ -79,6 +79,28 @@ class ModelScopeTest {
     private fun body(model: String) = """{"model":"$model","messages":[{"role":"user","content":"Hi"}],"max_tokens":20}"""
 
     @Test
+    fun whatCannotBeHonouredIsRefusedInTheCallersShape() = serve { http, engine ->
+        // An unknown route answers JSON a client SDK can read, in its own protocol's shape.
+        val openai = http.getKey("/v1/embeddings")
+        assertEquals(HttpStatusCode.NotFound, openai.status)
+        assertEquals("not_found", json(openai.bodyAsText())["error"]!!.jsonObject["code"]!!.jsonPrimitive.content)
+        val anthropic = http.get("/v1/messages/batches") {
+            header("x-api-key", "sk-one")
+            header("anthropic-version", "2023-06-01")
+        }
+        assertEquals(HttpStatusCode.NotFound, anthropic.status)
+        assertEquals("error", json(anthropic.bodyAsText())["type"]!!.jsonPrimitive.content)
+        // Fields that would otherwise vanish in decoding, and change nothing, are refused.
+        val legacy = http.send("/v1/chat/completions", """{"model":"first","messages":[{"role":"user","content":"Hi"}],"functions":[{"name":"f"}]}""")
+        assertEquals(HttpStatusCode.BadRequest, legacy.status, legacy.bodyAsText())
+        val background = http.send("/v1/responses", """{"model":"first","input":"Hi","background":true}""")
+        assertEquals(HttpStatusCode.BadRequest, background.status, background.bodyAsText())
+        val tokens = http.send("/v1/completions", """{"model":"first","prompt":[123, 456]}""")
+        assertEquals(HttpStatusCode.BadRequest, tokens.status, tokens.bodyAsText())
+        assertEquals(0, engine.status.value.totals.completed)
+    }
+
+    @Test
     fun countTokensEstimatesTheRenderedPrompt() = serve { http, engine ->
         val reply = http.send("/v1/messages/count_tokens", """{"model":"first","messages":[{"role":"user","content":"Hello there"}]}""", anthropic = true)
         assertEquals(HttpStatusCode.OK, reply.status, reply.bodyAsText())

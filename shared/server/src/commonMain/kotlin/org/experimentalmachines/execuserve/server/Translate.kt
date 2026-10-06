@@ -78,19 +78,26 @@ internal object Translate {
         )
     }
 
+    /** The one text prompt of a Completions request. */
+    private fun promptText(p: JsonElement?): String = when (p) {
+        is JsonPrimitive -> p.takeIf { it.isString }?.content
+        is JsonArray -> when {
+            // Token IDs ([123, 456] or [[...]]) are a prompt in the model's own vocabulary,
+            // which this server cannot read: refused, not taken as the text "123".
+            p.any { it is JsonArray || (it is JsonPrimitive && !it.isString) } ->
+                throw ApiError.unsupported("prompt", "Token-ID prompts are not supported. Send the prompt as text.")
+            p.size == 1 -> p[0].jsonPrimitive.content
+            else -> throw ApiError.unsupported("prompt", "Send one prompt per request.")
+        }
+        else -> null
+    } ?: throw ApiError.badRequest("prompt must be a string", "prompt")
+
     fun completion(request: CompletionRequest, client: ClientId): GenerationRequest {
         if ((request.n ?: 1) != 1) throw ApiError.unsupported("n", "Only n=1 is supported.")
         if (request.echo == true) throw ApiError.unsupported("echo", "echo is not supported.")
         if (!request.suffix.isNullOrEmpty()) throw ApiError.unsupported("suffix", "suffix is not supported.")
         if (request.logprobs != null) throw ApiError.unsupported("logprobs", "This runtime does not expose logprobs.")
-        val prompt = when (val p = request.prompt) {
-            is JsonPrimitive -> p.contentOrNull
-            is JsonArray -> when {
-                p.size == 1 && p[0] is JsonPrimitive -> p[0].jsonPrimitive.contentOrNull
-                else -> throw ApiError.unsupported("prompt", "Send one prompt per request.")
-            }
-            else -> null
-        } ?: throw ApiError.badRequest("prompt must be a string", "prompt")
+        val prompt = promptText(request.prompt)
         return GenerationRequest(
             model = request.model,
             input = PromptInput.Raw(prompt),

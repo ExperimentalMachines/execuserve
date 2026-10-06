@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.app.graph
@@ -76,45 +77,58 @@ class ServeService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        // Within five seconds of startForegroundService, whatever else happens.
-        promote(buildNotification(null, null))
-        settled = false
+        // Within five seconds of startForegroundService, whatever else happens; built from
+        // what is true now, so a command that changes nothing leaves the right words (and
+        // Stop) rather than a blank notification no later state replaces (codex review).
+        promote(buildNotification(graph.host.state.value, graph.host.engine?.status?.value))
         when (intent?.action) {
-            ACTION_STOP -> lifecycleScope.launch {
+            ACTION_STOP -> command {
                 graph.settings.setWasServing(false)
                 graph.host.stop()
-                settle()
             }
-            // One command, so the start cannot overtake the stop (two intents could; codex review).
-            ACTION_RESTART -> lifecycleScope.launch {
+            ACTION_RESTART -> command {
                 graph.host.stop()
                 serve()
-                settle()
             }
-            ACTION_KEEP_ALIVE -> settle()
-            ACTION_PULL -> lifecycleScope.launch {
-                pull(intent.getStringExtra(EXTRA_REPO).orEmpty(), intent.getStringExtra(EXTRA_FILE).orEmpty())
-                settle()
-            }
-            ACTION_START -> lifecycleScope.launch {
+            ACTION_KEEP_ALIVE -> command {}
+            ACTION_PULL -> command { pull(intent.getStringExtra(EXTRA_REPO).orEmpty(), intent.getStringExtra(EXTRA_FILE).orEmpty()) }
+            ACTION_START -> command {
                 applyOverrides(intent)
                 // Someone asked for this start: whatever happened before is not news now.
                 graph.settings.setRecovery(null)
                 serve()
-                settle()
             }
             // A sticky restart after the process died: the intent is gone, the settings are not.
-            null -> lifecycleScope.launch {
+            null -> command {
                 if (graph.settings.wasServing()) {
                     graph.settings.setRecovery(Recovery(System.currentTimeMillis(), afterWedge = graph.settings.wedged()))
                     graph.settings.setWedged(false)
                     serve()
                 }
-                settle()
             }
         }
         return START_STICKY
     }
+
+    /**
+     * Runs [block] after every command before it, one at a time: a Stop and a Start sent
+     * together happen in that order, and the service settles (and may stop itself) only once
+     * none is left, so an older Stop cannot end the service under a newer Start (codex review).
+     */
+    private fun command(block: suspend () -> Unit) {
+        pending++
+        settled = false
+        lifecycleScope.launch {
+            try {
+                commands.withLock { block() }
+            } finally {
+                if (--pending == 0) settle()
+            }
+        }
+    }
+
+    private val commands = kotlinx.coroutines.sync.Mutex()
+    private var pending = 0
 
     private suspend fun serve() {
         graph.settings.setWasServing(true)
@@ -271,7 +285,8 @@ class ServeService : LifecycleService() {
                     .setAutoCancel(true)
                     .build(),
             )
-            graph.settings.setWasServing(true)
+            // Whether hosting comes back is what it was: serving set it when it started, and a
+            // Stop pressed meanwhile cleared it. Setting it here restarted a stopped server.
             graph.settings.setWedged(true)
             // The lane thread is stuck in native code and cannot be interrupted; a new
             // process is the only clean state. START_STICKY brings the service back.

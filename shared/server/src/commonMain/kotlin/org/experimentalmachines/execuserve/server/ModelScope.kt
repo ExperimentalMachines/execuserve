@@ -47,15 +47,17 @@ internal fun ApplicationCall.resolveModel(ctx: ServerContext, name: String): Mod
 /**
  * Queue, lane and totals remain global: all routes share the phone's compute budget. Another
  * key's request shows that the phone is busy and how far along it is, but not whose it is or
- * how long its prompt was; a key sees its own recent requests only (agy review).
+ * how long its prompt or cached conversation was; a key sees its own recent requests only.
  */
 internal fun ApplicationCall.visibleStatus(ctx: ServerContext, clientId: String): EngineStatus {
     val scope = hostedModel(ctx)?.id
     val status = ctx.engine.status.value
     return status.copy(
         running = status.running?.takeIf { scope == null || it.model == scope }
-            ?.let { if (it.clientId == clientId) it else it.copy(client = "", promptChars = 0, prefilledChars = 0) },
-        resident = status.resident.filter { scope == null || it.id == scope },
+            ?.let { if (it.clientId == clientId) it else it.copy(client = "", promptChars = 0, prefilledChars = 0, cachedTokens = 0) },
+        // How many tokens a model holds is the size of somebody's conversation: not shown,
+        // since the holder is not recorded here (codex review).
+        resident = status.resident.filter { scope == null || it.id == scope }.map { it.copy(heldTokens = 0) },
         broken = status.broken.filterKeys { scope == null || it == scope },
         recent = status.recent.filter { it.clientId == clientId && (scope == null || it.model == scope) },
     )

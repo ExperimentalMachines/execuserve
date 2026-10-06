@@ -67,7 +67,7 @@ data class HostSettings(
 
     fun engineConfig() = ENGINE.copy(
         maxResidentModels = residentLimit,
-        maxQueued = maxQueued,
+        maxQueued = maxQueued.coerceAtLeast(1),
         maxPerClient = maxPerClient,
         queueTimeoutMs = queueTimeoutSeconds * MS_PER_SECOND,
         requestTimeoutMs = requestTimeoutSeconds * MS_PER_SECOND,
@@ -112,7 +112,9 @@ object Choices {
     val TEMPERATURES = listOf(0f, 0.2f, 0.4f, 0.6f, 0.7f, 0.8f, 1.0f, 1.2f)
     val IDLE_UNLOAD_MINUTES = listOf(0, 5, 15, 60)
     val BATTERY_FLOORS = listOf(0, 10, 20, 30)
-    val QUEUE_SIZES = 0..256
+
+    /** From one: a queue of none refused every request, even on an idle server. */
+    val QUEUE_SIZES = 1..256
     val PER_CLIENT = 1..64
     val QUEUE_TIMEOUT_SECONDS = 5..3_600
     val REQUEST_TIMEOUT_SECONDS = 10..7_200

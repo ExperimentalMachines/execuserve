@@ -87,6 +87,9 @@ internal class TokenPipeline(
     val shouldStop: Boolean get() = end >= 0 || cut
 
     fun accept(fragment: String): Released {
+        // Past the budget the runner can still deliver a token before it sees the stop:
+        // neither counted nor released, so max_tokens is never exceeded (codex review).
+        if (cut) return Released.NONE
         tokens++
         repeats = if (fragment == lastFragment) repeats + 1 else 0
         lastFragment = fragment

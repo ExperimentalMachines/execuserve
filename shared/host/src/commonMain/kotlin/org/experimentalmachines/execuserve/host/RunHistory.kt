@@ -77,15 +77,27 @@ class RunHistory(
      * process that lives for weeks still forgets on time (codex review).
      */
     suspend fun add(run: JobRecord) = lock.withLock {
-        store.appendLine(RunCodec.encode(run))
-        stored++
-        oldestStoredMs = minOf(oldestStoredMs, run.finishedAtMs)
         val kept = keep(_runs.value.asReversed() + run)
         _runs.value = kept.asReversed()
-        val overCount = stored > retention.maxRuns + retention.maxRuns / COMPACT_SLACK
-        val overAge = oldestStoredMs < clock() - retention.maxAgeMs - retention.maxAgeMs / AGE_SLACK
-        if (overCount || overAge) compact(kept)
+        // A full or failing disk must not end hosting: the run is shown, only not kept.
+        try {
+            store.appendLine(RunCodec.encode(run))
+            stored++
+            oldestStoredMs = minOf(oldestStoredMs, run.finishedAtMs)
+            val overCount = stored > retention.maxRuns + retention.maxRuns / COMPACT_SLACK
+            val overAge = oldestStoredMs < clock() - retention.maxAgeMs - retention.maxAgeMs / AGE_SLACK
+            if (overCount || overAge) compact(kept)
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            _storeFailure.value = failure.message ?: failure::class.simpleName
+        }
     }
+
+    private val _storeFailure = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
+    /** Why the last run could not be written to disk, if it could not; the runs stay in memory. */
+    val storeFailure: kotlinx.coroutines.flow.StateFlow<String?> = _storeFailure
 
     suspend fun clear() = lock.withLock {
         store.rewrite(emptyList())

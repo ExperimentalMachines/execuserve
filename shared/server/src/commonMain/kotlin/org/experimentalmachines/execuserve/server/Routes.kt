@@ -30,7 +30,9 @@ import kotlinx.coroutines.selects.onTimeout
 import kotlinx.coroutines.selects.select
 import kotlinx.io.readByteArray
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -42,6 +44,7 @@ import org.experimentalmachines.execuserve.api.ChatResponses
 import org.experimentalmachines.execuserve.api.CompletionRequest
 import org.experimentalmachines.execuserve.api.CompletionResponses
 import org.experimentalmachines.execuserve.api.HttpStatus
+import org.experimentalmachines.execuserve.api.MessageObjects
 import org.experimentalmachines.execuserve.api.ModelOut
 import org.experimentalmachines.execuserve.api.ModelResponses
 import org.experimentalmachines.execuserve.api.Sse
@@ -93,6 +96,11 @@ fun Application.execuServe(ctx: ServerContext) {
             allowHeader("x-api-key")
             allowHeader("anthropic-version")
             allowHeader("anthropic-beta")
+            allowHeader("anthropic-dangerous-direct-browser-access")
+            // The official JavaScript SDKs describe themselves in X-Stainless-* headers.
+            allowHeaders { it.startsWith("x-stainless-", ignoreCase = true) }
+            exposeHeader("x-execuserve-ignored")
+            exposeHeader(HttpHeaders.RetryAfter)
             allowMethod(HttpMethod.Get)
             allowMethod(HttpMethod.Post)
         }
@@ -127,6 +135,11 @@ fun Application.execuServe(ctx: ServerContext) {
         route("/models/{hostedModel}") {
             modelChat(ctx)
             apiRoutes(ctx)
+        }
+        // Anything else: a JSON error in the caller's protocol, not an empty 404 a client SDK
+        // cannot read. The wildcard ranks below every real route.
+        route("{unknown...}") {
+            handle { call.handle { throw ApiError.notFound(request.local.uri.substringBefore('?')) } }
         }
     }
 }
@@ -189,10 +202,15 @@ private fun Route.apiRoutes(ctx: ServerContext) {
 private suspend fun ApplicationCall.chat(ctx: ServerContext) {
     val client = client(ctx)
     val tree = readObject(ctx.settings.maxBodyBytes)
+    // The legacy function-calling fields would decode to nothing and the reply would ignore
+    // them: refused, with the field that replaced them.
+    listOf("functions", "function_call").firstOrNull { it in tree && tree[it] !is JsonNull }?.let { legacy ->
+        throw ApiError.unsupported(legacy, "Legacy function calling is not supported. Send the functions as tools (and function_call as tool_choice).")
+    }
     val request = decode<ChatCompletionRequest>(tree)
     val entry = resolveModel(ctx, request.model)
     val generation = Translate.chat(request, client, ctx.engine.templateFor(entry))
-    markIgnored(tree, Translate.droppedTools(request))
+    markIgnored(tree, Translate.droppedTools(request) + strictTools(tree))
     val job = submit(ctx, generation)
     val id = "chatcmpl-${job.id}"
     val created = ctx.nowSeconds()
@@ -324,7 +342,7 @@ internal interface StreamFormat {
  * Python SDK raises. One coroutine does all the writing, heartbeats included.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-internal suspend fun ApplicationCall.stream(job: Job, format: StreamFormat) {
+internal suspend fun ApplicationCall.stream(job: Job, format: StreamFormat, beforeFinish: suspend (GenerationResult) -> Unit = {}) {
     try {
         val early = mutableListOf<JobEvent>()
         var terminal: JobEvent? = null
@@ -361,7 +379,12 @@ internal suspend fun ApplicationCall.stream(job: Job, format: StreamFormat) {
                     }
                 }
                 when (end) {
-                    is JobEvent.Finished -> format.finish(end.result).forEach { send(it) }
+                    is JobEvent.Finished -> {
+                        // Before the terminal event: a client acting on it at once must find
+                        // whatever it announces already done.
+                        beforeFinish(end.result)
+                        format.finish(end.result).forEach { send(it) }
+                    }
                     is JobEvent.Failed -> format.failure(failureError(end.failure)).forEach { send(it) }
                     else -> Unit
                 }
@@ -523,8 +546,14 @@ internal suspend fun ApplicationCall.respondJson(json: JsonElement, status: Http
 
 private suspend fun ApplicationCall.respondError(error: ApiError) {
     error.retryAfterSeconds?.let { response.header(HttpHeaders.RetryAfter, it.toString()) }
-    respondJson(error.toJson(), HttpStatusCode.fromValue(error.status))
+    // An Anthropic client reads Anthropic's shape, wherever the error comes from.
+    val body = if (speaksAnthropic()) MessageObjects.error(error) else error.toJson()
+    respondJson(body, HttpStatusCode.fromValue(error.status))
 }
+
+/** Whether the caller is an Anthropic client: its version header, or the Messages route. */
+internal fun ApplicationCall.speaksAnthropic(): Boolean =
+    request.headers["anthropic-version"] != null || request.local.uri.substringBefore('?').contains("/v1/messages")
 
 /** Runs a handler and turns anything it throws into OpenAI's error shape. */
 internal suspend fun ApplicationCall.handle(block: suspend ApplicationCall.() -> Unit) {
@@ -562,7 +591,9 @@ private fun modelOut(ctx: ServerContext, entry: ModelEntry): ModelOut {
             "mtk" -> "executorch-neuropilot"
             else -> ctx.engine.runtimeId
         },
-        aliases = entry.aliases.sorted(),
+        // Only the aliases that pick this model: one another installed build also claims
+        // resolves to neither, and listing it would promise a name that answers 404.
+        aliases = entry.aliases.filter { ctx.engine.resolve(it)?.id == entry.id }.sorted(),
         ownedBy = entry.lab ?: "execuserve",
         capabilities = buildList {
             add("completions")
@@ -578,3 +609,11 @@ private fun modelOut(ctx: ServerContext, entry: ModelEntry): ModelOut {
 private const val BEARER = "Bearer "
 private const val COMMIT_AFTER_MS = 15_000L
 private const val HEARTBEAT_MS = 5_000L
+
+/** `strict` on a function tool promises its schema, which nothing here enforces: named as ignored. */
+internal fun strictTools(tree: JsonObject): List<String> =
+    if ((tree["tools"] as? JsonArray).orEmpty().any { tool -> ((tool as? JsonObject)?.get("function") as? JsonObject)?.get("strict")?.toString() == "true" }) {
+        listOf("tools[].function.strict")
+    } else {
+        emptyList()
+    }

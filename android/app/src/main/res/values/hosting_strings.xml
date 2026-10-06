@@ -43,7 +43,8 @@
     <string name="host_fact_start">When hosting starts</string>
     <string name="host_start_loads">Load %1$s</string>
     <string name="host_start_none">Load nothing; models load when a request needs them</string>
-    <string name="host_api_base">API base URL, %1$s</string>
+    <string name="host_api_base">OpenAI base URL, %1$s</string>
+    <string name="host_anthropic_base">Anthropic base URL (the SDK adds /v1)</string>
     <string name="host_address_when_running">The address appears here while hosting.</string>
     <string name="connect_restart_title">Change who can connect?</string>
     <string name="connect_restart_body">Hosting restarts on the new address: requests in progress are cancelled and models are unloaded.</string>

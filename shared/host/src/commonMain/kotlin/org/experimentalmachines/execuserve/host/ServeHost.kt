@@ -60,6 +60,9 @@ interface HostPlatform {
     /** Processor cores, for the thread setting's range. */
     val cpuCores: Int
 
+    /** What the models in memory may take together, or null when unknown (EngineConfig). */
+    val memoryBudgetBytes: Long? get() = null
+
     /** Thermal status and battery, live whether or not the server runs. */
     val environment: StateFlow<Environment>
 
@@ -162,7 +165,7 @@ class ServeHost(
             models = models,
             lane = dispatcher,
             scope = child,
-            config = current.engineConfig(),
+            config = current.engineConfig().copy(memoryBudgetBytes = platform.memoryBudgetBytes),
             environment = platform.environment,
             clock = clock,
             onWedged = onWedged,
@@ -201,7 +204,7 @@ class ServeHost(
         // What the engine can take live, it takes live; the listener's settings need a restart.
         child.launch {
             store.settings.collect { settings ->
-                engine.config = settings.engineConfig()
+                engine.config = settings.engineConfig().copy(memoryBudgetBytes = platform.memoryBudgetBytes)
                 // A thread count applies when a model opens, so the open ones are closed and
                 // the next request reopens with it.
                 if (settings.threads != runtime.threads) {

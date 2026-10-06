@@ -57,8 +57,13 @@ class Engine(
     /** Called once when a native call outlives its cancellation; the platform restarts. */
     private val onWedged: () -> Unit = {},
 ) {
+    /** Applied live; admission is decided again at once, so a raised battery floor shows. */
     @Volatile
     var config: EngineConfig = config
+        set(value) {
+            field = value
+            onEnvironment(environment.value)
+        }
 
     private val _status = MutableStateFlow(EngineStatus())
     val status: StateFlow<EngineStatus> = _status.asStateFlow()
@@ -794,6 +799,25 @@ class Engine(
         }
     }
 
+    /**
+     * Whether [entry] fits in memory beside the models already there. Each passed the phone on
+     * its own; two together could still take more than it has and get the app, or the apps
+     * calling it, killed (codex review). Unknown needs count as not fitting: alone is safe.
+     */
+    /** Evicts the least recently used until [entry] fits by count and by memory. */
+    private fun makeRoomFor(entry: ModelEntry) {
+        val capacity = minOf(config.maxResidentModels, runtime.maxResidentModels).coerceAtLeast(1)
+        while (residents.isNotEmpty() && (residents.size >= capacity || !fitsBeside(entry))) {
+            evict(residents.values.minBy { it.lastUsedMs })
+        }
+    }
+
+    private fun fitsBeside(entry: ModelEntry): Boolean {
+        val budget = config.memoryBudgetBytes ?: return true
+        val needs = residents.values.map { ModelMemory.needFor(it.entry) } + ModelMemory.needFor(entry)
+        return needs.all { it != null } && needs.sumOf { it ?: 0 } <= budget
+    }
+
     /** The resident session for [entry], loading it (and evicting to make room) if needed. */
     private fun residentFor(entry: ModelEntry): Resident {
         trimResidents(keep = entry.id)
@@ -802,9 +826,7 @@ class Engine(
             return it
         }
         broken[entry.id]?.let { throw RuntimeFailure(it) }
-        while (residents.isNotEmpty() && residents.size >= minOf(config.maxResidentModels, runtime.maxResidentModels).coerceAtLeast(1)) {
-            evict(residents.values.minBy { it.lastUsedMs })
-        }
+        makeRoomFor(entry)
         setLane(LaneState.LOADING, running = current?.let { running(it, 0, 0) }, loading = entry.id)
         val facts = runCatching { runtime.probe(entry.files) }.getOrElse { ModelFacts(entry.contextLength) }
         val session = try {

@@ -21,6 +21,12 @@ data class EngineConfig(
      * ExecuTorch custom thread counts currently limit residency to one.
      */
     val maxResidentModels: Int = 1,
+    /**
+     * Memory the models in memory may take together, or null when the platform cannot say.
+     * A load evicts the least recently used model until every resident's need and the new
+     * one's fit; a model whose need is unknown is kept alone (ModelMemory.needFor).
+     */
+    val memoryBudgetBytes: Long? = null,
     /** Unload a model idle this long; zero keeps it until something else needs the room. */
     val idleUnloadMs: Long = 0,
     val defaultTemperature: Float = 0.7f,

@@ -61,6 +61,23 @@ object ModelMemory {
         return fileBytes + cacheBytes(shape, window) + RUNTIME_BYTES
     }
 
+    /**
+     * What [entry] takes once loaded, by its build: a MediaTek build from its runner's own
+     * numbers, a Qualcomm build not at all (its cache is the NPU's), anything else from its
+     * source model's shape. Null when unknown.
+     */
+    fun needFor(entry: ModelEntry): Long? {
+        val npu = entry.files.npu
+        return when {
+            npu != null -> NpuMemory.needBytes(npu.runnerOptions, entry.sizeBytes)
+            entry.backend == QNN_BACKEND -> null
+            else -> needBytes(entry.source ?: entry.id, entry.contextLength, entry.sizeBytes)
+                ?: needBytes(entry.id, entry.contextLength, entry.sizeBytes)
+        }
+    }
+
+    private const val QNN_BACKEND = "qnn"
+
     /** How a need compares with what a phone can spare. */
     enum class Fit { COMFORTABLE, TIGHT, WONT_FIT }
 

@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -39,6 +40,7 @@ internal suspend fun ApplicationCall.responses(ctx: ServerContext) {
     val client = client(ctx)
     val tree = readObject(ctx.settings.maxBodyBytes)
     val request = decode<ResponsesRequest>(tree)
+    refuseUnsupportedState(tree)
     val entry = resolveModel(ctx, request.model)
     val earlier = request.previousResponseId?.let { previous ->
         ctx.conversations.get(previous, client.id, entry.id) ?: throw ApiError.badRequest(
@@ -59,9 +61,9 @@ internal suspend fun ApplicationCall.responses(ctx: ServerContext) {
         if (request.store) ctx.conversations.put(id, client.id, conversation + ResponsesTranslate.asInput(outputOf(job.id, result)), entry.id)
     }
     if (request.stream) {
-        stream(job, ResponsesStream(id, job.id, created, job.model.id, request))
-        // The stream has ended, so the outcome is in: kept only if the reply finished.
-        (job.outcome.await() as? JobEvent.Finished)?.let { keep(it.result) }
+        // Kept before response.completed is sent: a client that continues from it at once
+        // must find it (it raced the store and got previous_response_not_found).
+        stream(job, ResponsesStream(id, job.id, created, job.model.id, request), beforeFinish = ::keep)
     } else {
         when (val end = drain(job)) {
             is JobEvent.Finished -> {
@@ -488,5 +490,27 @@ internal class ResponsesStream(
                 put("item", item.toJson())
             },
         )
+    }
+}
+
+/**
+ * Responses options whose meaning this server cannot keep, refused rather than dropped: a
+ * background response would still block, a conversation id would be forgotten, and a stored
+ * prompt does not exist here (codex review).
+ */
+private fun refuseUnsupportedState(tree: JsonObject) {
+    fun present(key: String) = tree[key].let { it != null && it !is JsonNull && !(it is JsonPrimitive && it.booleanOrNull == false) }
+    if (present("background")) {
+        throw ApiError.badRequest("Background responses are not supported: send the request and wait, or stream it.", "background", "unsupported_parameter")
+    }
+    if (present("conversation")) {
+        throw ApiError.badRequest(
+            "Conversations are not stored here. Use previous_response_id, or send the whole conversation as input.",
+            "conversation",
+            "unsupported_parameter",
+        )
+    }
+    if (present("prompt")) {
+        throw ApiError.badRequest("Stored prompts are not available here. Send instructions and input instead.", "prompt", "unsupported_parameter")
     }
 }

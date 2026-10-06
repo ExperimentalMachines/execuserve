@@ -22,12 +22,7 @@ import org.experimentalmachines.execuserve.engine.NpuMemory
  * model. Its file size is what it costs to download, not to run (ModelMemory, NpuMemory).
  * Qualcomm NPU builds get none: their cache lives in the NPU's own memory, unmeasured here.
  */
-fun memoryNeed(entry: ModelEntry): Long? = when {
-    entry.files.npu != null -> entry.files.npu?.let { NpuMemory.needBytes(it.runnerOptions, entry.sizeBytes) }
-    entry.backend == HfCatalog.QNN -> null
-    else -> ModelMemory.needBytes(entry.source ?: entry.id, entry.contextLength, entry.sizeBytes)
-        ?: ModelMemory.needBytes(entry.id, entry.contextLength, entry.sizeBytes)
-}
+fun memoryNeed(entry: ModelEntry): Long? = ModelMemory.needFor(entry)
 
 fun memoryNeed(variant: CatalogVariant): Long? = when {
     variant.npu != null -> variant.npu?.let { NpuMemory.needBytes(it.runner, variant.installBytes) }

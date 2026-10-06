@@ -38,6 +38,13 @@ class AndroidPlatform(context: Context) : HostPlatform {
 
     override val cpuCores: Int = Runtime.getRuntime().availableProcessors()
 
+    // About two thirds of the phone's memory, the most a foreground app takes before Android
+    // starts closing others (ModelMemory.usableBytes).
+    override val memoryBudgetBytes: Long? = context.getSystemService(android.app.ActivityManager::class.java)
+        ?.let { manager -> android.app.ActivityManager.MemoryInfo().also(manager::getMemoryInfo).totalMem }
+        ?.takeIf { it > 0 }
+        ?.let(org.experimentalmachines.execuserve.engine.ModelMemory::usableBytes)
+
     override val environment: StateFlow<Environment> = device.state
 
     private val activityManager = context.getSystemService(ActivityManager::class.java)

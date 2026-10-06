@@ -3,7 +3,7 @@
   <ManuallySuppressedIssues/>
   <CurrentIssues>
     <ID>CyclomaticComplexMethod:ResponsesRoute.kt$ResponsesTranslate$private fun items(input: JsonArray, template: PromptTemplate?): List&lt;ChatMessage&gt;</ID>
-    <ID>CyclomaticComplexMethod:Routes.kt$@OptIn(ExperimentalCoroutinesApi::class) internal suspend fun ApplicationCall.stream(job: Job, format: StreamFormat)</ID>
+    <ID>CyclomaticComplexMethod:Routes.kt$@OptIn(ExperimentalCoroutinesApi::class) internal suspend fun ApplicationCall.stream(job: Job, format: StreamFormat, beforeFinish: suspend (GenerationResult) -&gt; Unit = {})</ID>
     <ID>LoopWithTooManyJumpStatements:Routes.kt$while</ID>
     <ID>NestedBlockDepth:ResponsesRoute.kt$ResponsesTranslate$private fun items(input: JsonArray, template: PromptTemplate?): List&lt;ChatMessage&gt;</ID>
     <ID>ReturnCount:Hosts.kt$Hosts$fun allowed(header: String?, deviceHosts: Set&lt;String&gt;, settings: ServerSettings): Boolean</ID>

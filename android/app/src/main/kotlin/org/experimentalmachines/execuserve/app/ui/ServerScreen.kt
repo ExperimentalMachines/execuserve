@@ -551,6 +551,8 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
             // What a client needs, together: the base URL, a model ID and (below) the key.
             val first = running.endpoints.first()
             CopyRow(first.url, label = stringResource(R.string.host_api_base, stringResource(first.network.words)), qr = true)
+            // Anthropic's SDKs add /v1 themselves: given the OpenAI base they ask /v1/v1/messages.
+            CopyRow(first.url.removeSuffix("/v1"), label = stringResource(R.string.host_anthropic_base))
             KeyRow(key)
             ApiModels(installed, model, settings.memoryLimit, first.url)
             CopyRow(first.url.removeSuffix("/v1").trimEnd('/') + "/", label = stringResource(R.string.connect_browser_chat), qr = true)
