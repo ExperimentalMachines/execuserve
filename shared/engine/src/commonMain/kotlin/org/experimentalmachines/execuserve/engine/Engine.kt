@@ -326,6 +326,9 @@ class Engine(
      *
      * @throws Refusal as [submit] would.
      */
+    /** About how many tokens [request]'s prompt is, rendered as it would be run: an estimate. */
+    fun estimatePromptTokens(request: GenerationRequest): Int = (render(request).length + CHARS_PER_TOKEN - 1) / CHARS_PER_TOKEN
+
     fun render(request: GenerationRequest): String {
         val entry = models.resolve(request.model) ?: throw Refusal.UnknownModel(request.model, models.all().map { it.id })
         return prepare(entry, request.copy(client = ClientId(RENDER_ONLY, RENDER_ONLY))).text

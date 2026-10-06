@@ -46,9 +46,28 @@ import org.experimentalmachines.execuserve.prompt.ToolDefinition
  * other routes. It answers errors itself, in Anthropic's shape, because the SDKs read
  * `error.type` from that shape and the wrapper the OpenAI routes share writes OpenAI's.
  */
-internal suspend fun ApplicationCall.messages(ctx: ServerContext) {
+internal suspend fun ApplicationCall.messages(ctx: ServerContext) = anthropic { answerMessages(ctx) }
+
+/**
+ * `POST /v1/messages/count_tokens`: the prompt rendered exactly as `/v1/messages` would
+ * render it, counted at the engine's characters-per-token rate. Anthropic documents its own
+ * count as an estimate; there is no tokenizer on this side of the runtime to do better
+ * without loading the model.
+ */
+internal suspend fun ApplicationCall.countTokens(ctx: ServerContext) = anthropic {
+    val client = anthropicClient(ctx)
+    val tree = readObject(ctx.settings.maxBodyBytes)
+    // max_tokens is not part of a count request; the translation needs one.
+    val request = decode<MessagesRequest>(tree).let { it.copy(maxTokens = it.maxTokens ?: 1) }
+    val entry = resolveModel(ctx, request.model)
+    val generation = MessagesTranslate.request(request.copy(model = entry.id), client, ctx.engine.templateFor(entry))
+    respondJson(buildJsonObject { put("input_tokens", ctx.engine.estimatePromptTokens(generation)) })
+}
+
+/** Runs [block], answering any failure in Anthropic's error shape. */
+private suspend fun ApplicationCall.anthropic(block: suspend ApplicationCall.() -> Unit) {
     try {
-        answerMessages(ctx)
+        block()
     } catch (error: ApiError) {
         respondAnthropicError(error)
     } catch (refusal: Refusal) {

@@ -152,6 +152,7 @@ private fun Route.apiRoutes(ctx: ServerContext) {
     post("/v1/responses") { call.handle { responses(ctx) } }
     // Not wrapped in handle: the Messages API answers its errors in Anthropic's shape.
     post("/v1/messages") { call.messages(ctx) }
+    post("/v1/messages/count_tokens") { call.countTokens(ctx) }
     post("/apply-template") { call.handle { applyTemplate(ctx) } }
     get("/v1/execuserve/status") {
         call.handle {

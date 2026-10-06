@@ -79,6 +79,16 @@ class ModelScopeTest {
     private fun body(model: String) = """{"model":"$model","messages":[{"role":"user","content":"Hi"}],"max_tokens":20}"""
 
     @Test
+    fun countTokensEstimatesTheRenderedPrompt() = serve { http, engine ->
+        val reply = http.send("/v1/messages/count_tokens", """{"model":"first","messages":[{"role":"user","content":"Hello there"}]}""", anthropic = true)
+        assertEquals(HttpStatusCode.OK, reply.status, reply.bodyAsText())
+        val tokens = json(reply.bodyAsText())["input_tokens"]!!.jsonPrimitive.content.toInt()
+        assertTrue(tokens in 3..200, tokens.toString())
+        // Nothing ran: a count is not a request.
+        assertEquals(0, engine.status.value.totals.completed)
+    }
+
+    @Test
     fun aModelsOwnEndpointAnswersANameItDoesNotKnow() = serve { http, _ ->
         // An app with a fixed model name ("gpt-4o") pointed at a model's base URL.
         for (route in listOf("chat/completions", "messages")) {

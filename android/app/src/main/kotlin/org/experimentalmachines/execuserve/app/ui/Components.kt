@@ -21,10 +21,12 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -574,3 +576,18 @@ fun PanelColumns(wide: Boolean, padding: PaddingValues, modifier: Modifier = Mod
 
 /** A model id may break after its hyphens, never inside a word ("neuropi" / "lot"). */
 internal fun breakable(id: String) = id.replace("-", "-\u200B")
+
+/**
+ * Typing in a short window: the keyboard is up and what is left is too short to give rows to
+ * anything but the conversation and the field (a phone held sideways). Headers step aside.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun typingInShortWindow(): Boolean {
+    val height = with(androidx.compose.ui.platform.LocalDensity.current) {
+        androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height.toDp()
+    }
+    return WindowInsets.isImeVisible && height < SHORT_WINDOW
+}
+
+private val SHORT_WINDOW = 480.dp

@@ -161,7 +161,8 @@ fun ChatScreen(model: MainViewModel, padding: PaddingValues, openModels: () -> U
                     ?: chattable.first()
                 val target = entry.id
                 var picking by rememberSaveable { mutableStateOf(false) }
-                ChatTopBar(entry, installed, status, chat, onPick = { picking = true }, onNewChat = model::newChat)
+                // Sideways with the keyboard up there is room for the conversation and the field only.
+                if (!typingInShortWindow()) ChatTopBar(entry, installed, status, chat, onPick = { picking = true }, onNewChat = model::newChat)
                 LoadFailure(status?.broken?.get(entry.id)) { model.retry(entry.id) }
                 Transcript(chat, ModelNames.shown(entry, installed), model, Modifier.weight(1f)) { model.sendChat(it, target) }
                 Composer(

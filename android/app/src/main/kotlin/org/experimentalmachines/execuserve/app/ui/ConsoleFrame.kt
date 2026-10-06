@@ -95,7 +95,7 @@ internal fun ConsoleFrame(
                 modifier = Modifier.weight(1f),
                 containerColor = MaterialTheme.colorScheme.background,
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                topBar = header,
+                topBar = { if (!typingInShortWindow()) header() },
                 bottomBar = {
                     // While typing on a phone the keyboard has the bottom of the screen: the
                     // tabs would only take rows from what is being written. Back closes the
