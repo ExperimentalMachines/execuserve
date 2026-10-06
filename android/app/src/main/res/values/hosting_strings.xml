@@ -26,8 +26,14 @@
     <string name="host_decode_detail">%1$s · last reply</string>
     <string name="host_prefill_hint">Prompt processing</string>
     <string name="host_decode_hint">Reply generation</string>
-    <string name="host_load">Load into memory</string>
-    <string name="host_unload">Free memory</string>
+    <string name="host_load">Load now</string>
+    <string name="host_unload">Unload</string>
+    <string name="host_unload_after">Unload after this reply</string>
+    <string name="host_unload_note">Unloading frees its memory without deleting it. Requests for it still work: it loads again when one arrives.</string>
+    <string name="host_unloaded_note">Not in memory. The next request for it loads it first, which takes a few seconds.</string>
+    <string name="host_models_at_start">Models at start</string>
+    <string name="host_starts_with">Start loads %1$s.</string>
+    <string name="host_starts_with_none">Start loads no model; each loads on its first request.</string>
     <string name="host_model_api">API base URL</string>
     <string name="host_model_id">Model ID</string>
     <string name="host_shared_key">Use the shared key in Connection access.</string>

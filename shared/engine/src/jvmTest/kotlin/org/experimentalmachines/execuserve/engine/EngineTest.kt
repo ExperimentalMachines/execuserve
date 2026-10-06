@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
@@ -94,6 +95,25 @@ class EngineTest {
         assertEquals(FinishReason.STOP, run.result.finishReason)
         assertEquals(3, run.result.completionTokens)
         assertIs<JobEvent.Started>(run.events.first())
+    }
+
+    @Test
+    fun unloadingAModelMidReplyLetsTheReplyFinishThenFreesIt() = test {
+        // What the Hosting screen's "Unload after this reply" promises: the unload waits its turn
+        // behind the reply being written, then the model leaves memory and loads again on demand.
+        val runtime = FakeRuntime(reply = { listOf("One", " two", " three", "<|im_end|>") }).apply { tokenDelayMs = 150 }
+        val engine = engine(runtime)
+        val job = engine.submit(chat(user("Count")))
+        val reply = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).async { job.collect() }
+        while (engine.status.value.running == null) kotlinx.coroutines.delay(10)
+        engine.unload("lfm")
+        val run = reply.await()
+        assertEquals("One two three", run.content)
+        assertEquals(FinishReason.STOP, run.result.finishReason)
+        assertTrue(engine.status.value.resident.isEmpty())
+        // The next request loads it again.
+        assertEquals("One two three", engine.submit(chat(user("Again"))).collect().content)
+        assertEquals(2, runtime.log.count { it.startsWith("open ") })
     }
 
     @Test

@@ -429,6 +429,9 @@
     <string name="chat_stop_reading">Stop reading aloud</string>
     <string name="chat_more">More actions</string>
     <string name="chat_regenerate">Regenerate reply</string>
+    <string name="chat_in_memory">in memory</string>
+    <string name="chat_loading">loading</string>
+    <string name="chat_loads_on_send">loads when you send</string>
     <string name="processor_short_cpu">CPU</string>
     <string name="processor_short_gpu">GPU</string>
     <string name="processor_short_qualcomm">NPU (Qualcomm)</string>

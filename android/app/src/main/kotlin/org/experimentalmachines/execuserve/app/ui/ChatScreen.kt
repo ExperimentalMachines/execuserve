@@ -82,6 +82,7 @@ import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.app.text.Format
 import org.experimentalmachines.execuserve.catalog.HfCatalog
+import org.experimentalmachines.execuserve.engine.LaneState
 import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.host.ConsoleChat
 import org.experimentalmachines.execuserve.host.ModelNames
@@ -161,6 +162,15 @@ private fun Gate(title: String, note: String, action: String, onAction: () -> Un
 @Composable
 private fun Controls(installed: List<ModelEntry>, entry: ModelEntry, chat: ChatState, model: MainViewModel) {
     var picking by remember { mutableStateOf(false) }
+    val status by model.status.collectAsState()
+    // Where the model stands, so a switch is visible: the one left is unloaded, this one loads.
+    val memory = stringResource(
+        when {
+            status?.resident.orEmpty().any { it.id == entry.id } -> R.string.chat_in_memory
+            status?.lane == LaneState.LOADING -> R.string.chat_loading
+            else -> R.string.chat_loads_on_send
+        },
+    )
     Row(
         Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -178,6 +188,7 @@ private fun Controls(installed: List<ModelEntry>, entry: ModelEntry, chat: ChatS
                             entry.contextLength?.let {
                                 stringResource(R.string.host_model_context, Format.window(it))
                             },
+                            memory,
                         )
                             .joinToString(" · ") { it.replace(' ', '\u00A0') },
                         maxLines = 2,

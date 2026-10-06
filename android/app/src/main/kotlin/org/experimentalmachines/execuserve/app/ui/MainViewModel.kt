@@ -204,7 +204,21 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     // Chat ------------------------------------------------------------------------------
 
-    fun chooseChatModel(id: String) = _chat.update { it.copy(model = id) }
+    /**
+     * Switching the chat's model swaps it in memory: the model the chat leaves is unloaded and
+     * the chosen one loaded at once, so the phone is not asked to hold both and the first
+     * message does not wait for the load. Another app that still wants the old model gets it
+     * back on its next request.
+     */
+    fun chooseChatModel(id: String) {
+        val leaving = _chat.value.model ?: status.value?.resident?.firstOrNull()?.id
+        _chat.update { it.copy(model = id) }
+        if (leaving == null || leaving == id) return
+        viewModelScope.launch {
+            if (status.value?.resident.orEmpty().any { it.id == leaving }) graph.host.unload(leaving)
+            graph.host.load(id)
+        }
+    }
 
     fun setChatThinking(on: Boolean) = _chat.update { it.copy(thinking = on) }
 

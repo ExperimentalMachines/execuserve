@@ -15,12 +15,16 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,6 +55,7 @@ import org.experimentalmachines.execuserve.engine.JobRecord
 import org.experimentalmachines.execuserve.engine.LaneState
 import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.host.Benchmark
+import org.experimentalmachines.execuserve.host.Choices
 import org.experimentalmachines.execuserve.host.Heat
 import org.experimentalmachines.execuserve.host.HostSettings
 import org.experimentalmachines.execuserve.host.ModelNames
@@ -83,6 +88,7 @@ fun ServerScreen(
     val primary: LazyListScope.() -> Unit = {
         item(key = "status") {
             val recovery by model.recovery.collectAsState()
+            var choosingStart by rememberSaveable { mutableStateOf(false) }
             StatusPanel(
                 server,
                 status,
@@ -92,7 +98,10 @@ fun ServerScreen(
                 model::start,
                 model::stop,
                 openSettings,
+                startsWith = current.startupModels { id -> installed.firstOrNull { it.id == id }?.let { ModelNames.shown(it, installed) } },
+                onChooseStart = { choosingStart = true },
             )
+            if (choosingStart) StartupSheet(installed, current, model, onDismiss = { choosingStart = false })
         }
         item(key = "models-heading") {
             PanelTitle(stringResource(R.string.host_models), trailing = { Action(stringResource(R.string.host_library), openModels) })
@@ -132,6 +141,8 @@ private fun StatusPanel(
     onStart: () -> Unit,
     onStop: () -> Unit,
     openSettings: () -> Unit,
+    startsWith: List<String>,
+    onChooseStart: () -> Unit,
 ) {
     val look = ServerLook.of(server, status)
     val tone = LocalTones.current.of(look.mood)
@@ -142,20 +153,7 @@ private fun StatusPanel(
                     Dot(tone.color, 10.dp)
                     Text(stringResource(look.words), style = MaterialTheme.typography.titleLarge, color = tone.color)
                 }
-                Text(
-                    when {
-                        server is ServeHost.State.Stopped && installedCount == 0 -> stringResource(R.string.host_needs_model)
-                        server is ServeHost.State.Stopped -> server.error ?: stringResource(R.string.host_stopped)
-                        server == ServeHost.State.Starting -> stringResource(R.string.status_starting_hint)
-                        server == ServeHost.State.Stopping -> stringResource(R.string.status_stopping_hint)
-                        look == ServerLook.PAUSED_HOT -> stringResource(R.string.status_paused_hot)
-                        look == ServerLook.PAUSED_BATTERY -> stringResource(R.string.status_paused_battery)
-                        look == ServerLook.NOT_RESPONDING -> stringResource(R.string.alert_wedged_text)
-                        server is ServeHost.State.Running && installedCount == 0 -> stringResource(R.string.host_needs_model)
-                        else -> pluralStringResource(R.plurals.host_summary, installedCount, installedCount, status?.resident?.size ?: 0, capacity)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Text(statusLine(server, look, status, installedCount, capacity), style = MaterialTheme.typography.bodyMedium)
             }
             when (server) {
                 is ServeHost.State.Running -> OutlineButton(stringResource(R.string.action_stop), onStop)
@@ -180,6 +178,34 @@ private fun StatusPanel(
             )
         }
         Text(stringResource(R.string.host_compute_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (installedCount > 0) StartupLine(installedCount, startsWith, onChooseStart, openSettings)
+    }
+}
+
+/** The status card's second line: why it is not serving, or what it serves. */
+@Composable
+private fun statusLine(server: ServeHost.State, look: ServerLook, status: EngineStatus?, installedCount: Int, capacity: Int): String = when {
+    installedCount == 0 && (server is ServeHost.State.Stopped || server is ServeHost.State.Running) -> stringResource(R.string.host_needs_model)
+    server is ServeHost.State.Stopped -> server.error ?: stringResource(R.string.host_stopped)
+    server == ServeHost.State.Starting -> stringResource(R.string.status_starting_hint)
+    server == ServeHost.State.Stopping -> stringResource(R.string.status_stopping_hint)
+    look == ServerLook.PAUSED_HOT -> stringResource(R.string.status_paused_hot)
+    look == ServerLook.PAUSED_BATTERY -> stringResource(R.string.status_paused_battery)
+    look == ServerLook.NOT_RESPONDING -> stringResource(R.string.alert_wedged_text)
+    else -> pluralStringResource(R.plurals.host_summary, installedCount, installedCount, status?.resident?.size ?: 0, capacity)
+}
+
+/** What Start loads, said where Start is, with the way to change it beside it. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun StartupLine(installedCount: Int, startsWith: List<String>, onChooseStart: () -> Unit, openSettings: () -> Unit) {
+    Text(
+        if (startsWith.isEmpty()) stringResource(R.string.host_starts_with_none) else stringResource(R.string.host_starts_with, startsWith.joinToString(", ")),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Action(stringResource(R.string.host_models_at_start), onChooseStart)
         if (installedCount > 1) Action(stringResource(R.string.host_memory_settings), openSettings)
     }
 }
@@ -277,7 +303,8 @@ private fun HostedModel(
                     if (job != null && status.lane == LaneState.PREFILLING) {
                         stringResource(R.string.host_reading_now)
                     } else {
-                        last?.let { stringResource(R.string.host_prefill_detail, Format.duration(it.prefillMs)) } ?: stringResource(R.string.host_prefill_hint)
+                        last?.takeIf { it.prefillTokensPerSecond > 0 }?.let { stringResource(R.string.host_prefill_detail, Format.duration(it.prefillMs)) }
+                            ?: stringResource(R.string.host_prefill_hint)
                     },
                 ),
                 Modifier.weight(1f),
@@ -294,30 +321,41 @@ private fun HostedModel(
                     ) {
                         stringResource(R.string.fig_speed_now)
                     } else {
-                        last?.let { stringResource(R.string.host_decode_detail, Format.duration(it.decodeMs)) }
+                        last?.takeIf { it.decodeTokensPerSecond > 0 }?.let { stringResource(R.string.host_decode_detail, Format.duration(it.decodeMs)) }
                             ?: stringResource(R.string.host_decode_hint)
                     },
                 ),
                 Modifier.weight(1f),
             )
         })
+        // Unload is offered whenever the model is in memory, a reply running or not: it waits
+        // its turn in the queue, so a reply in progress finishes first.
+        var unloading by remember(entry.id) { mutableStateOf(false) }
+        if (!loaded) unloading = false
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (running != null) {
-                if (job != null) {
-                    Action(stringResource(R.string.action_cancel), { model.cancelJob(job.id) })
-                } else {
-                    Action(
-                        stringResource(if (loaded) R.string.host_unload else R.string.host_load),
+                if (job != null) Action(stringResource(R.string.action_cancel), { model.cancelJob(job.id) })
+                when {
+                    loaded -> Action(
+                        stringResource(if (job != null) R.string.host_unload_after else R.string.host_unload),
                         {
-                            if (loaded) model.unload(entry.id) else model.load(entry.id)
+                            unloading = true
+                            model.unload(entry.id)
                         },
-                        enabled =
-                        status?.lane != LaneState.LOADING,
+                        enabled = !unloading,
                     )
+                    job == null -> Action(stringResource(R.string.host_load), { model.load(entry.id) }, enabled = status?.lane != LaneState.LOADING)
                 }
                 Action(stringResource(R.string.host_chat), onChat)
                 Action(stringResource(if (connecting) R.string.host_close_connection else R.string.host_connect), { connecting = !connecting })
             }
+        }
+        if (running != null) {
+            Text(
+                stringResource(if (loaded) R.string.host_unload_note else R.string.host_unloaded_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         if (running != null && connecting) {
             running.endpoints.forEach { endpoint ->
@@ -501,3 +539,50 @@ private const val TICK_MS = 500L
 private const val KEY_HEAD = 6
 private const val KEY_TAIL = 4
 private const val LATEST_RUNS = 5
+
+/**
+ * Which models Start loads, and how many may be in memory at once, from Hosting where Start is.
+ * The same settings as Settings' hosting panel and the Library's "Load at start".
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StartupSheet(installed: List<ModelEntry>, settings: HostSettings, model: MainViewModel, onDismiss: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column(
+            Modifier.navigationBarsPadding().padding(horizontal = Dimens.gutter).padding(bottom = Dimens.gutter),
+            verticalArrangement = Arrangement.spacedBy(Dimens.row),
+        ) {
+            Text(stringResource(R.string.settings_startup_models), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.settings_startup_models_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            installed.forEach { entry ->
+                SwitchRow(
+                    ModelNames.shown(entry, installed),
+                    processorLabel(entry.backend),
+                    entry.id in settings.preloadModels || entry.id == settings.defaultModel,
+                ) { on ->
+                    model.update {
+                        it.copy(
+                            defaultModel = it.defaultModel.takeUnless { id -> !on && id == entry.id },
+                            preloadModels = if (on) it.preloadModels + entry.id else it.preloadModels - entry.id,
+                        )
+                    }
+                }
+            }
+            MenuRow(
+                stringResource(R.string.settings_resident),
+                stringResource(R.string.settings_resident_note),
+                options = Choices.RESIDENT_MODELS.map { it to it.toString() },
+                selected = settings.maxResidentModels,
+                onSelect = { count -> model.update { it.copy(maxResidentModels = count, threads = if (count > 1) 0 else it.threads) } },
+            )
+        }
+    }
+}
