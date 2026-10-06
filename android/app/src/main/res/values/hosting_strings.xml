@@ -3,7 +3,12 @@
     <string name="host_models">Hosted models</string>
     <string name="host_library">Library</string>
     <string name="host_stopped">Start hosting to let other apps use your models.</string>
-    <string name="host_summary" tools:ignore="PluralsCandidate">%1$d available · %2$d in memory · keep up to %3$d</string>
+    <!-- Installed models, then models in memory over the most kept at once: "4 models · 1/2 in memory". -->
+    <plurals name="host_summary">
+        <item quantity="one">%1$d model · %2$d/%3$d in memory</item>
+        <item quantity="other">%1$d models · %2$d/%3$d in memory</item>
+    </plurals>
+    <string name="host_needs_model">Get a model first: hosting serves the models on this phone.</string>
     <string name="host_compute_note">Shared queue · one request at a time.</string>
     <string name="host_model_failed">Needs attention</string>
     <string name="host_offline">Server offline</string>

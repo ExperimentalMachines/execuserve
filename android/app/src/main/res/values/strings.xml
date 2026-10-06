@@ -334,6 +334,7 @@
     <!-- Start from another app -->
     <string name="start_title">Start ExecuServe?</string>
     <string name="start_disabled">Starting the server from other apps is turned off in ExecuServe\'s settings.</string>
+    <string name="start_no_model">ExecuServe has no model installed yet. Open it and get one from the Library first.</string>
     <string name="start_by_app">%1$s wants to start the model server.</string>
     <string name="start_by_unknown">An app wants to start the model server.</string>
     <string name="start_what_loopback">It will serve %1$s to apps on this phone, on port %2$d, with your saved settings.</string>

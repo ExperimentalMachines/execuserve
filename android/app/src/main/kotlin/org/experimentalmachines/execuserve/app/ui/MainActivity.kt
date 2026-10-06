@@ -60,7 +60,8 @@ internal val TABS = listOf(R.string.tab_server, R.string.tab_models, R.string.ta
 
 @Composable
 private fun App(model: MainViewModel) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    // Nothing installed yet: start in the Library, where the catalog is.
+    var tab by rememberSaveable { mutableIntStateOf(if (model.installed.value.isEmpty()) Tabs.LIBRARY else Tabs.HOSTING) }
     val server by model.server.collectAsState()
     val status by model.status.collectAsState()
     ConsoleFrame(

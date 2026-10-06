@@ -35,15 +35,22 @@ class StartActivity : ComponentActivity() {
             return
         }
         val caller = referrer?.host
+        // A server with nothing to serve answers every request with an error.
+        val nothingInstalled = graph.models.installed.value.isEmpty()
         setContent {
             val settings by graph.settings.settings.collectAsState(initial = null)
             ExecuServeTheme(settings?.theme ?: ThemeMode.SYSTEM) {
                 val current = settings ?: return@ExecuServeTheme
-                if (!current.allowExternalStart) {
+                val refusal = when {
+                    !current.allowExternalStart -> R.string.start_disabled
+                    nothingInstalled -> R.string.start_no_model
+                    else -> null
+                }
+                if (refusal != null) {
                     AlertDialog(
                         onDismissRequest = ::cancel,
                         title = { Text(stringResource(R.string.app_name)) },
-                        text = { Text(stringResource(R.string.start_disabled)) },
+                        text = { Text(stringResource(refusal)) },
                         confirmButton = { TextButton(onClick = ::cancel) { Text(stringResource(R.string.action_ok)) } },
                     )
                 } else {

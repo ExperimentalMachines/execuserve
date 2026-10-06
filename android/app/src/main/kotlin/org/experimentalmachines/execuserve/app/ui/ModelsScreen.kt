@@ -54,6 +54,9 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
     val npu by model.npuUsable.collectAsState()
     var deleting by remember { mutableStateOf<ModelEntry?>(null) }
 
+    // The catalog is what this screen is for until something is installed: it loads on its own.
+    LaunchedEffect(Unit) { if (catalog == CatalogState.Idle) model.loadCatalog() }
+
     // Files pushed with adb while the app was away appear on return, with no button to press.
     val resumes = resumeCount()
     LaunchedEffect(resumes) { model.rescan() }

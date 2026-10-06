@@ -144,20 +144,23 @@ private fun StatusPanel(
                 }
                 Text(
                     when {
+                        server is ServeHost.State.Stopped && installedCount == 0 -> stringResource(R.string.host_needs_model)
                         server is ServeHost.State.Stopped -> server.error ?: stringResource(R.string.host_stopped)
                         server == ServeHost.State.Starting -> stringResource(R.string.status_starting_hint)
                         server == ServeHost.State.Stopping -> stringResource(R.string.status_stopping_hint)
                         look == ServerLook.PAUSED_HOT -> stringResource(R.string.status_paused_hot)
                         look == ServerLook.PAUSED_BATTERY -> stringResource(R.string.status_paused_battery)
                         look == ServerLook.NOT_RESPONDING -> stringResource(R.string.alert_wedged_text)
-                        else -> stringResource(R.string.host_summary, installedCount, status?.resident?.size ?: 0, capacity)
+                        server is ServeHost.State.Running && installedCount == 0 -> stringResource(R.string.host_needs_model)
+                        else -> pluralStringResource(R.plurals.host_summary, installedCount, installedCount, status?.resident?.size ?: 0, capacity)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
             when (server) {
                 is ServeHost.State.Running -> OutlineButton(stringResource(R.string.action_stop), onStop)
-                is ServeHost.State.Stopped -> Button(onClick = onStart) { Text(stringResource(R.string.action_start)) }
+                // Nothing to serve yet: the models panel below offers the catalog instead.
+                is ServeHost.State.Stopped -> if (installedCount > 0) Button(onClick = onStart) { Text(stringResource(R.string.action_start)) }
                 else -> Unit
             }
         }
