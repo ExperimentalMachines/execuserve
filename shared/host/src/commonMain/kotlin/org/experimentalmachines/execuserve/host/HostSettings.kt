@@ -78,9 +78,11 @@ data class HostSettings(
     )
 
     /** Resolve aliases and discard missing models before they consume a startup slot. */
-    fun startupModels(resolve: (String) -> String? = { it }): List<String> =
+    fun startupModels(resolve: (String) -> String? = { it }): List<String> = startupOrder(resolve).take(memoryLimit)
+
+    /** Every model selected to load at start, in the order startup takes them; [memoryLimit] of them load. */
+    fun startupOrder(resolve: (String) -> String? = { it }): List<String> =
         (listOfNotNull(defaultModel) + preloadModels.sorted()).mapNotNull(resolve).distinct()
-            .take(if (threads == 0) residentLimit else 1)
 
     /** Whether going from [running] to this needs the listener restarted; engine limits apply live. */
     fun needsRestartFrom(running: HostSettings) = serverSettings() != running.serverSettings()

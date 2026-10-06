@@ -227,8 +227,17 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         _chat.update { ChatState(model = it.model, thinking = it.thinking) }
     }
 
+    /**
+     * Stop is a cancel, not a client walking away: the request this app's chat is running is
+     * cancelled on the server first (so Requests says Cancelled), then the connection closes.
+     */
     fun stopChat() {
-        chatCall?.cancel()
+        val running = status.value?.running?.takeIf { it.client == CONSOLE_KEY }
+        val call = chatCall
+        viewModelScope.launch {
+            running?.let { graph.host.cancel(it.id) }
+            call?.cancel()
+        }
     }
 
     /** Leaving the console closes a reply's socket, so the server stops writing to nobody. */

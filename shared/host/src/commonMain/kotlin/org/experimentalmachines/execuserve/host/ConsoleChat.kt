@@ -42,5 +42,10 @@ object ConsoleChat {
     }.toString()
 
     /** Whether [entry]'s chat template has a thinking switch worth offering. */
-    fun canThink(entry: ModelEntry): Boolean = PromptTemplates.forModel(entry.family ?: entry.files.model.substringAfterLast('/'))?.supportsThinking == true
+    fun canThink(entry: ModelEntry): Boolean = template(entry)?.supportsThinking == true
+
+    /** Whether [entry] can take a chat at all: the engine's own rule, a template from its family or file name. */
+    fun canChat(entry: ModelEntry): Boolean = template(entry) != null
+
+    private fun template(entry: ModelEntry) = PromptTemplates.forModel(entry.family ?: entry.files.model.substringAfterLast('/'))
 }

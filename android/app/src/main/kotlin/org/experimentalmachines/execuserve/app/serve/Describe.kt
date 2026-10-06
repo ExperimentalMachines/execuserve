@@ -18,7 +18,8 @@ object Describe {
         return when (state) {
             is ServeHost.State.Running -> {
                 val where = state.endpoints.firstOrNull()?.url?.removePrefix("http://")?.removeSuffix("/v1") ?: state.settings.port.toString()
-                context.getString(R.string.notif_serving, where) to (downloading ?: activity(context, status))
+                // Hosting's own state first (paused matters most); a download rides along.
+                context.getString(R.string.notif_serving, where) to listOfNotNull(activity(context, status), downloading).joinToString(" · ")
             }
             ServeHost.State.Starting -> context.getString(R.string.notif_starting) to (downloading ?: context.getString(R.string.status_starting_hint))
             ServeHost.State.Stopping -> context.getString(R.string.notif_stopping) to context.getString(R.string.status_stopping_hint)
@@ -43,9 +44,7 @@ object Describe {
         val running = status.running
         val client = if (running?.client == CONSOLE_KEY) context.getString(R.string.client_chat) else running?.client.orEmpty()
         return when (status.lane) {
-            LaneState.IDLE -> status.resident.map { it.id }.takeIf { it.isNotEmpty() }
-                ?.let { context.getString(R.string.notif_ready_model, it.joinToString(", ")) }
-                ?: context.getString(R.string.notif_ready_no_model)
+            LaneState.IDLE -> ready(context, status)
             LaneState.LOADING -> context.getString(
                 R.string.host_activity_loading,
                 status.loading ?: running?.model ?: context.getString(R.string.status_a_model),
@@ -60,5 +59,12 @@ object Describe {
             LaneState.WEDGED -> context.getString(R.string.notif_wedged)
             LaneState.STOPPED -> context.getString(R.string.look_stopped)
         }
+    }
+
+    /** Ready, and what is in memory: one model by name, several by count, so it fits one line. */
+    private fun ready(context: Context, status: EngineStatus): String = when (status.resident.size) {
+        0 -> context.getString(R.string.notif_ready_no_model)
+        1 -> context.getString(R.string.notif_ready_model, status.resident.single().id)
+        else -> context.resources.getQuantityString(R.plurals.notif_ready_models, status.resident.size, status.resident.size)
     }
 }

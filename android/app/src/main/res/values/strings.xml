@@ -73,7 +73,7 @@
     <string name="connect_share_title">Share connection</string>
     <string name="connect_share_text">OpenAI base URL: %1$s\nAPI key: %2$s</string>
     <string name="connect_share_model">\nModel: %1$s</string>
-    <string name="connect_local_title">From another app on this phone</string>
+    <string name="connect_local_title">For Android app developers</string>
     <string name="connect_local_body">Android blocks plain HTTP unless the calling app allows it. Save this as res/xml/network_security_config.xml in that app, and name it in its manifest with android:networkSecurityConfig.</string>
 
     <!-- host.NetworkKind -->
@@ -169,7 +169,7 @@
     <string name="run_streamed">streamed</string>
     <string name="run_whole">whole</string>
     <string name="check_estimated">%1$s of the %2$s prompt tokens were counted by estimate: text read ahead of the last runtime call.</string>
-    <string name="check_decode_clocks">The runtime\'s writing time and this phone\'s clock differ by more than 10%%.</string>
+    <string name="check_decode_clocks">The runtime\'s writing time and this phone\'s clock differ by more than 10%.</string>
     <string name="check_phases">Queue, load and prompt add up to more than the time to the first token.</string>
     <string name="check_first_token">The first token is timed after the request ended.</string>
     <string name="check_cache">More tokens reused than the prompt held.</string>
@@ -368,7 +368,6 @@
     <string name="qr_reveal_note">This QR contains your API key. Anyone who scans it can use the server. Reveal it only when you are ready to scan. It hides after one minute.</string>
     <string name="qr_reveal">Reveal QR code</string>
     <string name="qr_visible_key">Anyone viewing this screen can scan and use this key. Hidden after one minute; the key itself stays valid.</string>
-    <string name="settings_resident_threads">Multiple loaded models use automatic CPU threads. A manual thread count keeps one model loaded at a time.</string>
 
     <!-- Reporting a model reply (Play's generative-AI policy). -->
     <string name="report_action">Report this reply</string>
@@ -440,8 +439,25 @@
     <string name="chat_decode">Decode %1$s tok/s</string>
     <string name="settings_performance">Performance</string>
     <string name="settings_connection_note">Who can connect is chosen on Hosting, in Connect an app.</string>
-    <string name="chat_switch_unloads">The memory limit is %1$s: choosing another model unloads %2$s from memory.</string>
+    <string name="chat_switch_unloads">loads, unloading %1$s</string>
     <string name="chat_no_template_title">No installed model can chat</string>
     <string name="chat_no_template_note">These models have no chat template, so they answer raw prompts only, through the Completions API. Get a chat model from the Library.</string>
     <string name="runs_more">Showing the newest %1$s of %2$s. Export all as CSV for the rest.</string>
+    <string name="chat_switch_loads">loads into memory</string>
+    <string name="chat_load_failed">couldn\'t load</string>
+    <string name="now_title">Now</string>
+    <string name="now_loading">Loading the model</string>
+    <string name="now_reading">Reading the prompt</string>
+    <string name="now_writing">Writing the reply</string>
+    <plurals name="now_waiting">
+        <item quantity="one">%d more waiting · one request runs at a time</item>
+        <item quantity="other">%d more waiting · one request runs at a time</item>
+    </plurals>
+    <string name="models_memory_on_hosting">Load them into memory, and choose which load when hosting starts, on Hosting.</string>
+    <string name="models_use_on_hosting">Use on Hosting</string>
+    <string name="models_resolve_on_hosting">Resolve on Hosting</string>
+    <plurals name="notif_ready_models">
+        <item quantity="one">Ready for requests · %d model in memory</item>
+        <item quantity="other">Ready for requests · %d models in memory</item>
+    </plurals>
 </resources>

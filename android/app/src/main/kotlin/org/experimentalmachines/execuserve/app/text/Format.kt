@@ -33,7 +33,7 @@ object Format {
     fun duration(ms: Long): String = if (ms < MS_PER_SECOND) "$ms ms" else String.format(locale, "%.2f s", ms / MS_PER_SECOND.toDouble())
 
     /** A request's moment with its date: history lasts 30 days, so a time alone is ambiguous. */
-    fun dateTime(epochMs: Long): String = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale).format(Date(epochMs))
+    fun dateTime(epochMs: Long): String = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM, locale).format(Date(epochMs))
 
     fun time(epochMs: Long, withSeconds: Boolean = false): String =
         DateFormat.getTimeInstance(if (withSeconds) DateFormat.MEDIUM else DateFormat.SHORT, locale).format(Date(epochMs))

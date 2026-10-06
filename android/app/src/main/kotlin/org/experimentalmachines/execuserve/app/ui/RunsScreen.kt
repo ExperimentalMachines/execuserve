@@ -82,6 +82,8 @@ fun RunsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
         if (benchmarking) item(key = "benchmark") { BenchmarkPanel(model, installed.map { it.id }, server is ServeHost.State.Running, runs) }
     }
     val main: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
+        // What is happening now, above what has finished: a long request is not missing.
+        item(key = "now") { NowPanel(model, installed) }
         item(key = "runs") {
             Panel(
                 pluralStringResource(R.plurals.runs_count, shown.size, Format.count(shown.size)),
@@ -444,3 +446,30 @@ private const val TOKENS_WEIGHT = 1.1f
 private const val TIME_WEIGHT = 0.9f
 private const val RATE_WEIGHT = 0.7f
 private val LABEL_WIDTH = 112.dp
+
+/** The request running now, how many wait, and Cancel; only while there is one. One runs at a time. */
+@Composable
+private fun NowPanel(model: MainViewModel, installed: List<org.experimentalmachines.execuserve.engine.ModelEntry>) {
+    val status by model.status.collectAsState()
+    val job = status?.running ?: return
+    val name = installed.firstOrNull { it.id == job.model }?.let { org.experimentalmachines.execuserve.host.ModelNames.shown(it, installed) } ?: job.model
+    val phase = when (status?.lane) {
+        org.experimentalmachines.execuserve.engine.LaneState.LOADING -> stringResource(R.string.now_loading)
+        org.experimentalmachines.execuserve.engine.LaneState.PREFILLING -> stringResource(R.string.now_reading)
+        else -> stringResource(R.string.now_writing)
+    }
+    Panel(stringResource(R.string.now_title), trailing = { Action(stringResource(R.string.action_cancel), { model.cancelJob(job.id) }) }) {
+        Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        Text(
+            listOf(phase, clientName(job.client)).joinToString(" · "),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val waiting = status?.queued ?: 0
+        Text(
+            pluralStringResource(R.plurals.now_waiting, waiting, waiting),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}

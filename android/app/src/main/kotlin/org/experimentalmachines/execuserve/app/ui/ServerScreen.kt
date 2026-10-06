@@ -43,6 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
@@ -60,10 +62,13 @@ import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.engine.RunningJob
 import org.experimentalmachines.execuserve.host.Benchmark
 import org.experimentalmachines.execuserve.host.Choices
+import org.experimentalmachines.execuserve.host.ConsoleChat
 import org.experimentalmachines.execuserve.host.Heat
 import org.experimentalmachines.execuserve.host.HostSettings
+import org.experimentalmachines.execuserve.host.ModelEndpoints
 import org.experimentalmachines.execuserve.host.ModelNames
 import org.experimentalmachines.execuserve.host.NetworkKind
+import org.experimentalmachines.execuserve.host.Outcome
 import org.experimentalmachines.execuserve.host.ServeHost
 import org.experimentalmachines.execuserve.host.ServerLook
 import org.experimentalmachines.execuserve.server.ApiKey
@@ -102,7 +107,11 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
                 onEditMemory = { editingMemory = true },
             )
         }
-        if (installed.isNotEmpty()) item(key = "connect") { ConnectPanel(server, current, key, model) }
+        // On a phone, problems come straight after the status; on a tablet, beside it.
+        if (!wide) {
+            item(key = "attention") { Attention() }
+            if (installed.isNotEmpty()) item(key = "connect") { ConnectPanel(server, current, key, installed, model) }
+        }
         item(key = "models-heading") {
             PanelTitle(stringResource(R.string.host_models), trailing = { Action(stringResource(R.string.host_library), openModels) })
         }
@@ -129,7 +138,10 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
         }
     }
     val secondary: LazyListScope.() -> Unit = {
-        item(key = "attention") { Attention() }
+        if (wide) {
+            if (installed.isNotEmpty()) item(key = "connect") { ConnectPanel(server, current, key, installed, model) }
+            item(key = "attention") { Attention() }
+        }
         item(key = "device") { DevicePanel(model, openRuns) }
     }
     PanelColumns(wide, padding, main = primary, side = secondary)
@@ -186,6 +198,7 @@ private fun StatusPanel(
                 stringResource(R.string.host_fact_limit),
                 pluralStringResource(R.plurals.memory_limit_models, settings.memoryLimit, settings.memoryLimit),
                 action = stringResource(R.string.action_change) to onEditMemory,
+                actionDescription = stringResource(R.string.change_memory_limit),
             )
             val names = settings.startupModels { id -> installed.firstOrNull { it.id == id }?.let { ModelNames.shown(it, installed) } }
                 .take(settings.memoryLimit)
@@ -193,6 +206,7 @@ private fun StatusPanel(
                 stringResource(R.string.host_fact_start),
                 if (names.isEmpty()) stringResource(R.string.host_start_none) else stringResource(R.string.host_start_loads, names.joinToString(", ")),
                 action = stringResource(R.string.action_change) to onEditMemory,
+                actionDescription = stringResource(R.string.change_startup_models),
             )
         }
     }
@@ -200,13 +214,15 @@ private fun StatusPanel(
 
 /** A labelled line of the status card, with the action that changes it. */
 @Composable
-private fun CardLine(label: String, value: String, action: Pair<String, () -> Unit>? = null) {
+private fun CardLine(label: String, value: String, action: Pair<String, () -> Unit>? = null, actionDescription: String? = null) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
         Column(Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(value, style = MaterialTheme.typography.bodyMedium)
         }
-        action?.let { (text, onClick) -> Action(text, onClick) }
+        action?.let { (text, onClick) ->
+            Action(text, onClick, modifier = actionDescription?.let { d -> Modifier.semantics { contentDescription = d } } ?: Modifier)
+        }
     }
 }
 
@@ -264,7 +280,8 @@ private fun HostedModel(
 ) {
     val loaded = status?.resident?.any { it.id == entry.id } == true
     val loading = status?.lane == LaneState.LOADING && status.loading == entry.id
-    val job = status?.running?.takeIf { it.model == entry.id && status.lane != LaneState.LOADING }
+    // A request waiting for its model to load is still a request: it keeps its Cancel.
+    val job = status?.running?.takeIf { it.model == entry.id }
     val broken = status?.broken?.get(entry.id)
     var details by rememberSaveable(entry.id) { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -296,7 +313,10 @@ private fun HostedModel(
         if (broken != null) Text(broken, style = MaterialTheme.typography.bodySmall, color = LocalTones.current.failed.color)
         val loadable = broken == null && !loaded && !loading
         if (running != null && loadable) EvictionNote(status, limit, installed)
-        ModelActions(entry, running != null, loaded, loading, broken != null, job, status?.lane, model, onChat, details) { details = !details }
+        ModelActions(entry, running != null, loaded, loading, broken != null, job, status?.lane, ConsoleChat.canChat(entry), model, onChat, details) {
+            details =
+                !details
+        }
         if (details) ModelDetails(entry, last, running)
     }
 }
@@ -356,6 +376,7 @@ private fun ModelActions(
     failed: Boolean,
     job: RunningJob?,
     lane: LaneState?,
+    canChat: Boolean,
     model: MainViewModel,
     onChat: () -> Unit,
     details: Boolean,
@@ -378,7 +399,8 @@ private fun ModelActions(
                 )
                 !loading && job == null -> Action(stringResource(R.string.host_load), { model.load(entry.id) }, enabled = lane != LaneState.LOADING)
             }
-            Action(stringResource(R.string.host_chat), onChat)
+            // A model without a chat template answers raw prompts only: no Chat for it.
+            if (canChat) Action(stringResource(R.string.host_chat), onChat)
         }
         Action(stringResource(if (details) R.string.host_hide_details else R.string.host_details), onDetails)
     }
@@ -396,21 +418,32 @@ internal fun modelFacts(entry: ModelEntry): String = listOfNotNull(
 /** What a model last did, and where a client reaches this model alone. */
 @Composable
 private fun ModelDetails(entry: ModelEntry, last: JobRecord?, running: ServeHost.State.Running?) {
-    Text(
-        last?.takeIf { it.decodeTokensPerSecond > 0 || it.prefillTokensPerSecond > 0 }?.let {
+    if (last == null) {
+        Text(stringResource(R.string.host_no_requests), style = MaterialTheme.typography.bodySmall)
+    } else {
+        // How it ended first: a failed or cancelled request is the last request too.
+        Text(
             stringResource(
                 R.string.host_last_request,
-                Format.rate(it.prefillTokensPerSecond),
-                Format.rate(it.decodeTokensPerSecond),
-                Format.duration(it.totalMs),
+                stringResource(Outcome.of(last).words),
+                remember(last.finishedAtMs) { Format.dateTime(last.finishedAtMs) },
+                Format.duration(last.totalMs),
+            ),
+            style = MaterialTheme.typography.bodySmall,
+        )
+        if (last.prefillTokensPerSecond > 0 || last.decodeTokensPerSecond > 0) {
+            Text(
+                stringResource(R.string.host_last_rates, Format.rate(last.prefillTokensPerSecond), Format.rate(last.decodeTokensPerSecond)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        } ?: stringResource(R.string.host_no_requests),
-        style = MaterialTheme.typography.bodySmall,
-    )
+        }
+    }
     CopyRow(entry.id, label = stringResource(R.string.host_model_id), qr = true)
     running?.endpoints?.forEach { endpoint ->
-        val api = org.experimentalmachines.execuserve.host.ModelEndpoints.api(endpoint.url, entry.id)
-        CopyRow(api, label = stringResource(R.string.host_model_api_on, stringResource(endpoint.network.words)), qr = true)
+        val where = stringResource(endpoint.network.words)
+        CopyRow(ModelEndpoints.api(endpoint.url, entry.id), label = stringResource(R.string.host_model_api_on, where), qr = true)
+        CopyRow(ModelEndpoints.browser(endpoint.url, entry.id), label = stringResource(R.string.host_model_browser_on, where), qr = true)
     }
 }
 
@@ -488,7 +521,7 @@ private fun EmptyModels(openModels: () -> Unit) {
  * connect while hosting restarts it on the new address, so it asks first.
  */
 @Composable
-private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: ApiKey?, model: MainViewModel) {
+private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: ApiKey?, installed: List<ModelEntry>, model: MainViewModel) {
     val running = server as? ServeHost.State.Running
     var confirming by remember { mutableStateOf<BindMode?>(null) }
     Panel(stringResource(R.string.host_connection)) {
@@ -505,8 +538,12 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
             Text(stringResource(R.string.connect_no_network), style = MaterialTheme.typography.bodySmall, color = LocalTones.current.attention.color)
         }
         if (running != null) {
+            // What a client needs, together: the base URL, a model ID and (below) the key.
             val first = running.endpoints.first()
             CopyRow(first.url, label = stringResource(R.string.host_api_base, stringResource(first.network.words)), qr = true)
+            val example = installed.firstOrNull { it.id == settings.defaultModel } ?: installed.first()
+            CopyRow(example.id, label = stringResource(R.string.host_model_id_any))
+            CopyRow(first.url.removeSuffix("/v1").trimEnd('/') + "/", label = stringResource(R.string.connect_browser_chat), qr = true)
         } else {
             Text(
                 stringResource(R.string.host_address_when_running),
@@ -523,7 +560,7 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
         }
         if (running != null) {
             Expandable(stringResource(R.string.host_all_models_endpoint), stringResource(R.string.host_all_models_hint)) {
-                running.endpoints.forEach { endpoint ->
+                running.endpoints.drop(1).forEach { endpoint ->
                     CopyRow(endpoint.url, label = stringResource(endpoint.network.words), qr = true)
                     CopyRow(endpoint.url.removeSuffix("/v1").trimEnd('/') + "/", label = stringResource(R.string.connect_browser_chat), qr = true)
                 }
@@ -622,7 +659,8 @@ private fun MemorySheet(installed: List<ModelEntry>, settings: HostSettings, run
                 selected = settings.maxResidentModels,
                 onSelect = { count -> model.update { it.copy(maxResidentModels = count, threads = if (count > 1) 0 else it.threads) } },
             )
-            if (settings.threads > 0) Note(stringResource(R.string.settings_resident_threads))
+            // Said before the choice, not after it: more than one model means Automatic threads.
+            Note(stringResource(R.string.memory_threads_note))
             MenuRow(
                 stringResource(R.string.settings_unload),
                 options = Choices.IDLE_UNLOAD_MINUTES.map { minutes ->
@@ -633,8 +671,11 @@ private fun MemorySheet(installed: List<ModelEntry>, settings: HostSettings, run
             )
             Text(stringResource(R.string.host_fact_start), Modifier.padding(top = Dimens.row), style = MaterialTheme.typography.titleMedium)
             Note(stringResource(if (running) R.string.memory_start_note_running else R.string.memory_start_note))
-            val order = settings.startupModels()
-            installed.forEach { entry ->
+            // Every saved choice, in the order startup takes them, then the rest; the limit only
+            // decides which of the chosen load, and says so beside the ones that will not.
+            val order = settings.startupOrder { id -> installed.firstOrNull { it.id == id }?.id }
+            val shown = order.mapNotNull { id -> installed.firstOrNull { it.id == id } } + installed.filter { it.id !in order }
+            shown.forEach { entry ->
                 val position = order.indexOf(entry.id)
                 SwitchRow(
                     ModelNames.shown(entry, installed),

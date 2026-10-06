@@ -15,7 +15,7 @@
     <string name="host_access_key_hint">One key works with every installed model</string>
     <string name="host_no_key">Create an API key in Settings.</string>
     <string name="host_all_models_endpoint">Other addresses and the browser chat</string>
-    <string name="host_all_models_hint">Every address this phone has, for any model</string>
+    <string name="host_all_models_hint">The device\'s other addresses, for any model</string>
     <string name="host_device">Device health</string>
     <string name="host_memory_free">Free memory</string>
     <string name="host_battery">Battery</string>
@@ -33,7 +33,7 @@
     <string name="host_details">Details</string>
     <string name="host_hide_details">Hide details</string>
     <string name="host_evicts">Loading it unloads %1$s: the memory limit is %2$s.</string>
-    <string name="host_last_request">Last request: Prefill %1$s tok/s · Decode %2$s tok/s · %3$s</string>
+    <string name="host_last_request">Last request: %1$s · %2$s · %3$s</string>
     <string name="host_no_requests">No requests yet</string>
     <string name="host_model_api_on">This model\'s API, %1$s</string>
     <string name="host_model_disk">%1$s on disk</string>
@@ -68,4 +68,10 @@
         <item quantity="one">%1$s · %2$d waiting</item>
         <item quantity="other">%1$s · %2$d waiting</item>
     </plurals>
+    <string name="host_last_rates">Prefill %1$s tok/s · Decode %2$s tok/s</string>
+    <string name="host_model_browser_on">This model\'s browser chat, %1$s</string>
+    <string name="host_model_id_any">Model ID, for example (each model\'s is in its Details)</string>
+    <string name="change_memory_limit">Change memory limit</string>
+    <string name="change_startup_models">Change the models loaded when hosting starts</string>
+    <string name="memory_threads_note">Keeping more than one model in memory uses Automatic CPU threads, and changing the limit can unload the models in memory; they load again when a request needs them. Changes save at once.</string>
 </resources>

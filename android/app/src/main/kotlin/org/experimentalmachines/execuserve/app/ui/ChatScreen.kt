@@ -84,6 +84,7 @@ import org.experimentalmachines.execuserve.app.text.Format
 import org.experimentalmachines.execuserve.catalog.HfCatalog
 import org.experimentalmachines.execuserve.engine.LaneState
 import org.experimentalmachines.execuserve.engine.ModelEntry
+import org.experimentalmachines.execuserve.engine.ResidentInfo
 import org.experimentalmachines.execuserve.host.ConsoleChat
 import org.experimentalmachines.execuserve.host.ModelNames
 import org.experimentalmachines.execuserve.host.ServeHost
@@ -115,7 +116,7 @@ fun ChatScreen(model: MainViewModel, padding: PaddingValues, openModels: () -> U
                 openModels,
             )
             // A model without a chat template answers raw prompts only (the Completions API).
-            installed.none { it.family != null } -> Gate(
+            installed.none { ConsoleChat.canChat(it) } -> Gate(
                 stringResource(R.string.chat_no_template_title),
                 stringResource(R.string.chat_no_template_note),
                 stringResource(R.string.chat_no_models_action),
@@ -131,7 +132,7 @@ fun ChatScreen(model: MainViewModel, padding: PaddingValues, openModels: () -> U
                 // Whatever is in memory answers fastest, so it is the suggestion until someone picks.
                 // Every candidate must still be installed: a model removed from disk and rescanned
                 // can stay resident until it is unloaded (agy review).
-                val chattable = installed.filter { it.family != null }
+                val chattable = installed.filter { ConsoleChat.canChat(it) }
                 fun installedOrNull(id: String?) = chattable.firstOrNull { it.id == id }
                 val entry = installedOrNull(chat.model)
                     ?: status?.resident.orEmpty().firstNotNullOfOrNull { installedOrNull(it.id) }
@@ -172,9 +173,11 @@ private fun Controls(installed: List<ModelEntry>, options: List<ModelEntry>, ent
     var picking by remember { mutableStateOf(false) }
     val status by model.status.collectAsState()
     val resident = status?.resident.orEmpty()
-    // Where the model stands, so a switch is visible.
+    val failure = status?.broken?.get(entry.id)
+    // Where the model stands, so a switch is visible, failures included.
     val memory = stringResource(
         when {
+            failure != null -> R.string.chat_load_failed
             resident.any { it.id == entry.id } -> R.string.chat_in_memory
             status?.lane == LaneState.LOADING && status?.loading == entry.id -> R.string.chat_loading
             else -> R.string.chat_loads_on_send
@@ -208,29 +211,13 @@ private fun Controls(installed: List<ModelEntry>, options: List<ModelEntry>, ent
                 Chevron(open = picking, extent = 20.dp)
             }
             DropdownMenu(expanded = picking, onDismissRequest = { picking = false }) {
-                // At the memory limit, choosing another model unloads this one: said before the choice.
-                if (resident.size >= limit && resident.any { it.id == entry.id }) {
-                    Text(
-                        stringResource(
-                            R.string.chat_switch_unloads,
-                            pluralStringResource(R.plurals.memory_limit_models, limit, limit),
-                            ModelNames.shown(entry, installed),
-                        ),
-                        Modifier.padding(horizontal = 16.dp, vertical = 8.dp).widthIn(max = 280.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
                 options.forEach { option ->
                     DropdownMenuItem(
                         text = {
                             Column {
                                 Text(ModelNames.shown(option, installed))
                                 Text(
-                                    listOfNotNull(
-                                        shortProcessor(option.backend),
-                                        stringResource(R.string.chat_in_memory).takeIf { resident.any { it.id == option.id } },
-                                    ).joinToString(" · "),
+                                    listOf(shortProcessor(option.backend), switchConsequence(option, resident, limit, installed)).joinToString(" · "),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -254,6 +241,31 @@ private fun Controls(installed: List<ModelEntry>, options: List<ModelEntry>, ent
         }
         TextButton(onClick = model::newChat, enabled = chat.messages.isNotEmpty()) { Text(stringResource(R.string.chat_new)) }
     }
+    if (failure != null) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                failure,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
+                color = LocalTones.current.failed.color,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+            TextButton(onClick = { model.retry(entry.id) }) { Text(stringResource(R.string.host_retry)) }
+        }
+    }
+}
+
+/**
+ * What choosing [option] does to memory, as things stand now (another client can change it
+ * before the load): already in memory, loads, or loads and unloads the least recently used.
+ */
+@Composable
+private fun switchConsequence(option: ModelEntry, resident: List<ResidentInfo>, limit: Int, installed: List<ModelEntry>): String {
+    if (resident.any { it.id == option.id }) return stringResource(R.string.chat_in_memory)
+    val evicted = resident.takeIf { it.size >= limit }?.minByOrNull { it.lastUsedMs } ?: return stringResource(R.string.chat_switch_loads)
+    val name = installed.firstOrNull { it.id == evicted.id }?.let { ModelNames.shown(it, installed) } ?: evicted.id
+    return stringResource(R.string.chat_switch_unloads, name)
 }
 
 /** CPU, GPU or which NPU: short enough to sit under a model's name. */

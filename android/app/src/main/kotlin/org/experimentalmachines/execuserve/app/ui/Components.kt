@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -76,6 +77,7 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -178,7 +180,7 @@ fun Action(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, des
         colors = ButtonDefaults.textButtonColors(
             contentColor = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
         ),
-    ) { Text(text, maxLines = 1) }
+    ) { Text(text, maxLines = 2) } // wraps rather than clips at a large font scale
 }
 
 /** The one filled action of a panel that is not Start: Send, Share. Ink on paper, inverted. */
@@ -191,7 +193,7 @@ fun InkButton(text: String, onClick: () -> Unit, enabled: Boolean = true) {
             containerColor = MaterialTheme.colorScheme.onSurface,
             contentColor = MaterialTheme.colorScheme.surface,
         ),
-    ) { Text(text, maxLines = 1) }
+    ) { Text(text, maxLines = 2) } // wraps rather than clips at a large font scale
 }
 
 /** A secondary action: ink label, grey outline. */
@@ -201,7 +203,7 @@ fun OutlineButton(text: String, onClick: () -> Unit) {
         onClick = onClick,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-    ) { Text(text, maxLines = 1) }
+    ) { Text(text, maxLines = 2) } // wraps rather than clips at a large font scale
 }
 
 /**
@@ -338,12 +340,14 @@ private fun Label(title: String, note: String?, modifier: Modifier) {
 @Composable
 fun SwitchRow(title: String, note: String? = null, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = Dimens.touch).clickable { onChange(!checked) },
+        // One control with one name: the row is the switch, so a screen reader reads its label
+        // with its state rather than an unnamed switch beside a clickable row.
+        Modifier.fillMaxWidth().heightIn(min = Dimens.touch).toggleable(value = checked, role = Role.Switch, onValueChange = onChange),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Label(title, note, Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

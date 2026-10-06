@@ -10,7 +10,7 @@
     <string name="bind_loopback">This tablet</string>
     <string name="connect_local_title">From another app on this tablet</string>
     <string name="net_this_device">This tablet</string>
-    <string name="runs_clear_body">Every stored run goes, on this tablet and in the API. The counters since the server started are kept.</string>
+    <string name="runs_clear_body">Every stored request goes, on this tablet and in the API. The counters since hosting started are kept.</string>
     <string name="check_decode_clocks">The runtime\'s writing time and this tablet\'s clock differ by more than 10%%.</string>
     <string name="models_on_phone">On this tablet</string>
     <string name="settings_open_loopback">Apps on this tablet need no key</string>

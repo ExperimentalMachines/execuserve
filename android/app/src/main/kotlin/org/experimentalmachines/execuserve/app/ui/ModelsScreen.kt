@@ -42,10 +42,11 @@ import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.engine.NpuMemory
 import org.experimentalmachines.execuserve.executorch.ExecuTorchRuntime
+import org.experimentalmachines.execuserve.host.ConsoleChat
 import org.experimentalmachines.execuserve.host.ModelNames
 
 @Composable
-fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
+fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, openHosting: () -> Unit) {
     val installed by model.installed.collectAsState()
     val problems by model.problems.collectAsState()
     val downloads by model.downloads.collectAsState()
@@ -80,6 +81,12 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
             ) {
                 if (installed.isEmpty()) {
                     Text(stringResource(R.string.models_none), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text(
+                        stringResource(R.string.models_memory_on_hosting),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 installed.forEach { entry ->
                     key(entry.id) {
@@ -88,6 +95,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
                             name = ModelNames.shown(entry, installed),
                             status = status,
                             onDelete = { deleting = entry },
+                            onHosting = openHosting,
                             model = model,
                         )
                     }
@@ -189,7 +197,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
  * unloading, loading when hosting starts) is managed on Hosting, in one place.
  */
 @Composable
-private fun InstalledRow(entry: ModelEntry, name: String, status: EngineStatus?, onDelete: () -> Unit, model: MainViewModel) {
+private fun InstalledRow(entry: ModelEntry, name: String, status: EngineStatus?, onDelete: () -> Unit, onHosting: () -> Unit, model: MainViewModel) {
     val tones = LocalTones.current
     val loaded = status?.resident?.any { it.id == entry.id } == true
     val broken = status?.broken?.get(entry.id)
@@ -212,9 +220,7 @@ private fun InstalledRow(entry: ModelEntry, name: String, status: EngineStatus?,
                     entry.contextLength?.let { Fact(stringResource(R.string.fact_window), Format.window(it)) }
                     Fact(stringResource(R.string.fact_size), Format.bytes(entry.sizeBytes))
                     // The template is named only when there is none: that is a limit a client meets.
-                    if (entry.family ==
-                        null
-                    ) {
+                    if (!ConsoleChat.canChat(entry)) {
                         Fact(stringResource(R.string.fact_template), stringResource(R.string.model_raw), valueColor = tones.attention.color)
                     }
                 }
@@ -227,8 +233,11 @@ private fun InstalledRow(entry: ModelEntry, name: String, status: EngineStatus?,
             if (broken != null) {
                 Text(stringResource(R.string.model_did_not_load, broken), color = tones.failed.color, style = MaterialTheme.typography.bodySmall)
             }
-            // Pulled left by a text button's own padding, so the label lines up with the text above.
-            Action(stringResource(R.string.action_delete), onClick = onDelete, modifier = Modifier.offset(x = -ACTION_INSET), destructive = true)
+            // Pulled left by a text button's own padding, so the labels line up with the text above.
+            Row(Modifier.offset(x = -ACTION_INSET)) {
+                Action(stringResource(if (broken != null) R.string.models_resolve_on_hosting else R.string.models_use_on_hosting), onClick = onHosting)
+                Action(stringResource(R.string.action_delete), onClick = onDelete, destructive = true)
+            }
         }
     }
 }
