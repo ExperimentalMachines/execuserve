@@ -82,8 +82,8 @@ index 8ade536..db60a50 100644
 +class NpuActivityPerformanceLock {
 + public:
 +  static NpuActivityPerformanceLock& Get() {
-+    static NpuActivityPerformanceLock instance;
-+    return instance;
++    static auto* instance = new NpuActivityPerformanceLock();  // never destroyed: see below
++    return *instance;
 +  }
 +
 +  // RAII marker for one NPU execution.
@@ -108,8 +108,8 @@ index 8ade536..db60a50 100644
 +    if (mLib.mEnable) mThread = std::thread(&NpuActivityPerformanceLock::Run, this);
 +  }
 +
-+  // A process-lifetime static; the worker is detached at exit rather than joined, since
-+  // joining in a static destructor can deadlock against other teardown.
++  // Never runs: Get() leaks the instance, so the detached worker can never wake into a
++  // destroyed mutex or condition variable during static teardown (codex review).
 +  ~NpuActivityPerformanceLock() {
 +    {
 +      std::lock_guard<std::mutex> guard(mMutex);

@@ -15,9 +15,13 @@ import java.io.File
 object NativeCrashGuard {
     @Volatile private var marker: File? = null
 
+    @Volatile private var refusedFile: File? = null
+    private val lock = Any()
+
     /** Called once at startup, before any model opens. */
     fun init(directory: File) {
         marker = directory.resolve("native-running")
+        refusedFile = directory.resolve("native-refused")
     }
 
     /** Records [id] as running, or clears the record when null. */
@@ -26,8 +30,26 @@ object NativeCrashGuard {
         runCatching { if (id == null) file.delete() else file.writeText(id) }
     }
 
-    /** The model a native call was running when the previous process died, or null. */
-    fun interrupted(): String? = marker?.takeIf { it.isFile }?.let { runCatching { it.readText().trim() }.getOrNull() }?.ifEmpty { null }
+    /** The model a native call was running when the previous process died, or null; clears the record. */
+    fun take(): String? {
+        val file = marker ?: return null
+        val id = file.takeIf { it.isFile }?.let { runCatching { it.readText().trim() }.getOrNull() }?.ifEmpty { null }
+        file.delete()
+        return id
+    }
+
+    /** Models refused after taking the process down, one id a line, until retried or deleted. */
+    fun refused(): Set<String> = synchronized(lock) {
+        refusedFile?.takeIf { it.isFile }?.let { runCatching { it.readLines() }.getOrNull() }.orEmpty().map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
+
+    fun setRefused(id: String, refused: Boolean) {
+        synchronized(lock) {
+            val file = refusedFile ?: return
+            val now = refused().let { if (refused) it + id else it - id }
+            runCatching { if (now.isEmpty()) file.delete() else file.writeText(now.joinToString("\n", postfix = "\n")) }
+        }
+    }
 
     /** Runs [block] with [id] recorded as running. */
     inline fun <T> around(id: String, block: () -> T): T {

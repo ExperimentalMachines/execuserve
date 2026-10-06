@@ -96,9 +96,10 @@ class ServeHostTest {
     }
 
     @Test
-    fun aStartupModelWhoseLoadEndedTheProcessIsNotOpenedAgain() = runBlocking<Unit> {
-        // The system killed the last process while it opened "a" (an NPU build too large for
-        // the phone): the restarted service opens "b" and leaves "a" for a request.
+    fun aModelThatEndedTheProcessStaysRefusedUntilRetried() = runBlocking<Unit> {
+        // The system killed the last process while "a" ran (an NPU build too large for the
+        // phone): the restarted service opens "b", refuses "a", and keeps refusing it through a
+        // rescan and another restart, until the person retries it.
         val startupStore = FakeStore(HostSettings(port = port, preloadModels = setOf("a", "b"), maxResidentModels = 2), key)
         val startupLibrary = FakeLibrary(
             listOf(
@@ -112,9 +113,19 @@ class ServeHostTest {
             startupHost.start(onWedged = {})
             val status = withTimeout(5_000) { startupHost.engine!!.status.first { it.resident.isNotEmpty() } }
             assertEquals(listOf("b"), status.resident.map { it.id })
-            // Each startup load was marked before it began and cleared after; nothing is left.
-            withTimeout(5_000) { while (platform.marks.lastOrNull() != null) kotlinx.coroutines.delay(20) }
-            assertEquals(listOf(null, "b", null), platform.marks)
+            assertTrue("a" in status.broken)
+            assertEquals(setOf("a"), platform.quarantined())
+
+            startupHost.forgetFailures()
+            assertTrue("a" in startupHost.engine!!.status.value.broken)
+
+            startupHost.stop()
+            startupHost.start(onWedged = {})
+            assertTrue("a" in startupHost.engine!!.status.value.broken)
+
+            startupHost.retry("a")
+            assertEquals(emptySet(), platform.quarantined())
+            assertTrue("a" !in startupHost.engine!!.status.value.broken)
         } finally {
             startupHost.stop()
         }
@@ -209,14 +220,16 @@ class ServeHostTest {
     }
 }
 
-private class FakePlatform(private val runtime: LlmRuntime, private val interrupted: String? = null) : HostPlatform {
-    val marks = java.util.concurrent.CopyOnWriteArrayList<String?>()
+private class FakePlatform(private val runtime: LlmRuntime, private var interrupted: String? = null) : HostPlatform {
+    private val refused = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
-    override fun loading(id: String?) {
-        marks += id
+    override fun takeInterrupted() = interrupted.also { interrupted = null }
+
+    override fun quarantined(): Set<String> = refused.toSet()
+
+    override fun setQuarantined(id: String, quarantined: Boolean) {
+        if (quarantined) refused += id else refused -= id
     }
-
-    override fun interruptedLoad() = interrupted
 
     override val version = "test"
     override val cpuCores = 8

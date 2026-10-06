@@ -104,7 +104,7 @@ class ModelScanner(private val fs: FileSystemView, private val root: String) : M
         // An NPU build needs its own runner, which only an install's manifest names; opened as a
         // CPU file it fails, or worse, is reported as one.
         if (ptes.any { NPU_NAME.containsMatchIn(it) }) {
-            issues[path] = "${ptes.first()} is an NPU build. Install it from the catalog or with `tools/execuserve pull`, which record the runner it needs."
+            issues[path] = npuRefusal(ptes.first { NPU_NAME.containsMatchIn(it) })
             return null
         }
         if (ptes.size > 1) {
@@ -131,6 +131,10 @@ class ModelScanner(private val fs: FileSystemView, private val root: String) : M
     }
 
     private fun loose(directory: String, fileName: String, issues: MutableMap<String, String>): ModelEntry? {
+        if (NPU_NAME.containsMatchIn(fileName)) {
+            issues[join(directory, fileName)] = npuRefusal(fileName)
+            return null
+        }
         val tokenizer = tokenizerBeside(directory, fileName) ?: run {
             issues[join(directory, fileName)] = "No tokenizer beside $fileName (expected ${stem(fileName)}$TOKENIZER_SUFFIX or tokenizer.json)."
             return null
@@ -161,6 +165,8 @@ class ModelScanner(private val fs: FileSystemView, private val root: String) : M
         val NPU_NAME = Regex("-(qnn|neuropilot)-", RegexOption.IGNORE_CASE)
         const val TOKENIZER_SUFFIX = ".tokenizer.json"
         val WINDOW = Regex("-(\\d+)k(?:-|\\.|$)", RegexOption.IGNORE_CASE)
+
+        fun npuRefusal(file: String) = "$file is an NPU build. Install it from the catalog or with `tools/execuserve pull`, which record the runner it needs."
 
         fun stem(file: String) = file.substringBeforeLast('.')
 

@@ -21,6 +21,7 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <random>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -203,6 +204,43 @@ static size_t size_delegate_pool(int32_t requested) {
             static_cast<uint32_t>(threads));
     }
     return ::executorch::extension::threadpool::get_threadpool()->get_thread_count();
+}
+
+// ExecuServe: a reply piece as a Java string. NewStringUTF takes NUL-terminated *modified*
+// UTF-8, which cuts a piece at an embedded NUL and is not the encoding a tokenizer writes for
+// characters past U+FFFF (emoji); this converts standard UTF-8 to UTF-16 itself, with U+FFFD
+// for any malformed byte, and hands Java the exact length. Null if the JVM is out of memory.
+static jstring NewJavaString(JNIEnv* env, const std::string& utf8) {
+    std::u16string out;
+    out.reserve(utf8.size());
+    const auto* p = reinterpret_cast<const unsigned char*>(utf8.data());
+    const size_t n = utf8.size();
+    for (size_t i = 0; i < n;) {
+        const unsigned char c = p[i];
+        size_t len = c < 0x80 ? 1 : (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 0;
+        uint32_t cp = len == 1 ? c : len == 2 ? (c & 0x1F) : len == 3 ? (c & 0x0F) : (c & 0x07);
+        bool ok = len > 0 && i + len <= n;
+        for (size_t k = 1; ok && k < len; ++k) {
+            if ((p[i + k] & 0xC0) != 0x80) ok = false;
+            else cp = (cp << 6) | (p[i + k] & 0x3F);
+        }
+        static constexpr uint32_t kMin[] = {0, 0, 0x80, 0x800, 0x10000};
+        if (ok && (cp < kMin[len] || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF))) ok = false;
+        if (!ok) {
+            out.push_back(u'\uFFFD');
+            ++i;
+            continue;
+        }
+        if (cp >= 0x10000) {
+            cp -= 0x10000;
+            out.push_back(static_cast<char16_t>(0xD800 + (cp >> 10)));
+            out.push_back(static_cast<char16_t>(0xDC00 + (cp & 0x3FF)));
+        } else {
+            out.push_back(static_cast<char16_t>(cp));
+        }
+        i += len;
+    }
+    return env->NewString(reinterpret_cast<const jchar*>(out.data()), static_cast<jsize>(out.size()));
 }
 
 static size_t utf8_complete_prefix(const std::string& s) {
@@ -481,6 +519,14 @@ public:
         if (eos != 0) {
             stop_tokens_.insert(eos);
         }
+        // ExecuServe: id 0 ends a turn only where it is padding (LFM2's <|pad|>); in Qwen3's
+        // vocabulary it is "!", which must not cut a reply short.
+        {
+            auto zero = tokenizer_->decode(0, 0);
+            if (zero.ok() && (zero.get().empty() || zero.get().find("pad") != std::string::npos)) {
+                stop_tokens_.insert(0);
+            }
+        }
         for (const char* marker : {"<|im_end|>", "<|endoftext|>", "</s>"}) {
             auto marker_res = tokenizer_->encode(marker, 0, 0);
             if (marker_res.ok() && marker_res.get().size() == 1) {
@@ -665,12 +711,17 @@ public:
             LOGE("DisaggregatedSession: nothing was fed, refusing to decode from an empty cache");
             return false;
         }
-        HandoffStates();
+        if (!HandoffStates()) {
+            last_error_ = kErrorRuntime;
+            return false;
+        }
         prefilled_ = true;
         return true;
     }
 
-    void HandoffStates() {
+    // ExecuServe: false, having copied nothing past any buffer, when the two halves' caches do
+    // not have the shapes the copy assumes (a CPU build exported for a shorter window, say).
+    bool HandoffStates() {
         auto handoff_start = std::chrono::high_resolution_clock::now();
         const size_t T = prompt_len_;
         cache_high_water_ = std::max(cache_high_water_, T);
@@ -703,8 +754,19 @@ public:
                 const size_t npu_window = npu_cache_size_;
                 if (T > npu_window) {
                     LOGE("DisaggregatedSession: handoff reached with %zu tokens for a %zu window", T, npu_window);
-                    return;
+                    return false;
                 }
+                const size_t row = heads * dim;
+                const size_t npu_need = row * npu_window * sizeof(float);
+                const size_t cpu_floats = static_cast<size_t>(std::min(cpu_k_tensor.numel(), cpu_v_tensor.numel()));
+                const size_t cpu_rows = row ? cpu_floats / row : 0;
+                if (row == 0 || llama_chunk->GetInputBuffer(k_in_idx).nbytes < npu_need ||
+                    llama_chunk->GetInputBuffer(v_in_idx).nbytes < npu_need || cpu_rows < T) {
+                    LOGE("DisaggregatedSession: cache shapes do not match (%zu heads x %zu, NPU window %zu, CPU rows %zu, %zu tokens)",
+                         heads, dim, npu_window, cpu_rows, T);
+                    return false;
+                }
+                cpu_window_ = cpu_window_ ? std::min(cpu_window_, cpu_rows) : cpu_rows;
                 for (size_t s = 0; s < T; ++s) {
                     const size_t mtk_s = npu_window - T + s;
                     for (size_t h = 0; h < heads; ++h) {
@@ -745,11 +807,13 @@ public:
         auto handoff_end = std::chrono::high_resolution_clock::now();
         double handoff_ms = std::chrono::duration<double, std::milli>(handoff_end - handoff_start).count();
         LOGI("DisaggregatedSession: State handoff (NPU -> CPU) completed in %.3f ms", handoff_ms);
+        return true;
     }
 
     std::vector<int64_t> Generate(
         const std::string& prompt_text,
         int max_new_tokens,
+        float temperature,
         JNIEnv* env,
         jobject callback_obj,
         jmethodID callback_method
@@ -767,6 +831,18 @@ public:
         if (stop_requested_) {
             return {2 /* CANCELLED */, (int64_t)prompt_len_, 0, (int64_t)prefill_ms_, 0};
         }
+        // ExecuServe: the request's temperature, from the first token on (greedy at 0, and
+        // for an NPU whose logits are quantized integers, whose scale is not known here).
+        if (temperature > 0.0f) {
+            const auto logits_type = npu_runtime_.GetModelOptions().model_output_type;
+            if (logits_type == example::llm_helper::LLMType::FP32) {
+                first_output_token_ = Sample(static_cast<const float*>(last_logits_), temperature);
+            } else if (logits_type == example::llm_helper::LLMType::FP16) {
+                first_output_token_ = Sample(static_cast<const __fp16*>(last_logits_), temperature);
+            }
+        }
+        // The CPU build decodes into its own cache: past either half's window there is no row.
+        const size_t window = cpu_window_ ? std::min(npu_cache_size_, cpu_window_) : npu_cache_size_;
 
         // pthreadpool runs one share of every parallel region on this thread, so its
         // placement matters as much as the workers'. It is widened for the decode and put
@@ -808,22 +884,35 @@ public:
             if (cut == 0) return true;
             std::string whole = pending.substr(0, cut);
             pending.erase(0, cut);
-            jstring jpiece = env->NewStringUTF(whole.c_str());
+            jstring jpiece = NewJavaString(env, whole);
+            // ExecuServe: an exception in the callback (or no memory for the string) ends the
+            // turn at once, left pending for the Kotlin side to throw; no JNI call follows it.
+            if (jpiece == nullptr || env->ExceptionCheck()) {
+                callback_failed_ = true;
+                return false;
+            }
             jboolean cont = env->CallBooleanMethod(callback_obj, callback_method, jpiece);
             env->DeleteLocalRef(jpiece);
+            if (env->ExceptionCheck()) {
+                callback_failed_ = true;
+                return false;
+            }
             return cont != JNI_FALSE;
         };
+        callback_failed_ = false;
 
-        auto first_dec = tokenizer_->decode(0, first_output_token_);
-        if (first_dec.ok()) {
-            if (!emit(first_dec.get())) stop_requested_ = true;
+        // ExecuServe: the NPU's own prediction can already be the end of the turn.
+        bool ended = stop_tokens_.count(first_output_token_) != 0;
+        if (!ended) {
+            auto first_dec = tokenizer_->decode(0, first_output_token_);
+            if (first_dec.ok() && !emit(first_dec.get())) stop_requested_ = true;
+            generated_count++;
         }
-        generated_count++;
+        if (callback_failed_) return {};
 
         bool window_full = false;
-        while (generated_count < max_new_tokens && !stop_requested_) {
-            // ExecuServe: the CPU build shares the NPU's window; past it there is no cache row.
-            if (static_cast<size_t>(cur_pos) >= npu_cache_size_) {
+        while (!ended && generated_count < max_new_tokens && !stop_requested_) {
+            if (static_cast<size_t>(cur_pos) >= window) {
                 window_full = true;
                 break;
             }
@@ -840,21 +929,10 @@ public:
             }
 
             const float* logits = res.get()[0].toTensor().const_data_ptr<float>();
+            const uint64_t best_tok = Sample(logits, temperature);
 
-            // Argmax
-            float max_v = logits[0];
-            uint64_t best_tok = 0;
-            for (size_t v = 1; v < vocab_size_; ++v) {
-                if (logits[v] > max_v) {
-                    max_v = logits[v];
-                    best_tok = v;
-                }
-            }
-
-            // Token 0 is padding in every vocabulary this runtime loads, and a model that
-            // emits it has nothing left to say, so it ends the turn alongside the real
-            // stop ids rather than being decoded into the reply.
-            if (best_tok == 0 || stop_tokens_.count(best_tok) != 0) {
+            // The tokenizer's stop ids, and padding where id 0 is padding (see Load).
+            if (stop_tokens_.count(best_tok) != 0) {
                 LOGI("DisaggregatedSession: Reached stop token %llu", (unsigned long long)best_tok);
                 break;
             }
@@ -863,6 +941,7 @@ public:
             std::string piece = dec.ok() ? dec.get() : "";
 
             if (!piece.empty() && !emit(piece)) {
+                if (callback_failed_) return {};
                 stop_requested_ = true;
                 break;
             }
@@ -941,6 +1020,39 @@ public:
     }
 
 private:
+    // ExecuServe: argmax at temperature 0, otherwise a draw from softmax(logits / temperature).
+    template <typename T>
+    uint64_t Sample(const T* logits, float temperature) {
+        uint64_t best = 0;
+        float max_v = static_cast<float>(logits[0]);
+        for (size_t v = 1; v < vocab_size_; ++v) {
+            const float x = static_cast<float>(logits[v]);
+            if (x > max_v) {
+                max_v = x;
+                best = v;
+            }
+        }
+        if (!(temperature > 0.0f)) return best;
+        weights_.resize(vocab_size_);
+        double sum = 0.0;
+        for (size_t v = 0; v < vocab_size_; ++v) {
+            weights_[v] = std::exp((static_cast<double>(logits[v]) - max_v) / temperature);
+            sum += weights_[v];
+        }
+        double r = std::uniform_real_distribution<double>(0.0, sum)(rng_);
+        for (size_t v = 0; v < vocab_size_; ++v) {
+            r -= weights_[v];
+            if (r <= 0.0) return v;
+        }
+        return best;
+    }
+
+    std::mt19937_64 rng_{std::random_device{}()};
+    std::vector<double> weights_;
+    // The CPU build's cache rows, read at the handoff: its window when it is shorter.
+    size_t cpu_window_ = 0;
+    bool callback_failed_ = false;
+
     LlamaRuntime npu_runtime_;
     std::unique_ptr<Module> cpu_module_;
     Method* cpu_method_ = nullptr;
@@ -998,13 +1110,15 @@ Java_org_experimentalmachines_execuserve_executorch_NeuroPilotBridge_nativeLoad(
     const char* p_tok = env->GetStringUTFChars(tokenizer_path, nullptr);
 
     auto session = std::make_unique<DisaggregatedSession>();
-    bool ok = session->Load(p_opts, p_paths, p_emb, p_cpu, p_tok, (float)temperature);
+    // ExecuServe: a null here is an OutOfMemoryError already pending for Java.
+    bool ok = p_opts && p_paths && p_emb && p_cpu && p_tok &&
+        session->Load(p_opts, p_paths, p_emb, p_cpu, p_tok, (float)temperature);
 
-    env->ReleaseStringUTFChars(runner_options_json, p_opts);
-    env->ReleaseStringUTFChars(prompt_model_paths, p_paths);
-    env->ReleaseStringUTFChars(token_embedding_path, p_emb);
-    env->ReleaseStringUTFChars(cpu_model_path, p_cpu);
-    env->ReleaseStringUTFChars(tokenizer_path, p_tok);
+    if (p_opts) env->ReleaseStringUTFChars(runner_options_json, p_opts);
+    if (p_paths) env->ReleaseStringUTFChars(prompt_model_paths, p_paths);
+    if (p_emb) env->ReleaseStringUTFChars(token_embedding_path, p_emb);
+    if (p_cpu) env->ReleaseStringUTFChars(cpu_model_path, p_cpu);
+    if (p_tok) env->ReleaseStringUTFChars(tokenizer_path, p_tok);
 
     if (!ok) {
         LOGE("DisaggregatedBridge: nativeLoad failed");
@@ -1025,6 +1139,7 @@ Java_org_experimentalmachines_execuserve_executorch_NeuroPilotBridge_nativePrefi
     if (!session) return 0;
 
     const char* p_text = env->GetStringUTFChars(prompt, nullptr);
+    if (!p_text) return 0;
     int tokens = session->Prefill(p_text);
     env->ReleaseStringUTFChars(prompt, p_text);
     return tokens;
@@ -1048,19 +1163,30 @@ Java_org_experimentalmachines_execuserve_executorch_NeuroPilotBridge_nativeGener
     jlong handle,
     jstring prompt,
     jint max_tokens,
+    jfloat temperature,
     jobject callback
 ) {
     auto session = reinterpret_cast<DisaggregatedSession*>(handle);
     if (!session) return nullptr;
 
     const char* p_text = env->GetStringUTFChars(prompt, nullptr);
+    if (!p_text) return nullptr;
     std::string prompt_str(p_text);
     env->ReleaseStringUTFChars(prompt, p_text);
 
+    // ExecuServe: a callback without onToken(String): Boolean (R8 removed it, say) is a
+    // failure here, not a reply generated into nothing; its NoSuchMethodError is thrown.
     jclass cb_class = callback ? env->GetObjectClass(callback) : nullptr;
     jmethodID cb_method = cb_class ? env->GetMethodID(cb_class, "onToken", "(Ljava/lang/String;)Z") : nullptr;
+    if (cb_class) env->DeleteLocalRef(cb_class);
+    if (callback && !cb_method) {
+        LOGE("DisaggregatedBridge: the callback has no onToken(String): Boolean");
+        return nullptr;
+    }
 
-    auto result = session->Generate(prompt_str, max_tokens, env, callback, cb_method);
+    auto result = session->Generate(prompt_str, max_tokens, (float)temperature, env, callback, cb_method);
+    // The callback threw: Kotlin rethrows it when this returns.
+    if (env->ExceptionCheck()) return nullptr;
     if (result.empty()) {
         // Refused, not finished. Null is what the Kotlin side turns into an exception;
         // an empty array would read as a turn that ended normally with no tokens.
@@ -1068,6 +1194,7 @@ Java_org_experimentalmachines_execuserve_executorch_NeuroPilotBridge_nativeGener
     }
 
     jlongArray res_arr = env->NewLongArray(result.size());
+    if (!res_arr) return nullptr;
     env->SetLongArrayRegion(res_arr, 0, result.size(), reinterpret_cast<const jlong*>(result.data()));
     return res_arr;
 }
@@ -1148,6 +1275,7 @@ Java_org_experimentalmachines_execuserve_executorch_PdDecodeProbeNative_nativePr
     jboolean hold_lifetime_lock
 ) {
     const char* path_chars = env->GetStringUTFChars(cpu_model_path, nullptr);
+    if (!path_chars) return nullptr;
     const std::string path(path_chars);
     env->ReleaseStringUTFChars(cpu_model_path, path_chars);
 
@@ -1170,7 +1298,10 @@ Java_org_experimentalmachines_execuserve_executorch_PdDecodeProbeNative_nativePr
     std::vector<EValue> inputs{EValue(Tensor(&token_impl)), EValue(Tensor(&pos_impl))};
 
     // One untimed step, so lazily built runtime state is not charged to the first sample.
-    module.execute("forward", inputs);
+    if (!module.execute("forward", inputs).ok()) {
+        LOGE("probe: forward failed at position %d", start_pos);
+        return nullptr;
+    }
     pos = start_pos;
 
     std::unique_ptr<ScopePerformancer> lifetime_lock;
@@ -1188,7 +1319,10 @@ Java_org_experimentalmachines_execuserve_executorch_PdDecodeProbeNative_nativePr
     const auto window_start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < steps; ++i) {
         const auto step_start = std::chrono::high_resolution_clock::now();
-        module.execute("forward", inputs);
+        if (!module.execute("forward", inputs).ok()) {
+            LOGE("probe: forward failed at position %lld", (long long)pos);
+            return nullptr;
+        }
         step_ms.push_back(std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - step_start).count());
         pos++;
@@ -1213,6 +1347,7 @@ Java_org_experimentalmachines_execuserve_executorch_PdDecodeProbeNative_nativePr
         static_cast<double>(uclamp_min),
     };
     jdoubleArray out = env->NewDoubleArray(6);
+    if (!out) return nullptr;
     env->SetDoubleArrayRegion(out, 0, 6, result);
     return out;
 }

@@ -16,7 +16,8 @@ set -euo pipefail
 LIBS="${1:?directory with arm64-v8a/*.so}"
 MTK_LIBS="${2:-}"
 RELEASE=1.5.1
-VERSION="$RELEASE-execuserve.1"
+# A rebuilt binary is a new version: Gradle and anyone holding the old file must not mistake one for the other.
+VERSION="$RELEASE-execuserve.2"
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 DEST="$ROOT/android/executorch/maven/org/experimentalmachines/executorch/executorch-android/$VERSION"
 WORK=$(mktemp -d)
@@ -37,7 +38,10 @@ if [ -n "$MTK_LIBS" ]; then
   done
 fi
 mkdir -p "$DEST"
-(cd "$WORK/aar" && zip -q -r -X "$DEST/executorch-android-$VERSION.aar" .)
+# A fresh archive, moved into place: zip into an existing one would keep entries this build
+# no longer has (the MediaTek libraries of an earlier run, say).
+(cd "$WORK/aar" && zip -q -r -X "$WORK/out.aar" .)
+mv "$WORK/out.aar" "$DEST/executorch-android-$VERSION.aar"
 # Our coordinates, upstream's dependencies. The Gradle-metadata marker goes: this artifact
 # publishes no .module file, and Gradle would otherwise look for one.
 python3 - "$WORK/upstream.pom" "$DEST/executorch-android-$VERSION.pom" "$RELEASE" "$VERSION" <<'PY2'

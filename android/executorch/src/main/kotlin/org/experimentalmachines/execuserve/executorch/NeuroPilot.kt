@@ -29,8 +29,11 @@ internal class NeuroPilotBridge {
     /** Why the last call returned nothing: [ERROR_OVERFLOW], [ERROR_RUNTIME], or 0. */
     external fun nativeLastError(handle: Long): Int
 
-    /** Returns [reason, promptTokens, generatedTokens, prefillMs, decodeMs], or null on failure. */
-    external fun nativeGenerate(handle: Long, prompt: String, maxTokens: Int, callback: Any): LongArray?
+    /**
+     * Returns [reason, promptTokens, generatedTokens, prefillMs, decodeMs], or null on failure.
+     * Greedy at [temperature] 0, sampled above it.
+     */
+    external fun nativeGenerate(handle: Long, prompt: String, maxTokens: Int, temperature: Float, callback: Any): LongArray?
 
     external fun nativeResetContext(handle: Long)
 
@@ -99,15 +102,9 @@ internal class NeuroPilotSession(private val files: ModelFiles, private val fact
     override fun generate(text: String, temperature: Float, onToken: (String) -> Unit): RuntimeOutcome {
         // The engine ends a reply with stop() from inside onToken; the runner's own limit is the window.
         val limit = facts.contextLength ?: Int.MAX_VALUE
-        val callback = object {
-            @Suppress("unused") // called by name from JNI
-            fun onToken(piece: String): Boolean {
-                onToken(piece)
-                return true
-            }
-        }
+        val callback = NeuroPilotTokens(onToken)
         val handle = live()
-        val result = NativeCrashGuard.around(guardId) { bridge.nativeGenerate(handle, text, limit, callback) }
+        val result = NativeCrashGuard.around(guardId) { bridge.nativeGenerate(handle, text, limit, temperature, callback) }
             ?: throw failure(handle, "failed while generating")
         // The reply reached the end of the window: the engine reports that as a full context.
         if (result.getOrElse(RESULT_REASON) { 0L } == REASON_WINDOW_FULL) throw overflow()
@@ -143,5 +140,17 @@ internal class NeuroPilotSession(private val files: ModelFiles, private val fact
         const val RESULT_PREFILL_MS = 3
         const val RESULT_DECODE_MS = 4
         const val REASON_WINDOW_FULL = 3L
+    }
+}
+
+/**
+ * What the MediaTek runtime streams each piece of a reply to. Its JNI looks up [onToken] by
+ * name, which R8 cannot see: consumer-rules.pro keeps the class and the method.
+ */
+internal class NeuroPilotTokens(private val sink: (String) -> Unit) {
+    @Suppress("unused") // called by name from JNI
+    fun onToken(piece: String): Boolean {
+        sink(piece)
+        return true
     }
 }

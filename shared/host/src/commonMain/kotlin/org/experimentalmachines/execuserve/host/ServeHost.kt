@@ -78,16 +78,20 @@ interface HostPlatform {
     fun hosts(): Set<String>
 
     /**
-     * The model a native call was running when the process last died, kept across process
-     * death. The runtime marks every open, prefill and generate (and [loading] marks startup
-     * loads); a process the system kills inside one (an NPU build too large for the phone's
-     * memory) leaves the id behind, and the restarted service reads it with [interruptedLoad]
-     * and marks the model failed instead of running it into the same death. A platform whose
-     * process cannot be killed this way keeps nothing.
+     * The model a native call was running when the process last died, and clears that record.
+     * The runtime marks every open, prefill and generate itself; a process the system kills
+     * inside one (an NPU build too large for the phone's memory) leaves the id behind. A
+     * platform whose process cannot be killed this way keeps nothing.
      */
-    fun loading(id: String?) = Unit
+    fun takeInterrupted(): String? = null
 
-    fun interruptedLoad(): String? = null
+    /**
+     * Models that took the process down, kept across restarts and refused until the person
+     * retries one or deletes it: a rescan or a restart must not load it into the same death.
+     */
+    fun quarantined(): Set<String> = emptySet()
+
+    fun setQuarantined(id: String, quarantined: Boolean) = Unit
 }
 
 /**
@@ -164,6 +168,10 @@ class ServeHost(
             onWedged = onWedged,
         )
         engine.start()
+        // Before the listener takes a request: the last process died while this model ran, so
+        // it is refused, saying why, until the person retries it.
+        platform.takeInterrupted()?.let { platform.setQuarantined(engine.resolve(it)?.id ?: it, true) }
+        val refused = refuseQuarantined(engine)
         val listener = ExecuServer(
             ServerContext(
                 engine = engine,
@@ -210,16 +218,8 @@ class ServeHost(
             }
         }
         child.launch {
-            val interrupted = platform.interruptedLoad()
-            platform.loading(null)
-            // The last process died while this model ran: refuse it, saying why, until the user
-            // retries (which forgets the failure), rather than loading it into the same death.
-            interrupted?.let { engine.resolve(it)?.id }?.let { runCatching { engine.recordFailure(it, INTERRUPTED) } }
             current.startupModels { engine.resolve(it)?.id }.forEach { model ->
-                if (model == interrupted) return@forEach
-                platform.loading(model)
-                runCatching { engine.load(model) }
-                platform.loading(null)
+                if (model !in refused) runCatching { engine.load(model) }
             }
         }
         _state.value = State.Running(platform.endpoints(current.port, current.bind), current, clock())
@@ -257,16 +257,23 @@ class ServeHost(
     suspend fun load(id: String) = act { it.load(id) }
 
     /** Loads [id] again after a failure: the person asked, so the recorded failure is set aside. */
-    suspend fun retry(id: String) = act {
-        it.forgetFailure(id)
-        it.load(id)
+    suspend fun retry(id: String) {
+        platform.setQuarantined(id, false)
+        act {
+            it.forgetFailure(id)
+            it.load(id)
+        }
     }
 
     suspend fun unload(id: String?) = act { it.unload(id) }
 
     suspend fun cancel(jobId: String) = act { it.cancel(jobId) }
 
-    suspend fun forgetFailures() = act { it.forgetFailures() }
+    /** Sets aside ordinary failures (files may have changed); quarantined models stay refused. */
+    suspend fun forgetFailures() = act {
+        it.forgetFailures()
+        refuseQuarantined(it)
+    }
 
     /** Frees memory the system asked back; the next request reloads what it needs. */
     suspend fun evictAll() = act { it.evictIdle(force = true) }
@@ -275,8 +282,15 @@ class ServeHost(
     suspend fun benchmark(model: String, onRun: (org.experimentalmachines.execuserve.engine.JobRecord) -> Unit = {}) =
         _engine.value?.let { Benchmark.run(it, model, onRun) }.orEmpty()
 
-    /** Unloads a model before its files are deleted. */
-    suspend fun release(entry: ModelEntry) = unload(entry.id)
+    /** Unloads a model before its files are deleted; a new install under its id starts clean. */
+    suspend fun release(entry: ModelEntry) {
+        platform.setQuarantined(entry.id, false)
+        unload(entry.id)
+    }
+
+    /** Records every quarantined model the library still has as failed; returns their ids. */
+    private suspend fun refuseQuarantined(engine: Engine): Set<String> =
+        platform.quarantined().mapNotNull { engine.resolve(it)?.id }.onEach { runCatching { engine.recordFailure(it, INTERRUPTED) } }.toSet()
 
     private suspend fun act(action: suspend (Engine) -> Unit) {
         val engine = _engine.value ?: return

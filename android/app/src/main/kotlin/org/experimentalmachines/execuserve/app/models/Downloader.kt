@@ -152,14 +152,23 @@ class Downloader(
         active = id to connection
         try {
             when (val code = connection.responseCode) {
-                HttpURLConnection.HTTP_PARTIAL -> Unit
+                // A resumed body must start where the file on disk ends; anything else would be
+                // appended at the wrong place, so the file starts over on the next try.
+                HttpURLConnection.HTTP_PARTIAL -> if (connection.getHeaderField("Content-Range")?.startsWith("bytes $offset-") != true) {
+                    part.delete()
+                    throw IOException("${destination.name} could not be resumed; try again to download it from the start.")
+                }
                 HttpURLConnection.HTTP_OK -> if (offset > 0) {
                     // The server ignored the range: start over.
                     part.delete()
                     digest.reset()
                     offset = 0
                 }
-                RANGE_NOT_SATISFIABLE -> Unit // already complete; verified below
+                // Nothing left to send: complete, if a digest or a size can say so (checked below).
+                RANGE_NOT_SATISFIABLE -> if (remote.sha256 == null && remote.sizeBytes == null) {
+                    part.delete()
+                    throw IOException("${destination.name} could not be resumed; try again to download it from the start.")
+                }
                 else -> throw IOException("HTTP $code for ${remote.url.substringAfterLast('/')}")
             }
             if (remote.sizeBytes == null) progress.total += offset + connection.contentLengthLong.coerceAtLeast(0)

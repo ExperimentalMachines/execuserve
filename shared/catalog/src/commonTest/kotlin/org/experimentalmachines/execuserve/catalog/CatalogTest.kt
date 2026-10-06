@@ -196,6 +196,14 @@ class CatalogTest {
         // A chunk missing from the repository withholds the whole export.
         val partial = repo.copy(siblings = repo.siblings.filterNot { it.rfilename.endsWith("chunk3of4.pte") })
         assertTrue(HfCatalog.variants(partial, "mtk/mt6991/config.json", mtk, phone).isEmpty())
+        // So does a part without a published digest: nothing could check what was downloaded.
+        val undigested = HfCatalog.parseConfig(
+            """{"runtime":"executorch","runtime_version":"1.4.0","backend":"mtk","target":"mt6991","tokenizer":"tokenizer.json",
+               "variants":[{"files":${chunks.joinToString(",", "[", "]") { "\"$it\"" }},"embedding":"$embedding","size_bytes":1,
+               "sha256":{${chunks.joinToString(",") { "\"$it\":\"h-$it\"" }}},
+               "context":4096,"runner":{"cache_size":4096}}]}""",
+        )
+        assertTrue(HfCatalog.variants(repo, "mtk/mt6991/config.json", undigested, phone).isEmpty())
     }
 
     @Test
@@ -243,6 +251,8 @@ class CatalogTest {
                 "/m/orphan.pte" to "x",
                 "/m/copied/Qwen3-1.7B-qnn-hybrid-4k.pte" to "x",
                 "/m/copied/tokenizer.json" to "{}",
+                "/m/LFM2.5-1.2B-Instruct-neuropilot-a16w8-2k.pte" to "x",
+                "/m/LFM2.5-1.2B-Instruct-neuropilot-a16w8-2k.tokenizer.json" to "{}",
             ),
         )
         val scanner = ModelScanner(fs, "/m")
@@ -259,6 +269,7 @@ class CatalogTest {
         assertTrue(scanner.problems.keys.any { "orphan" in it })
         // An NPU build copied in by hand would open on the CPU runner: refused, saying how to install it.
         assertTrue(scanner.problems.getValue("/m/copied").contains("NPU build"))
+        assertTrue(scanner.problems.getValue("/m/LFM2.5-1.2B-Instruct-neuropilot-a16w8-2k.pte").contains("NPU build"))
         assertEquals("qwen3-1.7b-8da4w-gptq-2k", scanner.resolve("qwen3-1.7b")?.id)
     }
 }

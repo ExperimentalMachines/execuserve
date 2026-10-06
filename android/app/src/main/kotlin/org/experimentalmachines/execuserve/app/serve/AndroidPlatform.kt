@@ -29,10 +29,12 @@ class AndroidPlatform(context: Context) : HostPlatform {
 
     override val version: String = BuildConfig.VERSION_NAME
 
-    // One record for startup loads and every native call: see NativeCrashGuard.
-    override fun loading(id: String?) = NativeCrashGuard.mark(id)
+    // The runtime records every native call itself: see NativeCrashGuard.
+    override fun takeInterrupted(): String? = NativeCrashGuard.take()
 
-    override fun interruptedLoad(): String? = NativeCrashGuard.interrupted()
+    override fun quarantined(): Set<String> = NativeCrashGuard.refused()
+
+    override fun setQuarantined(id: String, quarantined: Boolean) = NativeCrashGuard.setRefused(id, quarantined)
 
     override val cpuCores: Int = Runtime.getRuntime().availableProcessors()
 

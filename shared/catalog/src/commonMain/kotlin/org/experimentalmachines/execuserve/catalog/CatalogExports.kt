@@ -72,8 +72,9 @@ fun withCpuHalves(variants: List<CatalogVariant>): List<CatalogVariant> = varian
 
 /**
  * A MediaTek variant's NPU half, or null for a single-file export. A multi-file export is
- * offered only whole: every chunk, the embedding table and the runner's options must be there,
- * so an incomplete one also comes back null and the caller drops it.
+ * offered only whole and verifiable: every chunk and the embedding table, each with its
+ * published digest, and the runner's options must be there, so an incomplete one also comes
+ * back null and the caller drops it.
  */
 internal fun npuParts(variant: ExportVariant, files: Set<String>, inFolder: (String) -> String): NpuParts? {
     val chunks = variant.files.map(inFolder)
@@ -81,10 +82,12 @@ internal fun npuParts(variant: ExportVariant, files: Set<String>, inFolder: (Str
     val runner = variant.runner
     val missing = embedding == null || (chunks + embedding).any { it !in files }
     if (chunks.isEmpty() || runner == null || missing) return null
+    val digests = (variant.files + listOfNotNull(variant.embedding)).associate { inFolder(it) to variant.digest(it) }
+    if (digests.values.any { it.isNullOrBlank() }) return null
     return NpuParts(
         chunkPaths = chunks,
         embeddingPath = embedding,
-        digests = (variant.files + listOfNotNull(variant.embedding)).associate { inFolder(it) to variant.digest(it) },
+        digests = digests,
         runner = runner.toString(),
     )
 }
