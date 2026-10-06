@@ -252,7 +252,8 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) 
 @Composable
 private fun KeysPanel(keys: List<ApiKey>, onAdd: (String) -> Unit, onRevoke: (String) -> Unit) {
     val context = LocalContext.current
-    Panel(stringResource(R.string.settings_keys)) {
+    // Inside the "API keys" expander already: a second card with the same title said it twice.
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.row)) {
         Text(stringResource(R.string.settings_keys_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         keys.forEach { key ->
             CopyRow(

@@ -91,11 +91,18 @@ private suspend fun ApplicationCall.answerMessages(ctx: ServerContext) {
     val job = submit(ctx, generation)
     val id = "msg_${job.id}"
     if (request.stream) {
-        stream(job, MessagesStream(id, job.model.id))
+        stream(job, MessagesStream(id, job.model.id, omitThinking = request.thinking?.display == OMITTED))
     } else {
         when (val end = drain(job)) {
             is JobEvent.Finished -> respondJson(
-                MessageObjects.message(id, end.result.model, contentOf(end.result), stopReasonOf(end.result), usageOf(end.result), end.result.stopSequence),
+                MessageObjects.message(
+                    id,
+                    end.result.model,
+                    contentOf(end.result, omitThinking = request.thinking?.display == OMITTED),
+                    stopReasonOf(end.result),
+                    usageOf(end.result),
+                    end.result.stopSequence,
+                ),
             )
             is JobEvent.Failed -> throw failureError(end.failure)
             else -> throw ApiError.internal("The job ended without a result.")
@@ -130,8 +137,9 @@ private suspend fun ApplicationCall.respondAnthropicError(error: ApiError) {
  * The reply as Anthropic orders it: thinking, text, then one block per tool call. A reply
  * with nothing in it still carries one empty text block, so `content[0].text` never fails.
  */
-private fun contentOf(result: GenerationResult): List<ContentBlock> = buildList {
-    if (result.reasoning.isNotEmpty()) add(ContentBlock.Thinking(result.reasoning))
+private fun contentOf(result: GenerationResult, omitThinking: Boolean = false): List<ContentBlock> = buildList {
+    // display "omitted": the block says the model thought, without what it thought.
+    if (result.reasoning.isNotEmpty()) add(ContentBlock.Thinking(if (omitThinking) "" else result.reasoning))
     if (result.content.isNotEmpty() || isEmpty() && result.toolCalls.isEmpty()) add(ContentBlock.Text(result.content))
     result.toolCalls.forEach { add(toolUseOf(it)) }
 }
@@ -378,7 +386,7 @@ internal object MessagesTranslate {
  * the first thought arrives, text when the first word of the answer does, and tool calls
  * once the reply has ended and parsed, each sent whole as one `input_json_delta`.
  */
-internal class MessagesStream(private val id: String, private val model: String) : StreamFormat {
+internal class MessagesStream(private val id: String, private val model: String, private val omitThinking: Boolean = false) : StreamFormat {
     /** The index of the open block, or of the next one when none is open. */
     private var index = 0
     private var openType: String? = null
@@ -403,12 +411,14 @@ internal class MessagesStream(private val id: String, private val model: String)
     override fun delta(delta: JobEvent.Delta): List<String> = buildList {
         if (delta.reasoning.isNotEmpty()) {
             addAll(open(ContentBlock.Thinking("")))
-            add(
-                blockDelta {
-                    put("type", "thinking_delta")
-                    put("thinking", delta.reasoning)
-                },
-            )
+            if (!omitThinking) {
+                add(
+                    blockDelta {
+                        put("type", "thinking_delta")
+                        put("thinking", delta.reasoning)
+                    },
+                )
+            }
         }
         if (delta.content.isNotEmpty()) {
             addAll(open(ContentBlock.Text("")))
@@ -482,3 +492,5 @@ internal class MessagesStream(private val id: String, private val model: String)
 
 private const val TOOL_USE_PREFIX = "toolu_"
 private const val ENGINE_CALL_PREFIX = "call_"
+
+private const val OMITTED = "omitted"

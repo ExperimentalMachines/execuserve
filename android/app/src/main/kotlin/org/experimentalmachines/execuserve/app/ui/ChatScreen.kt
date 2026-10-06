@@ -201,8 +201,9 @@ fun ChatScreen(model: MainViewModel, padding: PaddingValues, openModels: () -> U
 /** Why the chat cannot start yet, and the one thing that fixes it. */
 @Composable
 private fun Gate(title: String, note: String, action: String, onAction: () -> Unit) {
+    // Scrolls: in a short window (a phone sideways, large text) it is taller than the room.
     Column(
-        Modifier.fillMaxSize().padding(horizontal = Dimens.gutter),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = Dimens.gutter, vertical = Dimens.gutter),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -385,7 +386,7 @@ private fun PickerRow(name: String, detail: String, active: Boolean, onClick: ()
 @Composable
 private fun switchConsequence(option: ModelEntry, resident: List<ResidentInfo>, limit: Int, installed: List<ModelEntry>): String {
     if (resident.any { it.id == option.id }) return stringResource(R.string.chat_in_memory)
-    val evicted = resident.takeIf { it.size >= limit }?.minByOrNull { it.lastUsedMs } ?: return stringResource(R.string.chat_switch_loads)
+    val evicted = evictedBy(option, resident, installed, limit, memoryBudget()) ?: return stringResource(R.string.chat_switch_loads)
     val name = installed.firstOrNull { it.id == evicted.id }?.let { ModelNames.shown(it, installed) } ?: evicted.id
     return stringResource(R.string.chat_switch_unloads, name)
 }
@@ -508,7 +509,8 @@ private fun rememberFollow(list: LazyListState, chat: ChatState): MutableState<B
 @Composable
 private fun Welcome(modelName: String, modifier: Modifier, onSuggestion: (String) -> Unit) {
     Column(
-        modifier.fillMaxWidth().wrapContentWidth().widthIn(max = READABLE_WIDTH).padding(horizontal = 16.dp, vertical = Dimens.gutter),
+        modifier.fillMaxWidth().verticalScroll(rememberScrollState()).wrapContentWidth().widthIn(max = READABLE_WIDTH)
+            .padding(horizontal = 16.dp, vertical = Dimens.gutter),
         verticalArrangement = Arrangement.Center,
     ) {
         Mark(48.dp)

@@ -7,6 +7,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.experimentalmachines.execuserve.testing.FakeRuntime
@@ -28,8 +29,10 @@ class EngineSettingsTest {
         laneExecutor.shutdownNow()
     }
 
+    private var wedged = 0
+
     private fun engine(runtime: LlmRuntime, models: List<ModelEntry> = emptyList(), config: EngineConfig = EngineConfig()) =
-        Engine(runtime, StaticModelSource(models), lane, scope, config, env).also { it.start() }
+        Engine(runtime, StaticModelSource(models), lane, scope, config, env, onWedged = { wedged++ }).also { it.start() }
 
     private fun test(block: suspend () -> Unit) = runBlocking { withTimeout(20_000) { block() } }
 
@@ -59,5 +62,28 @@ class EngineSettingsTest {
         assertEquals(Admission.PAUSED_BATTERY, engine.status.value.admission)
         engine.config = engine.config.copy(minBatteryPercent = 0)
         assertEquals(Admission.OPEN, engine.status.value.admission)
+    }
+
+    @Test
+    fun aLoadThatNeverReturnsWedgesTheEngine() = test {
+        val runtime = FakeRuntime().apply { openGate = java.util.concurrent.CountDownLatch(1) }
+        val model = ModelEntry("m", ModelFiles("/m.pte", "/m.json"), "qwen3", 1, 2048)
+        val engine = engine(runtime, listOf(model), EngineConfig(loadDeadlineMs = 300))
+        scope.launch { runCatching { engine.load(model.id) } }
+        engine.status.first { it.lane == LaneState.WEDGED }
+        assertEquals(1, wedged)
+        runtime.openGate?.countDown()
+    }
+
+    @Test
+    fun aModelBeingDeletedIsNeitherServedNorReloaded() = test {
+        val model = ModelEntry("m", ModelFiles("/m.pte", "/m.json"), "qwen3", 1, 2048)
+        val engine = engine(FakeRuntime(), listOf(model))
+        engine.load(model.id)
+        engine.retire(model.id)
+        assertEquals(emptyList(), engine.status.value.resident)
+        kotlin.test.assertFailsWith<Refusal.UnknownModel> {
+            engine.submit(GenerationRequest(model = model.id, input = PromptInput.Raw("Hi"), client = ClientId("c", "c")))
+        }
     }
 }

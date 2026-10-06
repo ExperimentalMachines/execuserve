@@ -622,13 +622,16 @@ private fun ApiModels(installed: List<ModelEntry>, model: MainViewModel, limit: 
     Column(verticalArrangement = Arrangement.spacedBy(Dimens.row)) {
         Text(stringResource(R.string.connect_models_title), style = MaterialTheme.typography.titleSmall)
         Text(stringResource(R.string.connect_models_note), style = MaterialTheme.typography.bodySmall, color = muted)
+        val budget = memoryBudget()
         installed.forEach { entry ->
             val id = requestId(entry, installed)
+            val evicted = evictedBy(entry, resident, installed, limit, budget)
             val state = when {
                 resident.any { it.id == entry.id } -> stringResource(R.string.connect_model_in_memory)
-                resident.size >= limit -> resident.minByOrNull { it.lastUsedMs }?.let { evicted ->
-                    stringResource(R.string.connect_model_swaps, installed.firstOrNull { it.id == evicted.id }?.let { requestId(it, installed) } ?: evicted.id)
-                } ?: stringResource(R.string.connect_model_loads)
+                evicted != null -> stringResource(
+                    R.string.connect_model_swaps,
+                    installed.firstOrNull { it.id == evicted.id }?.let { requestId(it, installed) } ?: evicted.id,
+                )
                 else -> stringResource(R.string.connect_model_loads)
             }
             CopyRow(id, label = state)

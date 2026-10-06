@@ -53,7 +53,11 @@ class FakeRuntime(
 
     override fun probe(files: ModelFiles): ModelFacts = ModelFacts(window, prefillLength, true, chunkedPrefill)
 
+    /** When set, open() waits for it: a native load that does not return. */
+    @Volatile var openGate: java.util.concurrent.CountDownLatch? = null
+
     override fun open(files: ModelFiles, facts: ModelFacts, family: String?): LlmSession {
+        openGate?.await()
         broken[files.model]?.let { throw RuntimeFailure(it) }
         log += "open ${files.model}"
         openedFamilies += family

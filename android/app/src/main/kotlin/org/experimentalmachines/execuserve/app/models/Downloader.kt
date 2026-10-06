@@ -117,6 +117,8 @@ class Downloader(
             // What the model occupies: every file but the tokenizer, so a MediaTek install
             // counts its NPU chunks and embedding as well as the CPU build in model.pte.
             val bytes = plan.files.filter { it.name != plan.manifest.tokenizer }.sumOf { folder.resolve(it.name).length() }
+            // The manifest is what makes it installed: written only if nobody cancelled meanwhile.
+            coroutineContext.ensureActive()
             folder.resolve(Manifest.FILE_NAME).writeText(plan.manifest.copy(sizeBytes = bytes).encode())
             set(DownloadState(plan.id, progress.done, progress.done, DownloadState.Phase.DONE))
             onInstalled(plan.id)
@@ -203,6 +205,8 @@ class Downloader(
             part.delete()
             throw IOException("${destination.name} is ${part.length()} bytes, expected ${remote.sizeBytes}.")
         }
+        // A cancel during the check must not be followed by a file moved into place.
+        coroutineContext.ensureActive()
         if (!part.renameTo(destination)) throw IOException("Could not move ${destination.name} into place.")
     }
 
@@ -218,11 +222,13 @@ class Downloader(
         }
     }
 
-    private fun sha256(file: File): String {
+    /** Hashes a file already on disk; a cancel stops it between reads (a model is gigabytes). */
+    private suspend fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().buffered(BUFFER).use { input ->
             val buffer = ByteArray(BUFFER)
             while (true) {
+                coroutineContext.ensureActive()
                 val read = input.read(buffer)
                 if (read < 0) break
                 digest.update(buffer, 0, read)

@@ -36,6 +36,8 @@ data class EngineConfig(
     val cancelRunningAt: ThermalLevel = ThermalLevel.CRITICAL,
     /** Refuse work below this charge while unplugged; zero never refuses. */
     val minBatteryPercent: Int = 0,
+    /** How long a model's native load may take before the engine counts as wedged. */
+    val loadDeadlineMs: Long = 600_000,
     /** How long a cancelled job's native call may keep the lane before the engine is wedged. */
     val wedgeGraceMs: Long = 30_000,
     /** Fragments buffered for a slow client before its request is cancelled. */

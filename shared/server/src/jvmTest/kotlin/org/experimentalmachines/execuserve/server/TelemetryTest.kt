@@ -117,7 +117,9 @@ class TelemetryTest {
         assertTrue("execuserve_requests_total{outcome=\"completed\"} 1" in text, text)
         assertTrue("execuserve_threads 7" in text, text)
         assertTrue(Regex("execuserve_time_to_first_token_seconds\\{quantile=\"0.5\"} [0-9.]+").containsMatchIn(text), text)
-        assertTrue("execuserve_time_to_first_token_seconds_count 1" in text, text)
+        // A rolling window is a gauge: no _count that a rate() would misread as cumulative.
+        assertTrue("# TYPE execuserve_time_to_first_token_seconds gauge" in text, text)
+        assertTrue("_count" !in text, text)
         // No client appears in a label: the counters are the server's, not any one key's.
         assertTrue("alice" !in text)
     }

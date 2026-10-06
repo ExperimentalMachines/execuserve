@@ -296,6 +296,20 @@ class MessagesTest {
     }
 
     @Test
+    fun omittedThinkingKeepsTheBlockButNotTheText() {
+        val reply = listOf("<think>", "\nPondering.\n", "</think>", "\n\nHi", "<|im_end|>")
+        val thinking = """"thinking":{"type":"enabled","budget_tokens":1024,"display":"omitted"}"""
+        serve(runtime = FakeRuntime(reply = { reply })) {
+            val content = json(messages("""$hello,$thinking}""").bodyAsText())["content"]!!.jsonArray.map { it.jsonObject }
+            assertEquals(listOf("thinking", "text"), content.map { it.str("type") })
+            assertEquals("", content[0].str("thinking"))
+            val streamed = messages("""$hello,$thinking,"stream":true}""").bodyAsText()
+            assertTrue("thinking_delta" !in streamed, streamed)
+            assertTrue("Pondering" !in streamed, streamed)
+        }
+    }
+
+    @Test
     fun thinkingComesFirstInItsOwnBlock() {
         val reply = listOf("<think>", "\nPondering.\n", "</think>", "\n\nHi", "<|im_end|>")
         val thinking = """"thinking":{"type":"enabled","budget_tokens":1024}"""

@@ -131,16 +131,13 @@ private fun prometheus(ctx: ServerContext): String = buildString {
     val recent = ctx.runs().take(QUANTILE_RUNS).filter { it.finish != null }
     fun quantiles(name: String, help: String, values: List<Double>) {
         val spread = Spread.of(values) ?: return
-        // A summary's count is its own series, execuserve_<name>_count, hence the bare suffix.
+        // Gauges over a rolling window, not a summary: a summary's _count must only grow,
+        // and this one's, the window's size, would stall at its cap (codex review).
         metric(
             name,
-            "summary",
+            "gauge",
             "$help Over the last $QUANTILE_RUNS runs.",
-            listOf(
-                "{quantile=\"0.5\"}" to spread.median,
-                "{quantile=\"0.9\"}" to spread.p90,
-                "_count" to spread.count,
-            ),
+            listOf("{quantile=\"0.5\"}" to spread.median, "{quantile=\"0.9\"}" to spread.p90),
         )
     }
     quantiles("time_to_first_token_seconds", "Submission to first token.", recent.filter { it.firstTokenMs > 0 }.map { it.firstTokenMs / MS })

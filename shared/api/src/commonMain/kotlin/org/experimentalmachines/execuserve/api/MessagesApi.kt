@@ -56,7 +56,12 @@ data class ToolParam(
 data class ToolChoiceParam(val type: String)
 
 @Serializable
-data class ThinkingParam(val type: String, @SerialName("budget_tokens") val budgetTokens: Int? = null)
+data class ThinkingParam(
+    val type: String,
+    @SerialName("budget_tokens") val budgetTokens: Int? = null,
+    /** "omitted" keeps the thinking blocks but not their text. */
+    val display: String? = null,
+)
 
 /** One block of an assistant message, in the order the model produced them. */
 sealed interface ContentBlock {

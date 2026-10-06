@@ -182,6 +182,7 @@ class Engine(
 
         val job = lock.withLock {
             if (stopping) throw Refusal.Unavailable("The server is stopping.")
+            if (entry.id in retiring) throw Refusal.UnknownModel(request.model, models.all().map { it.id } - retiring)
             val waiting = queue.count { it is Item.Generate }
             if (waiting >= cfg.maxQueued) {
                 throw Refusal.QueueFull(
@@ -229,6 +230,28 @@ class Engine(
         }
         command(Action.Unload(id))
     }
+
+    /**
+     * Stops serving [modelName] for good, before its files are deleted: new requests for it
+     * are refused, waiting ones fail, a running one is cancelled, and it leaves memory. Between
+     * an unload and the deletion a request could otherwise load it again from files about to
+     * disappear (codex review).
+     */
+    suspend fun retire(modelName: String) {
+        val entry = models.resolve(modelName) ?: return
+        lock.withLock {
+            retiring = retiring + entry.id
+            queue.forEach { if (it is Item.Generate && it.job.model.id == entry.id) it.job.cancel(FailureKind.CANCELLED) }
+        }
+        current?.takeIf { it.model.id == entry.id }?.cancel(FailureKind.CANCELLED)
+        ledgers = ledgers.filterKeys { !it.startsWith(entry.id + "\u0000") }
+        wake.trySend(Unit)
+        command(Action.Unload(entry.id))
+    }
+
+    /** Models being deleted: refused by every path that could open them. */
+    @Volatile
+    private var retiring = emptySet<String>()
 
     /** Frees memory: idle models without waiting requests, or all of them when [force]d. */
     suspend fun evictIdle(force: Boolean) = command(Action.EvictIdle(force))
@@ -441,7 +464,10 @@ class Engine(
         val key = HistoryText.of(content, calls, template)
         val entry = key to LedgerEntry(opener + raw, reasoned)
         val kept = ledgers[ledgerKey].orEmpty().filter { it.first != key }
-        ledgers = ledgers + (ledgerKey to (listOf(entry) + kept).take(LEDGER_SIZE))
+        // The most recently used buckets only: one per model and key, and keys and models
+        // come and go, so the map itself is bounded too (codex review).
+        val updated = (ledgers - ledgerKey) + (ledgerKey to (listOf(entry) + kept).take(LEDGER_SIZE))
+        ledgers = if (updated.size > MAX_LEDGERS) updated.entries.drop(updated.size - MAX_LEDGERS).associate { it.toPair() } else updated
     }
 
     // ------------------------------------------------------------------------------------
@@ -826,19 +852,25 @@ class Engine(
             return it
         }
         broken[entry.id]?.let { throw RuntimeFailure(it) }
+        if (entry.id in retiring) throw RuntimeFailure("'${entry.id}' is being deleted.")
         makeRoomFor(entry)
         setLane(LaneState.LOADING, running = current?.let { running(it, 0, 0) }, loading = entry.id)
+        // Watched like a generation: a load whose native call never returns would otherwise
+        // hold the lane, and every request behind it, for good (codex review).
+        loadingSince = clock()
         val facts = runCatching { runtime.probe(entry.files) }.getOrElse { ModelFacts(entry.contextLength) }
         val session = try {
             runtime.open(entry.files, facts, entry.family)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Throwable) {
+            loadingSince = 0
             val reason = failure.message ?: failure::class.simpleName ?: "unknown error"
             broken[entry.id] = reason
             _status.update { it.copy(broken = broken.toMap()) }
             throw RuntimeFailure(reason, failure)
         }
+        loadingSince = 0
         val window = facts.contextLength ?: entry.contextLength
         val callChars = if (facts.chunkedPrefill) {
             minOf(GENERATE_TAIL_CHARS, (facts.prefillLength ?: Int.MAX_VALUE) - 1).coerceAtLeast(1)
@@ -876,6 +908,10 @@ class Engine(
     // The reaper, off the lane
     // ------------------------------------------------------------------------------------
 
+    /** When the native load in progress began, or zero. Read by the reaper, off the lane. */
+    @Volatile
+    private var loadingSince = 0L
+
     private suspend fun reaperLoop() {
         var cancelSeenAt = 0L
         var watched: Job? = null
@@ -903,6 +939,12 @@ class Engine(
                 }
             } else {
                 watched = null
+            }
+            val load = loadingSince
+            if (!wedged && load > 0 && now - load >= config.loadDeadlineMs) {
+                wedged = true
+                _status.update { it.copy(lane = LaneState.WEDGED, admission = Admission.WEDGED) }
+                onWedged()
             }
 
             if (running == null && now >= idleCheckAt && !stopping) {
@@ -1081,6 +1123,8 @@ class Engine(
     }
 
     private companion object {
+        /** Reply ledgers kept at once, across models and keys. */
+        const val MAX_LEDGERS = 32
         const val GENEROUS_CHARS_PER_TOKEN = 6
         const val POLL_MS = 50L
         const val REAPER_MS = 250L

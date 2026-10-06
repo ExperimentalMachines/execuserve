@@ -15,6 +15,7 @@ import org.experimentalmachines.execuserve.catalog.HfCatalog
 import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.engine.ModelMemory
 import org.experimentalmachines.execuserve.engine.NpuMemory
+import org.experimentalmachines.execuserve.engine.ResidentInfo
 
 /**
  * The memory a model takes once loaded, the figure that decides whether it runs, shown
@@ -59,4 +60,23 @@ fun MemoryNeed(need: Long?) {
         )
         ModelMemory.Fit.COMFORTABLE -> Unit
     }
+}
+
+/**
+ * The model asking for [entry] would unload now, as the engine decides it: the least recently
+ * used while the count is at [limit] or the models together would not fit [budget]; null when
+ * it is in memory already or nothing needs to go. A prediction: another app can change it.
+ */
+fun evictedBy(entry: ModelEntry, resident: List<ResidentInfo>, installed: List<ModelEntry>, limit: Int, budget: Long?): ResidentInfo? {
+    if (resident.isEmpty() || resident.any { it.id == entry.id }) return null
+    val needs = resident.map { r -> installed.firstOrNull { it.id == r.id }?.let(ModelMemory::needFor) } + ModelMemory.needFor(entry)
+    val overBudget = budget != null && (needs.any { it == null } || needs.sumOf { it ?: 0 } > budget)
+    return if (resident.size >= limit || overBudget) resident.minByOrNull { it.lastUsedMs } else null
+}
+
+/** What the engine may keep in memory at once on this phone: two thirds of it. */
+@Composable
+fun memoryBudget(): Long? {
+    val context = LocalContext.current
+    return remember { phoneMemory(context)?.totalBytes?.let(ModelMemory::usableBytes) }
 }

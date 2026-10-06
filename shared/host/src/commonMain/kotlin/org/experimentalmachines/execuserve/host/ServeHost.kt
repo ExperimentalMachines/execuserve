@@ -284,7 +284,7 @@ class ServeHost(
     /** Unloads a model before its files are deleted; a new install under its id starts clean. */
     suspend fun release(entry: ModelEntry) {
         platform.setQuarantined(entry.id, false)
-        unload(entry.id)
+        act { it.retire(entry.id) }
     }
 
     /** Records every quarantined model the library still has as failed; returns their ids. */

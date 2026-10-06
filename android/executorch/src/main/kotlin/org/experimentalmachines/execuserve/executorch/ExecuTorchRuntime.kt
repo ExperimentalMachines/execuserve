@@ -54,8 +54,14 @@ class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { tr
         } else {
             0
         }
+        // Marked like a load: a process that dies here is quarantined for this model rather
+        // than restarted into the same fault (codex review).
+        NativeCrashGuard.around(NativeCrashGuard.idOf(files.model)) { probeProgram(files, probeThreads) }
+    }
+
+    private fun probeProgram(files: ModelFiles, probeThreads: Int): ModelFacts {
         val program = Module.load(files.model, Module.LOAD_MODE_MMAP, probeThreads)
-        try {
+        return try {
             val methods = program.getMethods().toSet()
             fun read(name: String): Int? = name.takeIf { it in methods }?.let {
                 program.execute(it).firstOrNull()?.takeIf { v -> v.isInt }?.toInt()?.toInt()
@@ -297,11 +303,14 @@ private class ExecuTorchSession(
     }
 
     override fun reset() {
-        if (reopenOnReset && hasRun) {
-            module.close()
-            module = openModule()
-        } else {
-            module.resetContext()
+        // Native like a load, and guarded like one (codex review).
+        NativeCrashGuard.around(guardId) {
+            if (reopenOnReset && hasRun) {
+                module.close()
+                module = openModule()
+            } else {
+                module.resetContext()
+            }
         }
         hasRun = false
     }
