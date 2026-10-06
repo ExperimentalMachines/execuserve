@@ -15,7 +15,8 @@ import org.pytorch.executorch.extension.llm.LlmModule
 import java.io.File
 
 /**
- * ExecuTorch 1.5.1 on XNNPACK. Everything below was measured in OpenWeights on 1.4.0, which has
+ * ExecuTorch 1.5.1 on XNNPACK, Vulkan and Qualcomm's NPU (QNN): one library carries all three
+ * delegates, and the install's recorded backend says which runner opens a file. Everything below was measured in OpenWeights on 1.4.0, which has
  * run these exports on phones since 2026-08; the comments say what each line works around.
  * 1.5.1 left the JNI LLM layer (jni_layer_llama.cpp) and the threadpool unchanged, so the
  * BOS, token-budget and stop behaviour described here carries over.
@@ -35,7 +36,8 @@ class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { tr
      * post-processor declares one. LFM2.5-2.6B answered garbage without it (0/30 GSM8K on
      * four chips), so the engine writes the family's BOS into the text instead.
      */
-    override fun tokenizerAddsBos(files: ModelFiles): Boolean = false
+    // Qualcomm's and MediaTek's runners each add the model's BOS themselves.
+    override fun tokenizerAddsBos(files: ModelFiles): Boolean = files.backend == QNN || files.backend == NEUROPILOT
 
     /**
      * The export's own constants, read through a second, memory-mapped handle: a few
@@ -61,6 +63,8 @@ class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { tr
                 contextLength = read("get_max_context_len") ?: read("get_max_seq_len"),
                 prefillLength = read("get_max_seq_len"),
                 stateResetAtZero = read("get_state_reset_at_zero")?.let { it != 0 },
+                // Qualcomm's and MediaTek's runners split a prompt into their own 128-token blocks.
+                chunkedPrefill = files.backend != QNN && files.backend != NEUROPILOT,
             )
         } finally {
             program.destroy()
@@ -70,6 +74,7 @@ class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { tr
     override fun open(files: ModelFiles, facts: ModelFacts, family: String?): LlmSession = synchronized(poolLock) {
         if (!File(files.model).isFile) throw RuntimeFailure("${files.model} is missing")
         if (!File(files.tokenizer).isFile) throw RuntimeFailure("${files.tokenizer} is missing")
+        if (files.backend == NEUROPILOT) return@synchronized NeuroPilotSession(files, facts, EngineConfig().defaultTemperature)
         val selectedThreads = threads
         if (openSessions > 0 && (selectedThreads != 0 || residentThreads != 0 || pinnedPoolThreads == null)) {
             throw RuntimeFailure("Unload the current models before changing CPU threads or opening another model.")
@@ -120,13 +125,23 @@ class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { tr
 private class ExecuTorchSession(
     private val files: ModelFiles,
     private val facts: ModelFacts,
-    family: String?,
+    private val family: String?,
     private val threads: Int,
     private val poolLock: Any,
     private val onClosed: () -> Unit,
 ) : LlmSession {
 
-    private var module: LlmModule = openModule()
+    /**
+     * A QNN export runs on Qualcomm's own static-graph runner (the JNI layer's model type 4),
+     * not the generic text runner: prefill and decode graphs compiled for one chip and one
+     * window. The family picks its stop tokens; see [QnnSupport.prepare]. Declared before
+     * [module], whose initializer reads it.
+     */
+    private val qnn: Boolean = files.backend == QNN
+
+    private val guardId = NativeCrashGuard.idOf(files.model)
+
+    private var module: LlmModule = NativeCrashGuard.around(guardId) { openModule() }
     private var hasRun = false
     private var closed = false
 
@@ -143,12 +158,14 @@ private class ExecuTorchSession(
 
     private fun openModule(): LlmModule = synchronized(poolLock) {
         try {
+            if (qnn) QnnSupport.prepare(family)
             // Each generation supplies its own temperature; the constructor needs one too.
-            val opened = LlmModule(LlmModule.MODEL_TYPE_TEXT, files.model, files.tokenizer, EngineConfig().defaultTemperature)
+            val type = if (qnn) MODEL_TYPE_QNN else LlmModule.MODEL_TYPE_TEXT
+            val opened = LlmModule(type, files.model, files.tokenizer, EngineConfig().defaultTemperature)
             try {
                 // XNNPACK binds the existing pool at load(). A custom count is safe only
                 // while this is the process's sole model; the runtime enforces that limit.
-                threads.takeIf { it > 0 }?.let { Module.load(files.model, Module.LOAD_MODE_MMAP, it).destroy() }
+                if (!qnn) threads.takeIf { it > 0 }?.let { Module.load(files.model, Module.LOAD_MODE_MMAP, it).destroy() }
                 // The Kotlin wrapper throws on the JNI error code and returns Unit.
                 opened.load()
                 opened
@@ -159,8 +176,12 @@ private class ExecuTorchSession(
         } catch (failure: Throwable) {
             val detail = failure.message ?: failure::class.java.simpleName
             gpuRefusal(failure)?.let { throw it }
-            // Link failures are Errors, not Exceptions; surface them as model load failures.
-            throw RuntimeFailure("ExecuTorch could not open ${File(files.model).name}: $detail", failure)
+            npuRefusal(failure)?.let { throw it }
+            // Link failures are Errors, not Exceptions; surface them as model load failures. The
+            // runner's own reasons go only to ExecuTorch's log buffer ("Failed to load model
+            // runner" says nothing), so its last lines come with the error.
+            val log = recentRuntimeLog()
+            throw RuntimeFailure("ExecuTorch could not open ${File(files.model).name}: $detail" + log.let { if (it.isEmpty()) "" else "\n$it" }, failure)
         }
     }
 
@@ -180,12 +201,24 @@ private class ExecuTorchSession(
         )
     }
 
+    /** This phone's NPU cannot start at all, in the runtime's words (see [QnnSupport.recordIfIncompatible]). */
+    private fun npuRefusal(failure: Throwable): RuntimeFailure? {
+        if (!qnn) return null
+        val reason = QnnSupport.recordIfIncompatible(failure) ?: return null
+        return RuntimeFailure(
+            "This device's NPU cannot run this build ($reason). Its NPU builds will not be listed again until the app " +
+                "is updated; try the same model's CPU build, which does not need the NPU.",
+            failure,
+        )
+    }
+
     override fun prefill(text: String) {
         hasRun = true
         try {
-            module.prefillPrompt(text)
+            NativeCrashGuard.around(guardId) { module.prefillPrompt(text) }
         } catch (failure: Throwable) {
-            throw gpuRefusal(failure) ?: failure.asOverflow() ?: RuntimeFailure("ExecuTorch could not prefill: ${failure.message}", failure)
+            throw gpuRefusal(failure) ?: npuRefusal(failure) ?: failure.asOverflow()
+                ?: RuntimeFailure("ExecuTorch could not prefill: ${failure.message}", failure)
         }
     }
 
@@ -201,29 +234,35 @@ private class ExecuTorchSession(
             // Applied per call, and would otherwise append an EOS to every suffix fed in,
             // turning a continuation into a string of terminated fragments.
             .numEos(0)
+            // Qualcomm's runner stops at seq_len total positions and defaults it low; give it
+            // the compiled window, and let stop() end the reply at the client's limit.
+            .let { builder -> facts.contextLength?.takeIf { qnn }?.let(builder::seqLen) ?: builder }
             .build()
         try {
-            module.generate(
-                text,
-                config,
-                object : LlmCallback {
-                    override fun onResult(result: String) = onToken(result)
+            NativeCrashGuard.around(guardId) {
+                module.generate(
+                    text,
+                    config,
+                    object : LlmCallback {
+                        override fun onResult(result: String) = onToken(result)
 
-                    override fun onStats(stats: String) {
-                        reported = stats
-                    }
+                        override fun onStats(stats: String) {
+                            reported = stats
+                        }
 
-                    override fun onError(errorCode: Int, message: String) {
-                        error = message.ifBlank { "ExecuTorch error $errorCode" }
-                    }
-                },
-            )
+                        override fun onError(errorCode: Int, message: String) {
+                            error = message.ifBlank { "ExecuTorch error $errorCode" }
+                        }
+                    },
+                )
+            }
         } catch (failure: Throwable) {
-            throw gpuRefusal(failure) ?: failure.asOverflow() ?: RuntimeFailure("ExecuTorch failed while generating: ${failure.message}", failure)
+            throw gpuRefusal(failure) ?: npuRefusal(failure) ?: failure.asOverflow()
+                ?: RuntimeFailure("ExecuTorch failed while generating: ${failure.message}", failure)
         }
         error?.let { message ->
             val failure = RuntimeFailure(message)
-            throw gpuRefusal(failure) ?: failure.asOverflow() ?: failure
+            throw gpuRefusal(failure) ?: npuRefusal(failure) ?: failure.asOverflow() ?: failure
         }
         return outcomeFrom(reported)
     }
@@ -282,6 +321,20 @@ private class ExecuTorchSession(
 
     private fun String.longField(name: String): Long = Regex("\"$name\"\\s*:\\s*(\\d+)").find(this)?.groupValues?.get(1)?.toLongOrNull() ?: 0
 }
+
+/** ExecuTorch's last few log lines, newest last, for an error that would otherwise say nothing. */
+private fun recentRuntimeLog(lines: Int = 12): String = runCatching {
+    Module.readLogBufferStatic()?.takeLast(lines)?.joinToString("\n").orEmpty()
+}.getOrDefault("")
+
+/** The install backend whose files Qualcomm's own LLM runner opens. */
+internal const val QNN = "qnn"
+
+/** The install backend whose NPU chunks MediaTek's runner prefills, decoding on the CPU build. */
+internal const val NEUROPILOT = "mtk"
+
+/** The JNI layer's model type for Qualcomm's static LLM runner (jni_layer_llama.cpp); the Java API names no constant for it. */
+private const val MODEL_TYPE_QNN = 4
 
 /** Whether [name] (a family such as `lfm2.5`, or a file name) is an LFM2 model. */
 internal fun isLfm2(name: String): Boolean = "lfm2" in name.lowercase().filter { it.isLetterOrDigit() }

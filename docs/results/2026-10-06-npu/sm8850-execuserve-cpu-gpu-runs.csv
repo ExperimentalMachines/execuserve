@@ -1,0 +1,13 @@
+id,finished_at_ms,model,api,stream,outcome,prompt_tokens,cached_tokens,estimated_prompt_tokens,completion_tokens,queue_ms,load_ms,prefill_ms,first_token_ms,decode_ms,decode_wall_ms,total_ms,prefill_tokens_per_second,decode_tokens_per_second,threads,thermal,battery_percent,charging
+SLj0kpK8NgIRRtKUCaV1PWTx,1791260315313,qwen3-1.7b-8da4w-gptq-4k,chat.completions,false,length,702,0,447,64,0,0,2126,2126,1828,1828,3954,330.20,34.46,7,none,100,true
+IaPv0wwlk1NiyFrtOq1p300P,1791260311343,qwen3-1.7b-8da4w-gptq-4k,chat.completions,false,length,21,0,0,128,0,0,68,69,2320,2320,2389,308.82,54.74,7,none,100,true
+FD4EujzYuLjveTDxNwe5vQMY,1791260308941,qwen3-1.7b-8da4w-gptq-4k,chat.completions,false,length,702,0,447,64,0,0,2039,2039,1889,1889,3928,344.29,33.35,7,none,100,true
+Uj0vcpjVV0S4QnHC7uUcyMvu,1791260304997,qwen3-1.7b-8da4w-gptq-4k,chat.completions,false,length,21,0,0,128,0,0,70,70,2329,2330,2400,300.00,54.53,7,none,100,true
+fib90t2pqp1E67DhOZAvOwZC,1791260302579,qwen3-1.7b-8da4w-gptq-4k,chat.completions,false,length,702,0,447,64,0,0,1911,1912,1879,1880,3792,367.35,33.53,7,none,100,true
+ApiFlwOMWPRVQdwjBOEY4vsZ,1791260298771,qwen3-1.7b-8da4w-gptq-4k,chat.completions,false,length,21,0,0,128,0,0,71,72,2342,2342,2414,295.77,54.23,7,none,100,true
+lW4tDRfxuG0e4B0XuwEDCwaT,1791260286425,qwen3-1.7b-vulkan-8da4w-4k,chat.completions,false,stop,702,0,447,49,0,0,1000,1000,1303,1303,2303,702.00,36.84,7,none,100,true
+M6CNZdOx2XFR6aTbq9VgXxTq,1791260284089,qwen3-1.7b-vulkan-8da4w-4k,chat.completions,false,length,21,0,0,128,0,0,59,60,2983,2983,3043,355.93,42.57,7,none,100,true
+tsT4q5ftc8BfLXgiPQEJfATp,1791260281006,qwen3-1.7b-vulkan-8da4w-4k,chat.completions,false,stop,702,0,447,49,0,0,961,963,1423,1423,2386,730.49,33.73,7,none,100,true
+c543TOrJhK7ioKsben8wR1Zt,1791260278575,qwen3-1.7b-vulkan-8da4w-4k,chat.completions,false,length,21,0,0,128,0,0,57,58,3023,3023,3081,368.42,42.01,7,none,100,true
+5AcLrwKPHEWFn4ANSvpiokk2,1791260275449,qwen3-1.7b-vulkan-8da4w-4k,chat.completions,false,stop,702,0,447,49,0,0,1089,1089,1301,1301,2390,644.63,36.89,7,none,100,true
+WlAZlvvYkx1DfvaOvSfZjo1H,1791260273020,qwen3-1.7b-vulkan-8da4w-4k,chat.completions,false,length,21,0,0,128,1,0,65,66,3017,3017,3083,323.08,42.09,7,none,100,true

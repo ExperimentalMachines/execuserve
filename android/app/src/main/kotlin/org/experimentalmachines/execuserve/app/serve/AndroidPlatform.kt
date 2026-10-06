@@ -12,6 +12,7 @@ import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.engine.Environment
 import org.experimentalmachines.execuserve.engine.LlmRuntime
 import org.experimentalmachines.execuserve.executorch.ExecuTorchRuntime
+import org.experimentalmachines.execuserve.executorch.NativeCrashGuard
 import org.experimentalmachines.execuserve.host.Endpoint
 import org.experimentalmachines.execuserve.host.HostPlatform
 import org.experimentalmachines.execuserve.server.BindMode
@@ -27,6 +28,11 @@ class AndroidPlatform(context: Context) : HostPlatform {
     }
 
     override val version: String = BuildConfig.VERSION_NAME
+
+    // One record for startup loads and every native call: see NativeCrashGuard.
+    override fun loading(id: String?) = NativeCrashGuard.mark(id)
+
+    override fun interruptedLoad(): String? = NativeCrashGuard.interrupted()
 
     override val cpuCores: Int = Runtime.getRuntime().availableProcessors()
 

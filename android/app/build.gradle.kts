@@ -123,7 +123,20 @@ android {
         }
     }
     packaging {
-        jniLibs.useLegacyPackaging = false
+        // Extracted: the Hexagon DSP loads its skeleton library by file path (ADSP_LIBRARY_PATH),
+        // which a library left compressed inside the APK does not have.
+        jniLibs.useLegacyPackaging = true
+        // Qualcomm's runtime ships more than precompiled NPU graphs use: the on-device graph
+        // compiler (69 MB), the GPU and DSP backends, and the oldest Hexagon generation's driver.
+        jniLibs.excludes += setOf(
+            "**/libQnnHtpPrepare.so",
+            "**/libQnnGpu.so",
+            "**/libQnnDsp.so",
+            "**/libQnnDspV66Skel.so",
+            "**/libQnnDspV66Stub.so",
+            "**/libQnnHtpV68Skel.so",
+            "**/libQnnHtpV68Stub.so",
+        )
         resources.excludes += setOf("META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties", "META-INF/*.kotlin_module")
     }
 }

@@ -1,0 +1,7 @@
+id,finished_at_ms,model,api,stream,outcome,prompt_tokens,cached_tokens,estimated_prompt_tokens,completion_tokens,queue_ms,load_ms,prefill_ms,first_token_ms,decode_ms,decode_wall_ms,total_ms,prefill_tokens_per_second,decode_tokens_per_second,threads,thermal,battery_percent,charging
+iUDtmDYMXdlPPuRJEH3phj4S,1791265001827,qwen3-1.7b-qnn-hybrid-4k,chat.completions,false,length,697,0,0,64,0,0,404,404,2536,2537,2941,1725.25,24.84,,none,100,true
+cn4zTFwxB4HyXVhJxl5CUMFK,1791264998842,qwen3-1.7b-qnn-hybrid-4k,chat.completions,false,length,21,0,0,128,0,0,83,83,5131,5132,5215,253.01,24.75,,none,100,true
+qAgl24tTYgcYvCt38CBuXWi6,1791264993584,qwen3-1.7b-qnn-hybrid-4k,chat.completions,false,length,697,0,0,64,0,0,406,407,2564,2565,2973,1716.75,24.57,,none,100,true
+2mnmfS01vhATs1pddXRRmFcz,1791264990561,qwen3-1.7b-qnn-hybrid-4k,chat.completions,false,length,21,0,0,128,0,0,72,72,5134,5135,5207,291.67,24.74,,none,100,true
+poNPpOcVmXE2y4LYeRgR7jCu,1791264985323,qwen3-1.7b-qnn-hybrid-4k,chat.completions,false,length,697,0,0,64,0,0,408,409,2560,2561,2970,1708.33,24.61,,none,100,true
+kbXWXJjkTS6JmvGqdvyNIPb8,1791264982316,qwen3-1.7b-qnn-hybrid-4k,chat.completions,false,length,21,0,0,128,0,0,74,75,5093,5094,5169,283.78,24.94,,none,100,true

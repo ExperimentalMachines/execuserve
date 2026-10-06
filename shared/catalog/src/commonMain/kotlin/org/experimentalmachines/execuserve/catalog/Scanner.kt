@@ -3,6 +3,7 @@ package org.experimentalmachines.execuserve.catalog
 import org.experimentalmachines.execuserve.engine.ModelEntry
 import org.experimentalmachines.execuserve.engine.ModelFiles
 import org.experimentalmachines.execuserve.engine.ModelSource
+import org.experimentalmachines.execuserve.engine.NpuFiles
 
 /** The little of a file system the scanner needs. */
 interface FileSystemView {
@@ -60,34 +61,52 @@ class ModelScanner(private val fs: FileSystemView, private val root: String) : M
         return unique
     }
 
+    /** A folder an install wrote, read from its [Manifest]. */
+    private fun installed(path: String, manifestPath: String, issues: MutableMap<String, String>): ModelEntry? {
+        val manifest = runCatching { Manifest.decode(fs.readText(manifestPath)) }.getOrElse {
+            issues[manifestPath] = "Unreadable manifest: ${it.message}"
+            return null
+        }
+        val model = join(path, manifest.model)
+        val tokenizer = join(path, manifest.tokenizer)
+        if (!fs.isFile(model) || !fs.isFile(tokenizer)) {
+            issues[path] = "Incomplete: ${manifest.model} or ${manifest.tokenizer} is missing (a download may still be running)."
+            return null
+        }
+        val npu = manifest.npu?.let { parts ->
+            val missing = (parts.chunks + parts.embedding).firstOrNull { !fs.isFile(join(path, it)) }
+            if (missing != null) {
+                issues[path] = "Incomplete: $missing is missing (a download may still be running)."
+                return null
+            }
+            NpuFiles(parts.chunks.map { join(path, it) }, join(path, parts.embedding), parts.runner)
+        }
+        return ModelEntry(
+            id = manifest.id,
+            files = ModelFiles(model, tokenizer, manifest.backend, npu),
+            family = manifest.family ?: Families.detect(manifest.id),
+            // A MediaTek install is its NPU chunks and embedding as well as the CPU build.
+            sizeBytes = fs.size(model) + (npu?.let { (it.chunks + it.embedding).sumOf(fs::size) } ?: 0),
+            contextLength = manifest.contextLength,
+            aliases = ModelIds.aliasesFor(manifest.id),
+            source = manifest.source,
+            installedAtMs = manifest.installedAtMs.takeIf { it > 0 } ?: fs.modifiedMs(model),
+            lab = manifest.lab ?: Labs.of(manifest.sourceModel, manifest.family ?: Families.detect(manifest.id)),
+            backend = manifest.backend,
+        )
+    }
+
     private fun folder(path: String, name: String, issues: MutableMap<String, String>): ModelEntry? {
         val manifestPath = join(path, Manifest.FILE_NAME)
-        if (fs.isFile(manifestPath)) {
-            val manifest = runCatching { Manifest.decode(fs.readText(manifestPath)) }.getOrElse {
-                issues[manifestPath] = "Unreadable manifest: ${it.message}"
-                return null
-            }
-            val model = join(path, manifest.model)
-            val tokenizer = join(path, manifest.tokenizer)
-            if (!fs.isFile(model) || !fs.isFile(tokenizer)) {
-                issues[path] = "Incomplete: ${manifest.model} or ${manifest.tokenizer} is missing (a download may still be running)."
-                return null
-            }
-            return ModelEntry(
-                id = manifest.id,
-                files = ModelFiles(model, tokenizer),
-                family = manifest.family ?: Families.detect(manifest.id),
-                sizeBytes = fs.size(model),
-                contextLength = manifest.contextLength,
-                aliases = ModelIds.aliasesFor(manifest.id),
-                source = manifest.source,
-                installedAtMs = manifest.installedAtMs.takeIf { it > 0 } ?: fs.modifiedMs(model),
-                lab = manifest.lab ?: Labs.of(manifest.sourceModel, manifest.family ?: Families.detect(manifest.id)),
-                backend = manifest.backend,
-            )
-        }
+        if (fs.isFile(manifestPath)) return installed(path, manifestPath, issues)
         val ptes = fs.list(path).filter { it.endsWith(PTE, ignoreCase = true) }
         if (ptes.isEmpty()) return null
+        // An NPU build needs its own runner, which only an install's manifest names; opened as a
+        // CPU file it fails, or worse, is reported as one.
+        if (ptes.any { NPU_NAME.containsMatchIn(it) }) {
+            issues[path] = "${ptes.first()} is an NPU build. Install it from the catalog or with `tools/execuserve pull`, which record the runner it needs."
+            return null
+        }
         if (ptes.size > 1) {
             issues[path] = "More than one .pte in one folder; give each model its own folder."
             return null
@@ -137,6 +156,9 @@ class ModelScanner(private val fs: FileSystemView, private val root: String) : M
 
     private companion object {
         const val PTE = ".pte"
+
+        /** How execupack names NPU builds: `-qnn-` (Qualcomm) and `-neuropilot-` (MediaTek). */
+        val NPU_NAME = Regex("-(qnn|neuropilot)-", RegexOption.IGNORE_CASE)
         const val TOKENIZER_SUFFIX = ".tokenizer.json"
         val WINDOW = Regex("-(\\d+)k(?:-|\\.|$)", RegexOption.IGNORE_CASE)
 

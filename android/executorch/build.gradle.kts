@@ -16,8 +16,10 @@ android {
 
 dependencies {
     api(project(":shared:engine"))
-    // The AAR with both the XNNPACK (CPU) and Vulkan (GPU) delegates registered.
+    // XNNPACK (CPU), Vulkan (GPU) and QNN (Qualcomm NPU) in one runtime, built by tools/executorch.
     implementation(libs.executorch.android)
+    // The HTP drivers the QNN delegate loads at run time.
+    implementation(libs.qnn.runtime)
     // VulkanSupport.usableState, which the Models screen collects.
     api(libs.kotlinx.coroutines.core)
 }

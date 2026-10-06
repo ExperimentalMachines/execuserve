@@ -96,14 +96,17 @@ fi
 # The phone downloads it itself, over its own network, pinned to the repository's commit and
 # checked against the published SHA-256; this only asks and then watches the folder.
 if [ "$COMMAND" = "pull" ]; then
-  ID=$(basename "$PULL_FILE" .pte | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')
+  # The app's install id: the file's name, less a MediaTek chunk count (-chunk1of4), which
+  # names the first of several files (HfCatalog's installId).
+  ID=$(basename "$PULL_FILE" .pte | sed -E 's/-chunk[0-9]+of[0-9]+$//' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')
   DIR="/sdcard/Android/data/$PKG/files/models/$ID"
   "${ADB[@]}" shell am start-foreground-service -n "$PKG/$SERVICE" -a "$ACTION.PULL" --es repo "$REPO" --es file "$PULL_FILE" >/dev/null
   echo "Downloading $PULL_FILE on $DEVICE..."
   for _ in $(seq 1 3600); do
     if "${ADB[@]}" shell "[ -f $DIR/execuserve.json ]" 2>/dev/null; then echo; echo "Installed as $ID."; exit 0; fi
-    BYTES=$("${ADB[@]}" shell "stat -c %s $DIR/model.pte.part $DIR/model.pte 2>/dev/null | head -1" | tr -d '\r')
-    printf '\r  %s MB' "$(( ${BYTES:-0} / 1048576 ))"
+    # Everything in the folder: a MediaTek install fetches its chunks before model.pte.
+    KB=$("${ADB[@]}" shell "du -sk $DIR 2>/dev/null | cut -f1" | tr -d '\r ')
+    printf '\r  %s MB' "$(( ${KB:-0} / 1024 ))"
     sleep 2
   done
   die "the download did not finish; open the app's Models tab to see why"

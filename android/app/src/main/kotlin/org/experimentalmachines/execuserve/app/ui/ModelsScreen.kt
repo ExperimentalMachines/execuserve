@@ -51,6 +51,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
     val status by model.status.collectAsState()
     val catalog by model.catalog.collectAsState()
     val gpu by model.gpuUsable.collectAsState()
+    val npu by model.npuUsable.collectAsState()
     var deleting by remember { mutableStateOf<ModelEntry?>(null) }
 
     // Files pushed with adb while the app was away appear on return, with no button to press.
@@ -90,7 +91,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
                                     )
                                 }
                             },
-                            onLoad = { model.load(entry.id) },
+                            onLoad = { if (status?.broken?.containsKey(entry.id) == true) model.retry(entry.id) else model.load(entry.id) },
                             onUnload = { model.unload(entry.id) },
                             onDelete = { deleting = entry },
                             model = model,
@@ -162,7 +163,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) {
                 }
                 // Collected, so a GPU refusal recorded since the catalog loaded takes this
                 // phone's GPU builds off the screen without a reload (codex QA).
-                val runnable = state.repos.map { repo -> repo.copy(variants = repo.variants.filter { model.runnableHere(it, gpu) }) }
+                val runnable = state.repos.map { repo -> repo.copy(variants = repo.variants.filter { model.runnableHere(it, gpu, npu) }) }
                     .filter { it.variants.isNotEmpty() }
                 items(runnable, key = { "r-" + it.repo }) { repo ->
                     RepoPanel(model, repo, installed, downloads, model::download)
@@ -218,7 +219,11 @@ private fun InstalledRow(
                     Text(stringResource(R.string.model_loaded), style = MaterialTheme.typography.labelLarge, color = tones.good.color)
                 }
             }
-            Text(Format.bytes(entry.sizeBytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                Format.bytes(entry.sizeBytes) + " · " + processorLabel(entry.backend ?: if ("vulkan" in entry.id) HfCatalog.VULKAN else null),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Expandable(stringResource(R.string.host_model_details)) {
                 Text(entry.id, style = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.gutter), modifier = Modifier.padding(top = 4.dp)) {
@@ -248,7 +253,7 @@ private fun InstalledRow(
                     if (loaded) {
                         Action(stringResource(R.string.model_unload), onClick = onUnload)
                     } else {
-                        Action(stringResource(R.string.model_load_now), onClick = onLoad)
+                        Action(stringResource(if (broken != null) R.string.model_try_again else R.string.model_load_now), onClick = onLoad)
                     }
                 }
                 Action(stringResource(R.string.action_delete), onClick = onDelete, destructive = true)
@@ -298,7 +303,7 @@ private fun RepoPanel(
 ) {
     val name = repo.repo.substringAfter('/').removeSuffix("-ExecuTorch")
     val have = repo.variants.count { v -> installed.any { it.id == v.installId } }
-    val smallest = repo.variants.minOfOrNull { it.sizeBytes } ?: 0
+    val smallest = repo.variants.minOfOrNull { it.installBytes } ?: 0
     val lab = repo.variants.firstNotNullOfOrNull { it.lab }
     val variants = pluralStringResource(R.plurals.catalog_variants, repo.variants.size, repo.variants.size, Format.bytes(smallest))
     val line = listOfNotNull(
@@ -326,14 +331,20 @@ private fun VariantRow(variant: CatalogVariant, installed: Boolean, download: Do
                     variant.context?.let {
                         stringResource(R.string.fig_window, Format.window(it))
                     },
-                    Format.bytes(variant.sizeBytes),
+                    Format.bytes(variant.installBytes),
                 ).joinToString(", "),
                 style = MaterialTheme.typography.bodyLarge,
             )
-            variant.quantization?.substringBefore(',')?.let {
-                // A GPU build says so: it is a separate download that runs on the phone's GPU.
-                val label = if (variant.backend == HfCatalog.VULKAN) stringResource(R.string.catalog_gpu, it) else it
-                Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Every build says which processor runs it, whether or not its export named a
+            // quantization: each backend is a separate download.
+            Text(
+                listOfNotNull(processorLabel(variant.backend), variant.quantization?.substringBefore(',')).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (variant.backend == HfCatalog.NEUROPILOT) {
+                // Measured: Qwen3-1.7B's 4k build needs more than 6.6 GB while loading on a 12 GB phone.
+                Text(stringResource(R.string.catalog_npu_memory), style = MaterialTheme.typography.bodySmall, color = tones.attention.color)
             }
             if (variant.fitsPhoneBudget == false) {
                 Text(stringResource(R.string.catalog_over_budget), style = MaterialTheme.typography.bodySmall, color = tones.attention.color)
@@ -355,3 +366,14 @@ private fun VariantRow(variant: CatalogVariant, installed: Boolean, download: Do
         }
     }
 }
+
+/** Which processor runs a build of [backend]; installs that predate the record are CPU builds. */
+@Composable
+internal fun processorLabel(backend: String?): String = stringResource(
+    when (backend) {
+        HfCatalog.VULKAN -> R.string.processor_gpu
+        HfCatalog.QNN -> R.string.processor_npu_qualcomm
+        HfCatalog.NEUROPILOT -> R.string.processor_npu_mediatek
+        else -> R.string.processor_cpu
+    },
+)

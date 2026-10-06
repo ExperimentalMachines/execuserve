@@ -8,6 +8,7 @@ import kotlinx.coroutines.withContext
 import org.experimentalmachines.execuserve.catalog.CatalogVariant
 import org.experimentalmachines.execuserve.catalog.HfCatalog
 import org.experimentalmachines.execuserve.catalog.Uncensored
+import org.experimentalmachines.execuserve.catalog.withCpuHalves
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -40,7 +41,8 @@ class CatalogRepository(
                             HfCatalog.variants(repo, path, HfCatalog.parseConfig(get(HfCatalog.fileUrl(repo.id, revision, path))), runnable)
                         }.getOrDefault(emptyList())
                     }
-                    CatalogRepo(repo.id, variants.sortedBy { it.context ?: 0 })
+                    // A MediaTek export decodes on the CPU build of its window; pair them.
+                    CatalogRepo(repo.id, withCpuHalves(variants).sortedBy { it.context ?: 0 })
                 }
             }.awaitAll()
         }.filter { it.variants.isNotEmpty() }.sortedBy { it.repo.lowercase() }
@@ -54,9 +56,11 @@ class CatalogRepository(
         val info = HfCatalog.parseRepos("[" + get(HfCatalog.modelUrl(repo)) + "]").single()
         val revision = info.sha ?: error("$repo has no commit")
         val runnable = backends()
-        val variants = HfCatalog.configPaths(info, runnable).flatMap { path ->
-            HfCatalog.variants(info, path, HfCatalog.parseConfig(get(HfCatalog.fileUrl(repo, revision, path))), runnable)
-        }
+        val variants = withCpuHalves(
+            HfCatalog.configPaths(info, runnable).flatMap { path ->
+                HfCatalog.variants(info, path, HfCatalog.parseConfig(get(HfCatalog.fileUrl(repo, revision, path))), runnable)
+            },
+        )
         // A path names one backend's file exactly; a bare name is accepted only when one file
         // has it, so `vulkan/x.pte` is never answered with `xnnpack/x.pte` (codex QA).
         variants.firstOrNull { it.path == file }

@@ -114,6 +114,101 @@ class CatalogTest {
     }
 
     @Test
+    fun npuExportsAreOfferedOnlyOnTheirOwnChip() {
+        val npuRepo = HfRepo(
+            id = "experimentalmachines/Qwen3-1.7B-ExecuTorch",
+            sha = "fed789",
+            siblings = listOf(
+                "tokenizer.json",
+                "xnnpack/config.json",
+                "qnn/sm8850/config.json",
+                "qnn/sm8850/Qwen3-1.7B-qnn-hybrid-4k.pte",
+                "qnn/sm8750/config.json",
+                "qnn/sm8750/Qwen3-1.7B-qnn-hybrid-4k.pte",
+            ).map(::HfSibling),
+        )
+        fun npuConfig(target: String?) = HfCatalog.parseConfig(
+            """{"runtime":"executorch","runtime_version":"1.5.1","backend":"qnn","target":${target?.let { "\"$it\"" } ?: "null"},
+               "variants":[{"file":"Qwen3-1.7B-qnn-hybrid-4k.pte","size_bytes":1759848704,"sha256":"13db","context":4096,
+               "quantization":"QNN HTP, ExecuTorch qwen3-1_7b recipe"}]}""",
+        )
+        val sm8850 = setOf(HfCatalog.BACKEND, chipFolder(HfCatalog.QNN, "SM8850"))
+        assertEquals("qnn/sm8850", chipFolder(HfCatalog.QNN, "SM8850"))
+        // This chip's folder is listed and the other chip's is not, whatever its config says.
+        assertEquals(listOf("xnnpack/config.json", "qnn/sm8850/config.json"), HfCatalog.configPaths(npuRepo, sm8850))
+        assertTrue(HfCatalog.variants(npuRepo, "qnn/sm8750/config.json", npuConfig("sm8750"), sm8850).isEmpty())
+        val npu = HfCatalog.variants(npuRepo, "qnn/sm8850/config.json", npuConfig("sm8850"), sm8850).single()
+        assertEquals("qnn", npu.backend)
+        assertEquals("qnn/sm8850/Qwen3-1.7B-qnn-hybrid-4k.pte", npu.path)
+        assertEquals("qwen3-1.7b-qnn-hybrid-4k", npu.installId)
+        assertEquals("qnn", HfCatalog.plan(npu, 1).manifest.backend)
+        // A config that names another chip, or none, is not trusted from inside this chip's folder.
+        assertTrue(HfCatalog.variants(npuRepo, "qnn/sm8850/config.json", npuConfig("sm8750"), sm8850).isEmpty())
+        assertTrue(HfCatalog.variants(npuRepo, "qnn/sm8850/config.json", npuConfig(null), sm8850).isEmpty())
+        // A phone without this NPU (no chip folder in its set) is offered nothing from it, even
+        // though "qnn" alone would match the config's backend.
+        assertTrue(HfCatalog.variants(npuRepo, "qnn/sm8850/config.json", npuConfig("sm8850"), setOf(HfCatalog.BACKEND, HfCatalog.QNN)).isEmpty())
+    }
+
+    @Test
+    fun aMediaTekExportIsInstalledWholeBesideItsCpuBuild() {
+        val chunks = (1..4).map { "Qwen3-1.7B-neuropilot-a16w8-4k-chunk${it}of4.pte" }
+        val embedding = "Qwen3-1.7B-neuropilot-embedding-fp32.bin"
+        val repo = HfRepo(
+            id = "experimentalmachines/Qwen3-1.7B-ExecuTorch",
+            sha = "aaa111",
+            siblings = (
+                listOf("tokenizer.json", "xnnpack/config.json", "xnnpack/Qwen3-1.7B-8da4w-gptq-4k.pte", "mtk/mt6991/config.json") +
+                    (chunks + embedding).map { "mtk/mt6991/$it" }
+                ).map(::HfSibling),
+        )
+        // The shape execupack publishes: per-file digests, and the runner's options.
+        val mtk = HfCatalog.parseConfig(
+            """{"runtime":"executorch","runtime_version":"1.4.0","backend":"mtk","target":"mt6991","tokenizer":"tokenizer.json",
+               "source_model":"Qwen/Qwen3-1.7B","variants":[{"files":${chunks.joinToString(",", "[", "]") { "\"$it\"" }},
+               "embedding":"$embedding","size_bytes":3207914112,
+               "sha256":{${(chunks + embedding).joinToString(",") { "\"$it\":\"h-$it\"" }}},
+               "context":4096,"quantization":"NeuroPilot A16W8, 4 chunks","methods":{},
+               "runner":{"cache_size":4096,"num_head":16,"num_layer":28}}]}""",
+        )
+        val cpu = HfCatalog.parseConfig(
+            """{"runtime":"executorch","backend":"xnnpack","variants":[
+               {"file":"Qwen3-1.7B-8da4w-gptq-4k.pte","size_bytes":1289092864,"sha256":"cpu-hash","context":4096}]}""",
+        )
+        val phone = setOf(HfCatalog.BACKEND, chipFolder(HfCatalog.NEUROPILOT, "MT6991"))
+        val listed = HfCatalog.configPaths(repo, phone).flatMap { path ->
+            HfCatalog.variants(repo, path, if (path.startsWith("mtk")) mtk else cpu, phone)
+        }
+        val npu = withCpuHalves(listed).single { it.backend == HfCatalog.NEUROPILOT }
+        assertEquals("qwen3-1.7b-neuropilot-a16w8-4k", npu.installId)
+        assertEquals("xnnpack/Qwen3-1.7B-8da4w-gptq-4k.pte", npu.npu?.cpuPath)
+        val plan = HfCatalog.plan(npu, 1)
+        // Every chunk and the embedding under their own names with their own digests, the CPU
+        // build as model.pte, and the tokenizer.
+        assertEquals(chunks + embedding + "model.pte" + "tokenizer.json", plan.files.map { it.name })
+        assertEquals("h-${chunks[2]}", plan.files[2].sha256)
+        assertEquals("cpu-hash", plan.files.single { it.name == "model.pte" }.sha256)
+        assertEquals(chunks, plan.manifest.npu?.chunks)
+        assertTrue(plan.manifest.npu!!.runner.contains("\"cache_size\":4096"))
+        assertEquals("mtk", plan.manifest.backend)
+        // Without a CPU build of the same window there is nothing to decode with: not offered.
+        assertTrue(withCpuHalves(listed.filter { it.backend == HfCatalog.NEUROPILOT }).isEmpty())
+        // A chunk missing from the repository withholds the whole export.
+        val partial = repo.copy(siblings = repo.siblings.filterNot { it.rfilename.endsWith("chunk3of4.pte") })
+        assertTrue(HfCatalog.variants(partial, "mtk/mt6991/config.json", mtk, phone).isEmpty())
+    }
+
+    @Test
+    fun npuInstallIdsNameTheirBackendAndQnnBuildsGetAShortAlias() {
+        val base = CatalogVariant("r/x", "abc", "qnn/sm8850/Qwen3-1.7B-hybrid-4k.pte", "tokenizer.json", 1, null, 4096, null, null, "qwen3", null)
+        // A QNN file whose name does not say so still gets an id no CPU build can take.
+        assertEquals("qwen3-1.7b-hybrid-4k-qnn", base.copy(backend = HfCatalog.QNN).installId)
+        assertEquals("qwen3-1.7b-qnn-hybrid-4k", base.copy(path = "qnn/sm8850/Qwen3-1.7B-qnn-hybrid-4k.pte", backend = HfCatalog.QNN).installId)
+        assertEquals("qwen3-1.7b-hybrid-4k", base.copy(backend = HfCatalog.BACKEND).installId)
+        assertEquals(setOf("qwen3-1.7b-qnn"), ModelIds.aliasesFor("qwen3-1.7b-qnn-hybrid-4k"))
+    }
+
+    @Test
     fun otherBackendsAreNotOffered() {
         val mtk = HfCatalog.parseConfig("""{"runtime":"executorch","backend":"neuropilot","variants":[]}""")
         assertTrue(HfCatalog.variants(repo, "xnnpack/config.json", mtk).isEmpty())
@@ -146,6 +241,8 @@ class CatalogTest {
                 "/m/downloading/execuserve.json" to Manifest(id = "half").encode(),
                 "/m/downloading/model.pte.part" to "x",
                 "/m/orphan.pte" to "x",
+                "/m/copied/Qwen3-1.7B-qnn-hybrid-4k.pte" to "x",
+                "/m/copied/tokenizer.json" to "{}",
             ),
         )
         val scanner = ModelScanner(fs, "/m")
@@ -160,6 +257,8 @@ class CatalogTest {
         assertEquals(4096, found.getValue("pushed").contextLength)
         assertTrue(scanner.problems.keys.any { "downloading" in it })
         assertTrue(scanner.problems.keys.any { "orphan" in it })
+        // An NPU build copied in by hand would open on the CPU runner: refused, saying how to install it.
+        assertTrue(scanner.problems.getValue("/m/copied").contains("NPU build"))
         assertEquals("qwen3-1.7b-8da4w-gptq-2k", scanner.resolve("qwen3-1.7b")?.id)
     }
 }

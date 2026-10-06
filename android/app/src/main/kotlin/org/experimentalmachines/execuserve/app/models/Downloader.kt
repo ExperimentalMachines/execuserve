@@ -114,8 +114,10 @@ class Downloader(
                 fetch(file, folder.resolve(file.name), plan.id, progress)
                 progress.done += folder.resolve(file.name).length()
             }
-            val model = folder.resolve("model.pte")
-            folder.resolve(Manifest.FILE_NAME).writeText(plan.manifest.copy(sizeBytes = model.length()).encode())
+            // What the model occupies: every file but the tokenizer, so a MediaTek install
+            // counts its NPU chunks and embedding as well as the CPU build in model.pte.
+            val bytes = plan.files.filter { it.name != plan.manifest.tokenizer }.sumOf { folder.resolve(it.name).length() }
+            folder.resolve(Manifest.FILE_NAME).writeText(plan.manifest.copy(sizeBytes = bytes).encode())
             set(DownloadState(plan.id, progress.done, progress.done, DownloadState.Phase.DONE))
             onInstalled(plan.id)
         } catch (cancelled: kotlinx.coroutines.CancellationException) {

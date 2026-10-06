@@ -547,10 +547,11 @@ private fun modelOut(ctx: ServerContext, entry: ModelEntry): ModelOut {
         // The delegate the file was exported for, not only the runtime: one ExecuTorch runtime
         // opens both CPU and GPU exports. Catalog installs record it; a file copied in by hand
         // has only its name to go on (codex QA).
-        backend = if (entry.backend?.let { it == "vulkan" } ?: ("vulkan" in entry.id.lowercase())) {
-            "executorch-vulkan"
-        } else {
-            ctx.engine.runtimeId
+        backend = when (entry.backend ?: if ("vulkan" in entry.id.lowercase()) "vulkan" else null) {
+            "vulkan" -> "executorch-vulkan"
+            "qnn" -> "executorch-qnn"
+            "mtk" -> "executorch-neuropilot"
+            else -> ctx.engine.runtimeId
         },
         aliases = entry.aliases.sorted(),
         ownedBy = entry.lab ?: "execuserve",

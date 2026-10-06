@@ -128,6 +128,9 @@ class Engine(
         data object TrimResidents : Action
 
         data object ForgetFailures : Action
+
+        /** Marks [id] failed with [reason], or forgets its failure when [reason] is null. */
+        data class SetFailure(val id: String, val reason: String?) : Action
     }
 
     /** Starts the lane and its helpers. Call once. */
@@ -227,6 +230,16 @@ class Engine(
 
     /** Forgets load failures, after the model files were replaced. */
     suspend fun forgetFailures() = command(Action.ForgetFailures)
+
+    /**
+     * Marks [id] as failed, as a load failure would: it is refused with [reason] until
+     * [forgetFailures]. For a failure the engine could not see, such as the system killing the
+     * process while the model ran.
+     */
+    suspend fun recordFailure(id: String, reason: String) = command(Action.SetFailure(id, reason))
+
+    /** Forgets [id]'s failure alone, so a deliberate retry reaches the runtime again. */
+    suspend fun forgetFailure(id: String) = command(Action.SetFailure(id, null))
 
     /**
      * Queues [action] for the lane and waits for it. Commands share the request queue's bound,
@@ -763,6 +776,10 @@ class Engine(
                     broken.clear()
                     _status.update { it.copy(broken = emptyMap()) }
                 }
+                is Action.SetFailure -> {
+                    if (action.reason == null) broken.remove(action.id) else broken[action.id] = action.reason
+                    _status.update { it.copy(broken = broken.toMap()) }
+                }
             }
             publishResidents()
         } finally {
@@ -795,7 +812,11 @@ class Engine(
             throw RuntimeFailure(reason, failure)
         }
         val window = facts.contextLength ?: entry.contextLength
-        val callChars = minOf(GENERATE_TAIL_CHARS, (facts.prefillLength ?: Int.MAX_VALUE) - 1).coerceAtLeast(1)
+        val callChars = if (facts.chunkedPrefill) {
+            minOf(GENERATE_TAIL_CHARS, (facts.prefillLength ?: Int.MAX_VALUE) - 1).coerceAtLeast(1)
+        } else {
+            Int.MAX_VALUE
+        }
         val now = clock()
         val resident = Resident(entry, session, window, callChars, now, runtime.activeThreads())
         residents[entry.id] = resident

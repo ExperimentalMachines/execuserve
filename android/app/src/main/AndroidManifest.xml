@@ -90,5 +90,29 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/exports" />
         </provider>
+        <!--
+            Qualcomm's NPU driver (the QNN HTP stub) reaches the Hexagon DSP through FastRPC,
+            libcdsprpc.so in /vendor. Since Android 12 an app may load a public vendor library
+            only when it names it here; optional, so phones without one still install and are
+            simply never offered NPU builds.
+        -->
+        <uses-native-library android:name="libcdsprpc.so" android:required="false" />
+        <!--
+            MediaTek's NPU: the NeuroPilot adapter and the APUWare libraries it opens are the
+            phone's own (MediaTek lists them as public). They must be named here or the app's
+            linker namespace cannot reach them, and MediaTek's SDK copy of the adapter is no
+            substitute: it runs its constructors in the app namespace and dies (OpenWeights,
+            measured). Optional throughout: absent on every other phone.
+        -->
+        <uses-native-library android:name="libneuronusdk_adapter.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwareapusys_v2.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwareapusys.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwareutils_v2.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwareutils.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwarexrp_v2.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwarexrp.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwarehmp.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwareaiste.mtk.so" android:required="false" />
+        <uses-native-library android:name="libneuron_sys_util.mtk.so" android:required="false" />
     </application>
 </manifest>

@@ -27,6 +27,26 @@ object ChatText {
         }
     }
 
+    /**
+     * [text] as it can be shown while it is still arriving: a bold or code span the model has
+     * opened on the last line and not yet closed is closed, so it reads as bold or code now
+     * rather than as raw asterisks until its end arrives. An opening `**` with nothing after it
+     * yet is held back. Inside an open code fence nothing is touched. The browser chat does the
+     * same (chat.js closeOpen).
+     */
+    fun closeOpen(text: String): String {
+        if (FENCE.findAll(text).count() % 2 == 1) return text
+        val lastLine = text.substringAfterLast('\n')
+        val ticks = lastLine.count { it == '`' }
+        val stars = BOLD.findAll(lastLine).count()
+        return when {
+            ticks % 2 == 1 -> "$text`"
+            stars % 2 == 1 && lastLine.trimEnd().endsWith("**") -> text.trimEnd().removeSuffix("**").trimEnd()
+            stars % 2 == 1 -> "$text**"
+            else -> text
+        }
+    }
+
     /** The lines to show: a horizontal rule goes, and the blank lines around it become one. */
     private fun lines(text: String): List<String> = text.lines().filterNot { RULE.matches(it.trim()) }
         .fold(mutableListOf<String>()) { kept, line ->
@@ -53,4 +73,6 @@ object ChatText {
     private val HEADING = Regex("#{1,4} ")
     private val RULE = Regex("""(-{3,}|\*{3,}|_{3,})""")
     private val INLINE = Regex("""\*\*(.+?)\*\*|`([^`]+)`""")
+    private val FENCE = Regex("^```", RegexOption.MULTILINE)
+    private val BOLD = Regex("""\*\*""")
 }

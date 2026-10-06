@@ -30,7 +30,10 @@ object Families {
  * `qwen3-1.7b` as long as no other installed model claims that name too.
  */
 object ModelIds {
-    private val QUANT_START = Regex("-(8da4w|4w|8w|a16w\\d+|fp32|fp16|bf16|q4|int4|int8)(-|$)")
+    // Where the build's own description starts in an export's name. QNN names give their graph
+    // mode (hybrid, kv) where others give a quantization, so qwen3-1.7b-qnn-hybrid-4k reads as
+    // qwen3-1.7b-qnn, as the Vulkan and MediaTek builds read as -vulkan and -neuropilot.
+    private val QUANT_START = Regex("-(8da4w|4w|8w|a16w\\d+|fp32|fp16|bf16|q4|int4|int8|hybrid|kv)(-|$)")
 
     fun idFor(fileStem: String): String = fileStem.lowercase()
         .map { if (it.isLetterOrDigit() || it == '.' || it == '-' || it == '_') it else '-' }

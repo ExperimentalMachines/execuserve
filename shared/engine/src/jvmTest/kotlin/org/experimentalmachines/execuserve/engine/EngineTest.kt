@@ -220,6 +220,19 @@ class EngineTest {
     }
 
     @Test
+    fun aRunnerThatSplitsPromptsItselfGetsTheWholePromptInOneCall() = test {
+        // Qualcomm's static runner prefills in its own 128-token blocks; pieces cut elsewhere
+        // each pay for a padded block, so nothing is fed ahead.
+        val runtime = FakeRuntime(prefillLength = 101, chunkedPrefill = false)
+        val engine = engine(runtime)
+        val long = (1..400).joinToString(" ") { "word$it" }
+        engine.submit(chat(user(long))).collect()
+        val calls = runtime.log.filter { it.startsWith("prefill ") || it.startsWith("generate ") }
+        assertEquals(1, calls.size, calls.toString())
+        assertTrue(calls.single().startsWith("generate ") && calls.single().contains(long))
+    }
+
+    @Test
     fun theQueueRefusesWhenFull() = test {
         val runtime = FakeRuntime()
         val gate = CountDownLatch(1)

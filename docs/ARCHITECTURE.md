@@ -121,10 +121,13 @@ interface LlmSession : AutoCloseable {               // one KV cache, one sequen
 ```
 
 It is the ExecuTorch Java API reduced to what a server needs, and deliberately
-backend-general: QNN and MediaTek are other implementations of the same two interfaces, and
-so is the iOS binding. Vulkan needed no second implementation: the Android runtime links
-`executorch-android-vulkan`, which carries XNNPACK and Vulkan, and a `.pte` runs on the
-delegate it was exported for (see "GPU exports" under Storage and the catalog). Everything above it (templating, streaming, stop
+backend-general, as the iOS binding will be. On Android one runtime serves every delegate: the
+app links ExecuTorch 1.5.1 built by `tools/executorch` with XNNPACK, Vulkan and QNN in one
+library and MediaTek's runtime beside it, and the session for an install is chosen by the
+backend its manifest records (`ModelFiles.backend`): the generic text runner for XNNPACK and
+Vulkan files, Qualcomm's static runner (patched to stop, reset and refuse a full window
+instead of aborting) for QNN, and MediaTek's NPU-prefill, CPU-decode runner (`NeuroPilotSession`)
+for MediaTek. See docs/results/2026-10-06-npu.md. Everything above it (templating, streaming, stop
 discipline, cache bookkeeping) is ordinary Kotlin tested on a laptop against a scripted
 fake.
 
@@ -680,9 +683,8 @@ skips, and the browser chat's checks.
 
 ## After the first release
 
-In order of what the architecture already allows: the iOS runtime binding and shell; the
-other ExecuTorch backends (QNN, MediaTek) as further `LlmRuntime`s; vision input
-for exports that carry an encoder; configurable server-side tools; embeddings.
+In order of what the architecture already allows: the iOS runtime binding and shell; vision
+input for exports that carry an encoder; configurable server-side tools; embeddings.
 
 ## Design review log
 

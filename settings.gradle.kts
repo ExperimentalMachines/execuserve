@@ -18,6 +18,12 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // The ExecuTorch Android library built with this repo's patches (tools/executorch):
+        // XNNPACK, Vulkan and QNN in one runtime. Nothing else resolves from here.
+        maven {
+            url = uri("android/executorch/maven")
+            content { includeGroup("org.experimentalmachines.executorch") }
+        }
     }
 }
 

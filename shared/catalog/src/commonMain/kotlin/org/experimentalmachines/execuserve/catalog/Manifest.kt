@@ -31,6 +31,8 @@ data class Manifest(
      * manifests written before it existed.
      */
     val backend: String? = null,
+    /** A MediaTek install's NPU half, beside [model] (the CPU build that decodes for it). */
+    val npu: ManifestNpu? = null,
 ) {
     fun encode(): String = JSON.encodeToString(serializer(), this)
 
@@ -46,3 +48,12 @@ data class Manifest(
         fun decode(text: String): Manifest = JSON.decodeFromString(serializer(), text)
     }
 }
+
+/** The NPU files of a MediaTek install, by name within its folder, and the runner's options. */
+@Serializable
+data class ManifestNpu(
+    val chunks: List<String>,
+    val embedding: String,
+    /** The exporter's `runner` block, as JSON text. */
+    val runner: String,
+)

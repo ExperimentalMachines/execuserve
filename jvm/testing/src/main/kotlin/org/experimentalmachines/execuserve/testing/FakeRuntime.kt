@@ -25,6 +25,8 @@ import java.util.concurrent.TimeUnit
 class FakeRuntime(
     private val window: Int = 4096,
     private val prefillLength: Int? = null,
+    /** False for a runner that splits prompts into its own blocks; see [ModelFacts.chunkedPrefill]. */
+    private val chunkedPrefill: Boolean = true,
     /** The reply for a prompt, as the fragments the model would emit. */
     private val reply: (prompt: String) -> List<String> = { listOf("Hello", " world", "<|im_end|>") },
     override val id: String = "fake",
@@ -49,7 +51,7 @@ class FakeRuntime(
 
     override fun tokenizerAddsBos(files: ModelFiles): Boolean = true
 
-    override fun probe(files: ModelFiles): ModelFacts = ModelFacts(window, prefillLength, true)
+    override fun probe(files: ModelFiles): ModelFacts = ModelFacts(window, prefillLength, true, chunkedPrefill)
 
     override fun open(files: ModelFiles, facts: ModelFacts, family: String?): LlmSession {
         broken[files.model]?.let { throw RuntimeFailure(it) }

@@ -252,7 +252,9 @@ private fun Reply(message: ChatMessage) {
         }
         if (message.content.isNotEmpty()) {
             SelectionContainer {
-                Text(ChatText.styled(message.content, MaterialTheme.colorScheme.surfaceContainer), style = MaterialTheme.typography.bodyLarge)
+                // While it streams, a span the model opened and has not closed shows styled, not as raw asterisks.
+                val content = if (message.running) ChatText.closeOpen(message.content) else message.content
+                Text(ChatText.styled(content, MaterialTheme.colorScheme.surfaceContainer), style = MaterialTheme.typography.bodyLarge)
             }
         }
         ReplyStatus(message)

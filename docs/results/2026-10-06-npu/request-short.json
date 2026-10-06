@@ -1,0 +1,1 @@
+{"model": "qwen3-1.7b-8da4w-gptq-4k", "temperature": 0, "max_tokens": 128, "messages": [{"role": "user", "content": "Explain how a refrigerator keeps food cold. /no_think"}]}

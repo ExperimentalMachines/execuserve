@@ -26,6 +26,8 @@ import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.engine.JobRecord
 import org.experimentalmachines.execuserve.engine.Metrics
 import org.experimentalmachines.execuserve.engine.ModelEntry
+import org.experimentalmachines.execuserve.executorch.NeuroPilotSupport
+import org.experimentalmachines.execuserve.executorch.QnnSupport
 import org.experimentalmachines.execuserve.executorch.VulkanSupport
 import org.experimentalmachines.execuserve.host.CONSOLE_KEY
 import org.experimentalmachines.execuserve.host.ConsoleChat
@@ -293,8 +295,19 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     /** Whether Vulkan builds can run here; drops to false the moment one is refused. */
     val gpuUsable: StateFlow<Boolean> = VulkanSupport.usableState
 
-    /** Whether this phone can run [variant]: CPU builds always, GPU builds while [gpu] is true. */
-    fun runnableHere(variant: CatalogVariant, gpu: Boolean = VulkanSupport.usable): Boolean = variant.backend != HfCatalog.VULKAN || gpu
+    /** Whether NPU builds can run here; drops to false the moment one is refused. */
+    val npuUsable: StateFlow<Boolean> = QnnSupport.usableState
+
+    /**
+     * Whether this phone can run [variant]: CPU builds always, GPU builds while [gpu] is true,
+     * NPU builds while [npu] is true (the catalog lists only this chip's NPU folder).
+     */
+    fun runnableHere(variant: CatalogVariant, gpu: Boolean = VulkanSupport.usable, npu: Boolean = QnnSupport.usable): Boolean = when (variant.backend) {
+        HfCatalog.VULKAN -> gpu
+        HfCatalog.QNN -> npu
+        HfCatalog.NEUROPILOT -> NeuroPilotSupport.usable
+        else -> true
+    }
 
     fun cancelDownload(id: String) = graph.downloader.cancel(id)
 
@@ -308,6 +321,9 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     }
 
     fun load(id: String) = viewModelScope.launch { graph.host.load(id) }
+
+    /** Loads a model that failed before, setting its recorded failure aside. */
+    fun retry(id: String) = viewModelScope.launch { graph.host.retry(id) }
 
     fun unload(id: String) = viewModelScope.launch { graph.host.unload(id) }
 

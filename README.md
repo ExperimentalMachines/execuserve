@@ -226,10 +226,10 @@ pinned runtime.
 
 | Way | How |
 |---|---|
-| In the app | Library → **Browse the catalog** lists the XNNPACK (CPU) exports, and the Vulkan (GPU) ones on phones whose GPU runs them, published at [huggingface.co/experimentalmachines](https://huggingface.co/experimentalmachines). Downloads resume after a drop, are pinned to one repository commit, and are checked against the publisher's SHA-256 |
+| In the app | Library → **Browse the catalog** lists the exports published at [huggingface.co/experimentalmachines](https://huggingface.co/experimentalmachines) that this phone can run: XNNPACK (CPU) everywhere, Vulkan (GPU) where the GPU runs them, and NPU builds compiled for this phone's own chip, Qualcomm (QNN) on Snapdragon and MediaTek (NeuroPilot) on Dimensity. Each row and each installed model says which processor runs it. Downloads resume after a drop, are pinned to one repository commit, and are checked against the publisher's SHA-256 |
 | From your computer | `tools/execuserve --model path/to/Model.pte` pushes it with its tokenizer and starts serving |
 | Ask the phone to fetch it | `tools/execuserve pull <hf-repo> <file.pte>`: the phone downloads it itself, verified |
-| By hand | `adb push Name.pte` and `Name.tokenizer.json` into `/sdcard/Android/data/org.experimentalmachines.execuserve/files/models/`. Push files, not folders: under Android 11+ storage a folder adb creates there belongs to the shell |
+| By hand | `adb push Name.pte` and `Name.tokenizer.json` into `/sdcard/Android/data/org.experimentalmachines.execuserve/files/models/`. Push files, not folders: under Android 11+ storage a folder adb creates there belongs to the shell. CPU and GPU files only: an NPU build needs the runner its install records, so it comes from the catalog or `pull` |
 
 A `.pte` carries no tokenizer and no chat template, so both are named by the model's family.
 Families with a template: Qwen3, Qwen3.5, Qwen2.5, Llama 3.2, SmolLM2, SmolLM3, Phi-4-mini,
@@ -319,6 +319,12 @@ To report a vulnerability, see [SECURITY.md](SECURITY.md).
 - An ExecuTorch `.pte` exported for XNNPACK (CPU) or Vulkan (GPU), with the tokenizer it was
   exported with. A Vulkan file needs a GPU whose driver runs ExecuTorch's shaders; a phone
   whose GPU refuses one stops being offered GPU files and is pointed at the CPU build.
+- NPU builds run on the chip they were compiled for: Qualcomm QNN exports on that Snapdragon
+  (the app carries Qualcomm's HTP drivers for Hexagon V69 to V81), MediaTek exports on that
+  Dimensity (the phone's own NeuroPilot runtime; the NPU prefills and the CPU build of the same
+  window decodes). A MediaTek install needs more memory while it loads than it downloads:
+  Qwen3 at 4k did not fit a 12 GB phone. Results in
+  [docs/results/2026-10-06-npu.md](docs/results/2026-10-06-npu.md).
 - Memory for the models you keep resident: each costs about its file size plus its window.
   The LFM2.5 exports are 761 MB (1.2B) and 1.7 GB (2.6B) at a 4k window.
 
@@ -392,9 +398,8 @@ on a POCO X8 Pro Max (Dimensity 9500s); results in
 faster choice on the POCO's Mali-G925; results in [docs/results/2026-10-04-vulkan.md](docs/results/2026-10-04-vulkan.md).
 
 Next, in the order the architecture already allows: the iOS app (a runtime binding over
-ExecuTorch's Apple frameworks and a shell; the rest is shared), the other ExecuTorch backends
-(QNN, MediaTek) as further runtimes, server-side tools, vision input for exports that
-carry an encoder, and TLS for network mode.
+ExecuTorch's Apple frameworks and a shell; the rest is shared), server-side tools, vision
+input for exports that carry an encoder, and TLS for network mode.
 
 ## Contributing and contact
 

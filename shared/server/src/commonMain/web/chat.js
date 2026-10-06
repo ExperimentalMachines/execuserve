@@ -456,7 +456,15 @@
       models.sort((a, b) => Number(b.loaded) - Number(a.loaded) || a.id.localeCompare(b.id));
       ui.model.replaceChildren();
       if (!models.length) { const option = node("option", "", "No chat models installed"); option.value = ""; ui.model.append(option); }
-      for (const model of models) { const option = node("option", "", model.aliases?.[0] || model.id); option.value = model.id; ui.model.append(option); }
+      // A short alias names the model only when no other model shares it (two windows of one
+      // model do); otherwise the full id, which says the window and the processor.
+      const aliasUses = new Map();
+      for (const model of models) { const alias = model.aliases?.[0]; if (alias) aliasUses.set(alias, (aliasUses.get(alias) || 0) + 1); }
+      for (const model of models) {
+        const alias = model.aliases?.[0];
+        const option = node("option", "", alias && aliasUses.get(alias) === 1 ? alias : model.id);
+        option.value = model.id; ui.model.append(option);
+      }
       if (models.some(model => model.id === previous)) ui.model.value = previous;
       key = candidate; connected = true; $("api-key").value = ""; connecting = null;
       const sendAfterConnect = pendingSend; pendingSend = false;

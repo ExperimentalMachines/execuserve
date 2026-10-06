@@ -221,6 +221,7 @@
     <string name="model_did_not_load">Did not load: %1$s</string>
     <string name="model_load_at_start">Load at start</string>
     <string name="model_load_now">Load now</string>
+    <string name="model_try_again">Try again</string>
     <string name="model_unload">Unload</string>
     <string name="models_not_usable">Not usable</string>
     <string name="models_downloading">Downloading</string>
@@ -246,8 +247,14 @@
     <string name="catalog_get">Get</string>
     <string name="catalog_installed">Installed</string>
     <string name="catalog_over_budget">Over the exporter\'s phone budget</string>
-    <string name="catalog_gpu">%1$s · GPU (Vulkan)</string>
     <string name="gpu_refused">This phone\'s GPU cannot run Vulkan builds. The same model\'s CPU build runs anywhere.</string>
+    <string name="processor_cpu">CPU (XNNPACK)</string>
+    <string name="processor_gpu">GPU (Vulkan)</string>
+    <string name="processor_npu_qualcomm">NPU (Qualcomm)</string>
+    <string name="processor_npu_mediatek">NPU (MediaTek) prefill, CPU decode</string>
+    <string name="catalog_npu_memory">Needs more memory while loading than it downloads; if the app stops, try a smaller window or the CPU build.</string>
+    <string name="npu_mediatek_refused">This phone\'s NPU cannot run MediaTek builds. Try the same model\'s CPU build; it does not need the NPU.</string>
+    <string name="npu_refused">This phone\'s NPU cannot run Qualcomm builds. Try the same model\'s CPU build; it does not need the NPU.</string>
     <string name="catalog_runtime">Exported for ExecuTorch %1$s; this app runs %2$s</string>
     <string name="delete_title">Delete %1$s?</string>
     <string name="delete_body">Frees %1$s. Clients asking for it will get model_not_found.</string>
@@ -320,7 +327,7 @@
     <string name="theme_dark">Dark</string>
     <string name="settings_about">About</string>
     <string name="about_version">ExecuServe %1$s</string>
-    <string name="about_runtime">ExecuTorch %1$s on XNNPACK</string>
+    <string name="about_runtime">ExecuTorch %1$s: CPU, GPU and NPU</string>
     <string name="about_api">At /v1: OpenAI Chat Completions, Responses, Completions and Models, and Anthropic Messages.</string>
     <string name="about_license">Apache-2.0, by Experimental Machines</string>
 

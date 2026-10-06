@@ -4,8 +4,16 @@ package org.experimentalmachines.execuserve.engine
  * The files a compiled model needs. A `.pte` carries a graph and no tokenizer, so both are
  * always named together; handing a model the wrong tokenizer produces fluent nonsense
  * rather than an error.
+ *
+ * @property backend the delegate the file was exported for, when the install recorded it
+ * (`xnnpack`, `vulkan`, `qnn`, `mtk`). An NPU file needs its own runner, which nothing in the
+ * file's name can be trusted to choose.
+ * @property npu a MediaTek install's NPU half; [model] is then the CPU build that decodes.
  */
-data class ModelFiles(val model: String, val tokenizer: String)
+data class ModelFiles(val model: String, val tokenizer: String, val backend: String? = null, val npu: NpuFiles? = null)
+
+/** The compiled NPU chunks, the embedding table they read, and the runner's options as JSON. */
+data class NpuFiles(val chunks: List<String>, val embedding: String, val runnerOptions: String)
 
 /**
  * What a model file says about itself before it is opened.
@@ -14,8 +22,12 @@ data class ModelFiles(val model: String, val tokenizer: String)
  * @property prefillLength the most tokens one prefill call may carry; a call of exactly this
  * many fails on the 1.4.0 runtime, so the engine stays under it.
  * @property stateResetAtZero whether the graph clears its recurrent state at position zero.
+ * @property chunkedPrefill whether a long prompt has to be fed in pieces. True for the generic
+ * text runner, which fails on a call of its full prefill chunk; false for a runner that splits
+ * prompts into its own fixed blocks (Qualcomm's: 128 tokens), where pieces cut anywhere else
+ * each pay for a padded block and halve its prefill rate (measured 1,180 against 2,190 tok/s).
  */
-data class ModelFacts(val contextLength: Int?, val prefillLength: Int? = null, val stateResetAtZero: Boolean? = null)
+data class ModelFacts(val contextLength: Int?, val prefillLength: Int? = null, val stateResetAtZero: Boolean? = null, val chunkedPrefill: Boolean = true)
 
 /** What one `generate` call measured. Zero means the runtime did not say. */
 data class RuntimeOutcome(val promptTokens: Int = 0, val generatedTokens: Int = 0, val prefillMs: Long = 0, val decodeMs: Long = 0)

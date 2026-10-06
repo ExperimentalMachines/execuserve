@@ -3,6 +3,10 @@ package org.experimentalmachines.execuserve.catalog
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 /** One repository in the Hugging Face listing. Only what the catalog reads. */
 @Serializable
@@ -17,6 +21,8 @@ data class ExportConfig(
     val runtime: String? = null,
     @SerialName("runtime_version") val runtimeVersion: String? = null,
     val backend: String? = null,
+    /** The chip a chip-locked export was compiled for (`sm8850`), or null for CPU and GPU. */
+    val target: String? = null,
     val tokenizer: String? = null,
     @SerialName("source_model") val sourceModel: String? = null,
     val variants: List<ExportVariant> = emptyList(),
@@ -24,12 +30,44 @@ data class ExportConfig(
 
 @Serializable
 data class ExportVariant(
-    val file: String,
+    /** The one `.pte` of a single-file export. */
+    val file: String? = null,
     @SerialName("size_bytes") val sizeBytes: Long = 0,
-    val sha256: String? = null,
+    /** A digest for [file], or for a multi-file export a digest per file name. */
+    val sha256: JsonElement? = null,
     val context: Int? = null,
     val quantization: String? = null,
     @SerialName("fits_phone_budget") val fitsPhoneBudget: Boolean? = null,
+    /** A MediaTek export's compiled chunks, in order; empty for single-file exports. */
+    val files: List<String> = emptyList(),
+    /** A MediaTek export's token embedding table, which the NPU graphs take as input. */
+    val embedding: String? = null,
+    /** The MediaTek runner's options for these chunks (heads, types, window), verbatim. */
+    val runner: JsonObject? = null,
+) {
+    /** The published digest of [name], or null when the exporter gave none. */
+    fun digest(name: String): String? = when (val hashes = sha256) {
+        is JsonPrimitive -> hashes.contentOrNull.takeIf { name == file }
+        is JsonObject -> (hashes[name] as? JsonPrimitive)?.contentOrNull
+        else -> null
+    }
+}
+
+/**
+ * The NPU half of a MediaTek export, which runs only beside a CPU build of the same model and
+ * window: the NPU prefills, the CPU decodes ([withCpuHalves] finds that build).
+ */
+data class NpuParts(
+    val chunkPaths: List<String>,
+    val embeddingPath: String,
+    /** Digests by repository path, for the chunks and the embedding. */
+    val digests: Map<String, String?>,
+    /** [ExportVariant.runner], as JSON text. */
+    val runner: String,
+    /** The paired CPU build: its path, size and digest. */
+    val cpuPath: String? = null,
+    val cpuSizeBytes: Long = 0,
+    val cpuSha256: String? = null,
 )
 
 /** One downloadable export, pinned to the commit its hash was read from. */
@@ -47,10 +85,15 @@ data class CatalogVariant(
     val runtimeVersion: String?,
     val sourceModel: String? = null,
     val lab: String? = null,
-    /** The export's delegate folder: [HfCatalog.BACKEND] (CPU) or [HfCatalog.VULKAN] (GPU). */
+    /** The export's delegate: [HfCatalog.BACKEND] (CPU), [HfCatalog.VULKAN] (GPU), [HfCatalog.QNN] or [HfCatalog.NEUROPILOT] (NPU). */
     val backend: String = HfCatalog.BACKEND,
+    /** A MediaTek export's NPU half; null for every other backend. */
+    val npu: NpuParts? = null,
 ) {
     val installId: String get() = ModelIds.idFor(installStem)
+
+    /** What an install takes on the phone: a MediaTek install is its NPU files and its CPU build. */
+    val installBytes: Long get() = sizeBytes + (npu?.cpuSizeBytes ?: 0)
 
     /**
      * The file's own name, plus `-vulkan` for a GPU build whose name does not already say so:
@@ -61,9 +104,17 @@ data class CatalogVariant(
      */
     private val installStem: String
         get() {
-            val stem = path.substringAfterLast('/').substringBeforeLast('.')
-            val unmarkedGpu = backend == HfCatalog.VULKAN && !stem.contains(HfCatalog.VULKAN, ignoreCase = true)
-            return if (unmarkedGpu) "$stem-${HfCatalog.VULKAN}" else stem
+            // A MediaTek export is named by its first chunk, less the chunk count.
+            val stem = path.substringAfterLast('/').substringBeforeLast('.').replace(HfCatalog.CHUNK_SUFFIX, "")
+            // Every non-CPU install id names its backend, so no two backends' builds of one model
+            // can share a folder; the exporter's names already do, and CPU ids stay as they were.
+            val marker = when (backend) {
+                HfCatalog.VULKAN -> HfCatalog.VULKAN
+                HfCatalog.QNN -> HfCatalog.QNN
+                HfCatalog.NEUROPILOT -> "neuropilot"
+                else -> null
+            }
+            return if (marker != null && !stem.contains(marker, ignoreCase = true)) "$stem-$marker" else stem
         }
 }
 
@@ -84,6 +135,20 @@ object HfCatalog {
 
     /** The GPU folder: listed only where the runtime says the phone can run it. */
     const val VULKAN = "vulkan"
+
+    /**
+     * Qualcomm's NPU. Its files are compiled for one chip and load only on it, so they sit
+     * one folder deeper, `qnn/<soc>/`, and a phone lists exactly its own chip's folder
+     * ([chipFolder]).
+     */
+    const val QNN = "qnn"
+
+    /**
+     * MediaTek's NPU, in folders per chip like [QNN] (`mtk/mt6991/`). Its exports are split
+     * into compiled chunks plus an embedding table, and decode on the CPU build of the same
+     * window, so an install is several files ([NpuParts]).
+     */
+    const val NEUROPILOT = "mtk"
 
     /** The Hub's host and base URL: the only place either is written. */
     const val HUB_HOST = "huggingface.co"
@@ -127,61 +192,33 @@ object HfCatalog {
      * tokenizer inside the backend folder wins when one is there.
      */
     fun variants(repo: HfRepo, configPath: String, config: ExportConfig, backends: Set<String> = setOf(BACKEND)): List<CatalogVariant> {
-        val backend = config.backend ?: configPath.substringBefore('/', BACKEND)
-        val runnable = (config.runtime == null || config.runtime == "executorch") && backend in backends
-        val revision = repo.sha?.takeIf { runnable } ?: return emptyList()
         val folder = configPath.substringBeforeLast('/', "")
+        val backend = config.backend ?: configPath.substringBefore('/', BACKEND)
+        val runnable = (config.runtime == null || config.runtime == "executorch") && offeredHere(folder, backend, config, backends)
+        val revision = repo.sha?.takeIf { runnable } ?: return emptyList()
         val files = repo.siblings.map { it.rfilename }.toSet()
         val tokenizerName = config.tokenizer ?: "tokenizer.json"
         val tokenizer = listOf(if (folder.isEmpty()) tokenizerName else "$folder/$tokenizerName", tokenizerName)
             .firstOrNull { it in files } ?: return emptyList()
         val family = Families.detect(repo.id) ?: config.sourceModel?.let(Families::detect)
-        return config.variants.mapNotNull { variant ->
-            val path = if (folder.isEmpty()) variant.file else "$folder/${variant.file}"
-            if (path !in files) return@mapNotNull null
-            // A CPU file whose name says Vulkan would take a GPU build's install id and be
-            // reported as one; the exporter never writes one, so it is not listed (codex QA).
-            if (backend != VULKAN && variant.file.contains(VULKAN, ignoreCase = true)) return@mapNotNull null
-            CatalogVariant(
-                repo = repo.id,
-                revision = revision,
-                path = path,
-                tokenizerPath = tokenizer,
-                sizeBytes = variant.sizeBytes,
-                sha256 = variant.sha256,
-                context = variant.context,
-                quantization = variant.quantization,
-                fitsPhoneBudget = variant.fitsPhoneBudget,
-                family = family,
-                runtimeVersion = config.runtimeVersion,
-                sourceModel = config.sourceModel,
-                lab = Labs.of(config.sourceModel, family),
-                backend = backend,
-            )
-        }
+        val listing = Listing(repo, revision, folder, backend, files, tokenizer, family, config)
+        return config.variants.mapNotNull(listing::variant)
     }
 
-    fun plan(variant: CatalogVariant, nowMs: Long): InstallPlan = InstallPlan(
-        id = variant.installId,
-        files = listOf(
-            RemoteFile(fileUrl(variant.repo, variant.revision, variant.path), "model.pte", variant.sizeBytes, variant.sha256),
-            RemoteFile(fileUrl(variant.repo, variant.revision, variant.tokenizerPath), "tokenizer.json", null, null),
-        ),
-        manifest = Manifest(
+    internal val CHUNK_SUFFIX = Regex("-chunk\\d+of\\d+$")
+
+    fun plan(variant: CatalogVariant, nowMs: Long): InstallPlan {
+        val npu = variant.npu
+        if (npu != null) return npuInstallPlan(variant, npu, nowMs)
+        return InstallPlan(
             id = variant.installId,
-            family = variant.family,
-            contextLength = variant.context,
-            sizeBytes = variant.sizeBytes,
-            sha256 = variant.sha256,
-            source = variant.repo,
-            sourceModel = variant.sourceModel,
-            lab = variant.lab,
-            revision = variant.revision,
-            quantization = variant.quantization,
-            installedAtMs = nowMs,
-            backend = variant.backend,
-        ),
-    )
+            files = listOf(
+                RemoteFile(fileUrl(variant.repo, variant.revision, variant.path), "model.pte", variant.sizeBytes, variant.sha256),
+                RemoteFile(fileUrl(variant.repo, variant.revision, variant.tokenizerPath), "tokenizer.json", null, null),
+            ),
+            manifest = installManifest(variant, nowMs, variant.sizeBytes, variant.sha256, null),
+        )
+    }
 }
 
 /**

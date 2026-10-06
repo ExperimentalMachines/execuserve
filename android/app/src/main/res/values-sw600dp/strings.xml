@@ -26,4 +26,6 @@
     <string name="chat_welcome_note">Replies come from the model on this tablet, through the same API, key and queue your apps use.</string>
     <string name="chat_suggest_write">Write a haiku about this tablet</string>
     <string name="gpu_refused">This tablet\'s GPU cannot run Vulkan builds. The same model\'s CPU build runs anywhere.</string>
+    <string name="npu_refused">This tablet\'s NPU cannot run Qualcomm builds. Try the same model\'s CPU build; it does not need the NPU.</string>
+    <string name="npu_mediatek_refused">This tablet\'s NPU cannot run MediaTek builds. Try the same model\'s CPU build; it does not need the NPU.</string>
 </resources>

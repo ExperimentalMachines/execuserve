@@ -33,6 +33,22 @@ class ChatTextTest {
     }
 
     @Test
+    fun whileStreamingAnOpenSpanIsClosedAndANewMarkerHeldBack() {
+        // Bold that has begun reads as bold now, not as asterisks until it ends.
+        val streaming = ChatText.styled(ChatText.closeOpen("The text is **repeated and"), code)
+        assertEquals("The text is repeated and", streaming.text)
+        assertTrue(streaming.spanStyles.any { it.item.fontWeight == FontWeight.SemiBold && streaming.text.substring(it.start, it.end) == "repeated and" })
+        // A marker with nothing after it yet is not shown at all.
+        assertEquals("The text is", ChatText.closeOpen("The text is **"))
+        assertEquals("run `ls", ChatText.closeOpen("run `ls").removeSuffix("`"))
+        assertEquals("run `ls`", ChatText.closeOpen("run `ls"))
+        // Closed spans, earlier lines and open code fences are left as they are.
+        assertEquals("**done** and more", ChatText.closeOpen("**done** and more"))
+        assertEquals("**a\nb", ChatText.closeOpen("**a\nb"))
+        assertEquals("```\ncode **x", ChatText.closeOpen("```\ncode **x"))
+    }
+
+    @Test
     fun horizontalRulesAreDroppedNotPrintedAsDashes() {
         assertEquals("One\n\nTwo", ChatText.styled("One\n\n---\n\nTwo", code).text)
     }

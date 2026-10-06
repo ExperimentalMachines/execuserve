@@ -76,6 +76,18 @@ interface HostPlatform {
 
     /** Every address and name of this device, lowercased, as a `Host` header carries it. */
     fun hosts(): Set<String>
+
+    /**
+     * The model a native call was running when the process last died, kept across process
+     * death. The runtime marks every open, prefill and generate (and [loading] marks startup
+     * loads); a process the system kills inside one (an NPU build too large for the phone's
+     * memory) leaves the id behind, and the restarted service reads it with [interruptedLoad]
+     * and marks the model failed instead of running it into the same death. A platform whose
+     * process cannot be killed this way keeps nothing.
+     */
+    fun loading(id: String?) = Unit
+
+    fun interruptedLoad(): String? = null
 }
 
 /**
@@ -197,7 +209,19 @@ class ServeHost(
                 _activeThreads.value = if (it.isEmpty()) null else runtime.activeThreads()
             }
         }
-        child.launch { current.startupModels { engine.resolve(it)?.id }.forEach { model -> runCatching { engine.load(model) } } }
+        child.launch {
+            val interrupted = platform.interruptedLoad()
+            platform.loading(null)
+            // The last process died while this model ran: refuse it, saying why, until the user
+            // retries (which forgets the failure), rather than loading it into the same death.
+            interrupted?.let { engine.resolve(it)?.id }?.let { runCatching { engine.recordFailure(it, INTERRUPTED) } }
+            current.startupModels { engine.resolve(it)?.id }.forEach { model ->
+                if (model == interrupted) return@forEach
+                platform.loading(model)
+                runCatching { engine.load(model) }
+                platform.loading(null)
+            }
+        }
         _state.value = State.Running(platform.endpoints(current.port, current.bind), current, clock())
     }
 
@@ -232,6 +256,12 @@ class ServeHost(
 
     suspend fun load(id: String) = act { it.load(id) }
 
+    /** Loads [id] again after a failure: the person asked, so the recorded failure is set aside. */
+    suspend fun retry(id: String) = act {
+        it.forgetFailure(id)
+        it.load(id)
+    }
+
     suspend fun unload(id: String?) = act { it.unload(id) }
 
     suspend fun cancel(jobId: String) = act { it.cancel(jobId) }
@@ -261,6 +291,11 @@ class ServeHost(
     }
 
     private companion object {
+        /** What a model is refused with after the process died while it ran. */
+        const val INTERRUPTED =
+            "The app was stopped while this model was running, most likely because the phone ran out of memory. " +
+                "It will not be loaded again until you retry it."
+
         const val STOP_GRACE_MS = 3_000L
 
         /** Addresses are read for every request's `Host` check; five seconds is fresh enough. */
