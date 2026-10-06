@@ -1,22 +1,22 @@
 TITLE
-ExecuServe: turn your Android phone into an AI server
+ExecuServe: an AI server for any Android phone, on the chip it has
 
 DESCRIPTION
-Your phone runs the AI. Your other devices use it.
+Your phone has a chip built for AI. ExecuServe puts it to work.
 
-ExecuServe is a free, open-source Android app that keeps an AI model loaded on your phone and serves it to your laptop, your tablet and your own apps over Wi-Fi.
+ExecuServe is a free, open-source Android app that runs an AI model on your phone's own processor and serves it to the other apps on the phone and every device on your network.
 
-• Pick a model from the built-in catalog and download it on the phone
-• Tap Start: the phone becomes a server, and keeps answering in the background, even with the screen off
-• Open the phone's chat page from any browser on your network, with nothing to install
-• Point your own code at it: it is compatible with OpenAI and Anthropic clients
-• No cloud inference, no account, no subscription
+• Runs on the chip you have: the CPU on any Android phone, the GPU through Vulkan, and the NPU on Snapdragon (Qualcomm QNN) and MediaTek Dimensity (NeuroPilot) phones. The app offers your phone the builds compiled for its own chip.
+• On a Snapdragon 8 Elite Gen 5, the NPU read a 700-token prompt in 0.41 s, against 1.0 s on the GPU and 2.0 s on the CPU (Qwen3-1.7B, measured with ExecuServe).
+• Tap Start: the phone becomes a server and keeps answering in the background, even with the screen off
+• Compatible with OpenAI and Anthropic clients, LangChain, the Vercel AI SDK and Open WebUI, or open the phone's chat page from any browser on your network
+• No cloud, no account, no subscription
 
-Everything in the video is real: the app's own screen recordings, and a laptop talking to a POCO X8 Pro Max running Qwen3 1.7B. The screen-off answer was recorded with the phone locked and dozing. Downloads and loading are sped up and say so; the answers play at the speed they arrived.
+Everything in the video is real: the phones' own screen recordings (a Snapdragon 8 Elite Gen 5 on Qualcomm Device Cloud and a POCO X8 Pro Max with a MediaTek Dimensity), and another device asking the POCO over Wi-Fi. The screen-off answer was recorded with the phone locked and dozing. Loading is sped up and says so; the answers play at the speed they arrived.
 
 Project page: https://experimentalmachines.org/execuserve/
 Source (Apache-2.0): https://github.com/ExperimentalMachines/execuserve
 Privacy: https://experimentalmachines.org/execuserve/privacy/
 
 Disclosure
-ExecuServe is an independent project by Experimental Machines. It is not affiliated with or endorsed by the PyTorch Foundation, Meta, OpenAI, Anthropic, or the makers of the other tools named. PyTorch and ExecuTorch are trademarks of the Linux Foundation. Product names are used only to say what ExecuServe works with.
+ExecuServe is an independent project by Experimental Machines. It is not affiliated with or endorsed by the PyTorch Foundation, Meta, Qualcomm, MediaTek, Xiaomi, OpenAI, Anthropic, or the makers of the other tools named. PyTorch and ExecuTorch are trademarks of the Linux Foundation. Product names are used only to say what ExecuServe works with.

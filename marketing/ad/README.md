@@ -1,8 +1,8 @@
 # The launch video
 
-A 60-second, 1920×1080 ad for ExecuServe, built from code and real recordings: the app's own
-screen recordings, a laptop using the phone over Wi-Fi, one HTML page that animates them frame
-by frame, and an original track synthesised in Python. Its pipeline follows the
+A 56-second, 1920×1080 ad for ExecuServe, built from code and real recordings: the phones' own
+screen recordings, another device using a phone over Wi-Fi, one HTML page that animates them
+frame by frame, and an original track synthesised in Python. Its pipeline follows the
 [PengePassportPH ad](https://github.com/alpharomercoma/penge-passport-ph/tree/main/marketing/ad).
 
 The finished video is [`out/execuserve-ad-16x9.mp4`](out/execuserve-ad-16x9.mp4) (60 fps, H.264
@@ -12,11 +12,13 @@ and AAC, -14 LUFS), with a cover image in [`out/thumbnail.png`](out/thumbnail.pn
 
 ## The idea
 
-Your phone runs the AI; your other devices use it. Other on-device apps keep the model inside one
-chat screen, and desktop servers need a desktop. The ad shows the whole loop on real footage: pick
-a model, tap Start, open it from a laptop, lock the phone and get an answer anyway, then point
-your own code at it. The ember (the mark's die) stays above the phone wherever the model is
-working; small dots carry the answer to the device that asked.
+Your phone has a chip built for AI, and most apps never use it. ExecuServe runs a model on
+whichever processor your phone has (the CPU on any phone, the GPU through Vulkan, the NPU on
+Snapdragon and MediaTek Dimensity chips) and serves it to every app on the phone and every
+device on your network. The ad shows the processors, what the NPU buys on one phone (measured),
+the phone becoming a server, a document read on a Snapdragon's NPU in real time, and a MediaTek
+phone answering another device with its screen off. The ember (the mark's die) is the chip at
+work: it goes cold in the hook, and glows above the phone wherever the model is running.
 
 ## Build it
 
@@ -34,11 +36,12 @@ A rebuild rewrites the committed video and thumbnail; commit them again with the
 | File | What it does |
 | --- | --- |
 | `ad.html` | The whole ad as one page. `window.renderAt(t)` draws the frame at `t` seconds, waits for each footage frame to decode and never reads the clock, so every frame renders the same every time. Scenes cut on the music's bar lines: `bar(n, beat)` at 112 BPM. |
-| `music.py` | The track: 112 BPM warm electro in F major, 27 bars and a tail, synthesised with numpy and scipy (no samples, nothing licensed). Seeded. Its moments are the story's: the ember motif under the hook, a hit on the logo, the groove landing on Serving, a hush when the screen goes off, a bell when the answer still arrives. |
-| `browser.cjs` | A laptop using the phone: Playwright opens the chat page the phone serves at its Wi-Fi address, connects (the key goes into a password field), asks one question and films it as 2× screenshots, encoded to `assets/clips/<name>.mp4` with the moments it connected, sent, got its first text and finished. With `ANDROID_SERIAL` set it also logs the phone's screen and lock state before and after the take. |
-| `assets/clips/start.mp4` | The phone's own screen recording: Start, Working, Serving (the Play Store foreground-service take). |
-| `assets/clips/download.mp4` | The catalog on the release build: Qwen3 1.7B expanded, its 4k export fetched, Installed. `download.json` says where each moment is and how the recording was joined. |
-| `record.py` | The code scene's reply: a streamed request through the OpenAI SDK over Wi-Fi, each token's arrival time kept (`assets/stream.json`). |
+| `music.py` | The track: 112 BPM warm electro in F major, 25 bars and a tail, synthesised with numpy and scipy (no samples, nothing licensed). Seeded. Its moments are the story's: the ember motif falling away as the chip goes cold, a hit on the logo and on each processor, a bell as each chart bar stops, the groove landing on Serving, a tick while the NPU reads, a hush when the screen goes off, a bell when the answer still arrives. |
+| `browser.cjs` | Another device using the phone: Playwright opens the chat page the phone serves at its Wi-Fi address, connects (the key goes into a password field), asks one question and films it as 2× screenshots, encoded to `assets/clips/<name>.mp4` with the moments it connected, sent, got its first text and finished. With `ANDROID_SERIAL` set it also logs the phone's screen and lock state before and after the take. |
+| `assets/clips/start.mp4` | The POCO's own screen recording: Start, Working, Serving (the Play Store foreground-service take). |
+| `assets/clips/npu-sm8850-chat.mp4` | The Snapdragon 8 Elite Gen 5's own screen recording (Qualcomm Device Cloud): meeting notes pasted into the app's Chat and summarised on the NPU, footer and all. Its JSON has the prompt, the reply and the footer; `data.cjs` holds when Send was tapped and the reply finished, read from the status dot. |
+| `assets/clips/npu-poco-asleep.mp4` | `browser.cjs` on another device asking the POCO's MediaTek NPU build at its Wi-Fi address, with the phone locked and dozing before and after. |
+| `assets/clips/cpu-sm8850-chat.mp4` | Not in the ad: the same Chat take on the Snapdragon's CPU, kept for the comparison in `docs/results/2026-10-06-npu.md`. |
 | `clips.sh` | Turns the clips into frames under `frames/clips/` for the page. |
 | `data.cjs` | Bundles the recordings into `assets/data.js` and refuses ones that no longer fit their scenes: marks out of order, clips too short, a screen-off take without the phone's locked state. |
 | `qr.py` | The end card's QR code, for the project page. |
@@ -50,34 +53,39 @@ A rebuild rewrites the committed video and thumbnail; commit them again with the
 
 | Scene | Bars | Seconds | What it shows |
 | --- | --- | --- | --- |
-| Hook | 0–3 | 0–6.4 | A reply streaming on a laptop. "This answer didn't come from the cloud." Then a ring round the phone: "It came from the phone next to it." |
-| Logo | 3–5 | 6.4–10.7 | The mark builds on the beat. "Turn your Android phone into an AI server." Free, Open source. |
-| Pick a model | 5–8 | 10.7–17.1 | The catalog: Qwen3 1.7B, a tap on its 4k export, the download (sped up), Installed. |
-| Tap Start | 8–11 | 17.1–23.6 | Stopped, Working (sped up), Serving, landing on the groove. "Now it's a server." The ember lights. |
-| Laptop | 11–15 | 23.6–32.1 | The phone's chat page in a laptop browser at its Wi-Fi address: connect, ask, the answer streams in, zoomed to read. |
-| Screen off | 15–19 | 32.1–40.7 | The phone goes dark; the laptop asks again and the answer comes. Recorded with the phone locked and dozing (checked over adb before and after). |
-| Your apps | 19–22 | 40.7–47.1 | The request `record.py` sent, through the OpenAI SDK, and the reply it got. Clients the README documents. |
-| Without | 22–24 | 47.1–51.4 | No cloud inference. No account. No subscription. Just your phone. |
-| End card | 24–end | 51.4–60.5 | Mark and wordmark, the project page and its QR code, the source, the independence and trademark note. |
+| Hook | 0–3 | 0–6.4 | The chip mark, its die glowing. "Your phone has a chip built for AI." "Most apps never get to use it.": the die goes cold. |
+| Logo | 3–5 | 6.4–10.7 | The mark builds on the beat. "An AI server for any Android phone." Free, Open source. |
+| Processors | 5–7 | 10.7–15.0 | "It runs on the chip you have." A card a beat: CPU (XNNPACK, every Android phone), GPU (Vulkan), NPU (Qualcomm QNN, Snapdragon), NPU (MediaTek NeuroPilot, Dimensity). |
+| Chart | 7–9 | 15.0–19.3 | Time to the first token on a 700-token prompt on one Snapdragon 8 Elite Gen 5: CPU 2.0 s, GPU 1.0 s, NPU 0.41 s, each bar growing for as long as it took. |
+| Tap Start | 9–11 | 19.3–23.6 | Stopped, Working (sped up), Serving, landing on the groove. "Now it's a server. For the apps on the phone, and every device on your network." The ember lights. |
+| On the NPU | 11–15 | 23.6–32.1 | The Snapdragon's Chat summarising meeting notes on its NPU, in real time, and the app's own figures for that reply. |
+| Every app | 15–20 | 32.1–42.9 | Another device's browser at the POCO's Wi-Fi address; the phone's screen goes off, and the answer comes from its MediaTek NPU. The clients the README documents. |
+| Without | 20–22 | 42.9–47.1 | No cloud. No account. No subscription. Just your phone's own chip. |
+| End card | 22–end | 47.1–56.2 | Mark and wordmark, "CPU, GPU, and Snapdragon and MediaTek NPUs", the project page and its QR code, the source, the independence and trademark note. |
 
 ## Where each claim comes from
 
-- Everything on a device screen is a recording: the app on the release build (the phone's own
-  screen recordings, and the catalog download on the same build in an emulator, since the phone
-  was locked for the screen-off take), and the phone's chat page in a browser over Wi-Fi.
-- The screen-off take: `assets/clips/asleep.json` holds the phone's state read over adb before
-  and after it, locked and dozing both times. The README's "Built to stay up" covers the same
-  behaviour and its limits on OEM ROMs.
-- "Compatible with OpenAI and Anthropic clients" and the client names: the README's HTTP API
-  and Clients sections. "No cloud inference, no account, no subscription": the README and the
-  privacy policy (models run on the phone; the catalog downloads from Hugging Face).
-- Sped-up footage says so on screen; the browser and SDK replies play at their recorded pace.
+- Everything on a device screen is a recording: the phones' own screen recordings (the POCO X8
+  Pro Max, and the Snapdragon 8 Elite Gen 5 on Qualcomm Device Cloud), and the POCO's chat page
+  in a browser over Wi-Fi.
+- The processors: the app ships ExecuTorch with XNNPACK, Vulkan, QNN and MediaTek's runtime, and
+  offers a phone the NPU builds compiled for its own chip (`docs/results/2026-10-06-npu.md`).
+  Both NPUs answered through ExecuServe on these phones.
+- The chart and the NPU figures: `docs/results/2026-10-06-npu.md` (Qwen3-1.7B at 4k, the same
+  harness on all three processors; the NPU take's footer is the app's own measurement).
+- The screen-off take: `assets/clips/npu-poco-asleep.json` holds the phone's state read over adb
+  before and after it, locked and dozing both times, and the Wi-Fi address it was asked at.
+- The client names: the README's HTTP API and Clients sections. "No cloud, no account, no
+  subscription": the README and the privacy policy (models run on the phone; the catalog
+  downloads from Hugging Face).
+- Sped-up footage says so on screen; the NPU take and the browser reply play at their recorded
+  pace.
 
 ## Rules for anything made here
 
 - Real or nothing: re-record rather than edit a claim, and keep each clip's JSON with it.
-- No key is ever drawn: `browser.cjs` types it into a password field, `record.py` reads it from
-  the environment.
+- No key is ever drawn: `browser.cjs` reads it from the environment and types it into a
+  password field.
 - No other company's logos; product names only to say what ExecuServe works with. The end card
   says the project is independent and that PyTorch and ExecuTorch are Linux Foundation
   trademarks.

@@ -4,9 +4,10 @@
 # ///
 # The ad's track: 112 BPM warm electro in F major, synthesised from scratch (no samples, nothing
 # licensed). Seeded, so every run writes the same file. It follows the story rather than leading
-# it: a quiet ember motif under the hook, the groove arriving when the phone starts serving, a
-# hush when the screen goes off and a brighter line when the answer still arrives. Scene cuts
-# land on bar lines; bar() in ad.html uses the same grid.
+# it: the ember motif under the hook falling away as the chip goes cold, a hit for each processor,
+# a bell as each bar of the chart finishes, the groove arriving when the phone starts serving, a
+# tick while the NPU reads, a hush when the screen goes off and a brighter line when the answer
+# still arrives. Scene cuts land on bar lines; bar() in ad.html uses the same grid.
 #   uv run music.py   -> out/music.wav, out/music.json
 import json
 import wave
@@ -20,23 +21,28 @@ SR = 48000
 BPM = 112
 BEAT = 60 / BPM
 BAR = 4 * BEAT
-BARS = 27
+BARS = 25
 LENGTH = BARS * BAR + 2.6  # the last chord rings out
 N = int(LENGTH * SR)
 rng = np.random.default_rng(20261006)
 
 # The story, in bars (ad.html cuts on the same ones).
+COLD = (1, 2)       # the hook's second line: the chip's die goes cold
 LOGO = 3            # the mark builds: the first hit
-PICK = 5            # pick a model
-START = 8           # tap Start
-SERVING = (9, 2)    # the app turns green: the groove arrives
-LAPTOP = 11         # open it from the laptop
-ANSWER = (13, 0)    # the laptop's answer starts
-SLEEP = 15          # the screen goes off: the hush
-WOKE = (17, 0)      # the answer still arrives
-CODE = 19           # your apps use it too
-NOS = 22            # no cloud inference, no account, no subscription
-END = 24            # the end card
+CHIPS = 5           # CPU, GPU, NPU, NPU: a card a beat from (5, 1)
+CHART = 7           # time to the first token
+CHART_GO = (7, 1.5) # the bars start growing; each stops after its measured seconds
+TTFT = (0.41, 1.0, 2.0)  # NPU, GPU, CPU (docs/results/2026-10-06-npu.md)
+START = 9           # tap Start
+SERVING = (10, 0)   # the app turns green: the groove arrives
+NPU = 11            # the Snapdragon's NPU reads a document
+SEND = (12, 0)      # Send; the reply finishes its recorded seconds later
+NPU_TOOK = 11.0 - 7.75  # npu-sm8850-chat: sent and done, read from the screen (data.cjs)
+NET = 15            # every app can use it
+SLEEP = (15, 2)     # the power button: the screen goes off, the hush
+WOKE = (18, 0)      # the answer still arrives
+NOS = 20            # no cloud, no account, no subscription
+END = 22            # the end card
 
 
 def t_of(bar, beat=0.0):
@@ -175,65 +181,73 @@ drums, low, keys, lead, fx = empty(), empty(), empty(), empty(), empty()
 K, KS, CL = kick(), kick(soft=True), clap()
 
 
-def groove(b, full=True, from_beat=0):
+def groove(b, full=True, from_beat=0, to_beat=4):
     start, root, chord = t_of(b), ROOTS[b % 4], CHORDS[b % 4]
-    for k in range(from_beat, 4):
+    for k in range(from_beat, to_beat):
         place(drums, start + k * BEAT, K, 0.95)
         for s in range(4):
             place(drums, start + k * BEAT + s * BEAT / 4, shaker(1.0 if s == 2 else 0.55), 1.0)
         if full and k in (1, 3):
             place(drums, start + k * BEAT, CL, 0.8)
-    if full:
+    if full and to_beat == 4:
         place(drums, start + 3.75 * BEAT, rim(), 0.8)
     # Bass on the offbeats: root and fifth, an octave jump once a bar.
-    for e in range(from_beat * 2, 8):
+    for e in range(from_beat * 2, to_beat * 2):
         note = root + (7 if e in (3, 7) else 0) + (12 if e == 5 else 0)
         place(low, start + e * BEAT / 2 + (BEAT / 4 if e % 2 == 0 else 0), bass(note, BEAT / 2), 0.8)
-    place(keys, start, pad(chord, BAR, cutoff=2200 if full else 1500, attack=0.05), 0.38)
+    place(keys, start + from_beat * BEAT, pad(chord, BEAT * (to_beat - from_beat), cutoff=2200 if full else 1500, attack=0.05), 0.38)
 
 
-def motif(b, octave=12, gain=0.32):
+def motif(b, octave=12, gain=0.32, upto=4.0):
     start, chord = t_of(b), CHORDS[b % 4]
     for at, k in MOTIF:
-        place(lead, start + at * BEAT, fm(chord[k] + octave, 0.9), gain)
+        if at < upto:
+            place(lead, start + at * BEAT, fm(chord[k] + octave, 0.9), gain)
+
+
+def tap(at, gain=0.25):
+    """A finger on glass: a short high click."""
+    place(fx, at, fm(96, 0.06, index=0.5, decay=60), gain)
 
 
 for b in range(BARS):
     start, chord, root = t_of(b), CHORDS[b % 4], ROOTS[b % 4]
     if b < LOGO:
-        # The hook: a pad, the ember motif, a heartbeat of soft kicks from bar 1, a riser into the logo.
-        place(keys, start, pad(chord, BAR, cutoff=1100, attack=0.6), 0.45)
-        motif(b, gain=0.28)
+        # The hook: a pad and the ember motif, which falls away when the chip goes cold; a
+        # heartbeat of soft kicks from bar 1, a riser into the logo.
+        place(keys, start, pad(chord, BAR, cutoff=1100 if b < 2 else 700, attack=0.6), 0.45)
+        if b == 0:
+            motif(b, gain=0.28)
+        if b == COLD[0]:
+            motif(b, gain=0.28, upto=COLD[1])
         if b >= 1:
             place(drums, start, KS, 0.55)
             place(drums, start + 2 * BEAT, KS, 0.45)
         if b == 2:
             place(fx, start + BEAT, riser(BAR - BEAT * 1.5), 0.9)
     elif b < START:
-        # The logo and the catalog: the groove without its clap, the motif answering.
-        groove(b, full=False)
-        if b in (LOGO, PICK):
-            motif(b, gain=0.26)
-    elif b < SLEEP:
-        if b == START:
-            # Tap Start: a build, then the groove lands with Serving.
-            place(keys, start, pad(chord, BAR, cutoff=1400, attack=0.1), 0.4)
-            place(drums, start, K, 0.8)
-            for s in range(8):
-                place(drums, start + s * BEAT / 2, rim(), 0.25 + 0.06 * s)
-            place(fx, start + BEAT, riser(BEAT * 3), 0.6)
-        elif b == SERVING[0]:
-            # The build runs on to the moment the app turns green; the groove starts there.
-            for s in range(4):
-                place(drums, start + s * BEAT / 2, rim(), 0.7 + 0.06 * s)
-            place(drums, start + BEAT, K, 0.8)
-            groove(b, full=True, from_beat=SERVING[1])
-        else:
-            groove(b, full=True)
-            if b >= ANSWER[0]:
-                motif(b, octave=24, gain=0.24)
-    elif b < CODE:
-        # The screen goes off: drums fall away to a muffled heartbeat until the answer arrives.
+        # The logo: the groove without its clap; the processors and the chart: with it.
+        groove(b, full=b >= CHIPS)
+        if b in (LOGO, CHART):
+            motif(b, gain=0.24)
+    elif b == START:
+        # Tap Start: a build, then the groove lands with Serving.
+        place(keys, start, pad(chord, BAR, cutoff=1400, attack=0.1), 0.4)
+        place(drums, start, K, 0.8)
+        for s in range(8):
+            place(drums, start + s * BEAT / 2, rim(), 0.25 + 0.06 * s)
+        place(fx, start + BEAT, riser(BEAT * 3), 0.6)
+    elif b < NET:
+        groove(b, full=True)
+        if b == SERVING[0] or b >= SEND[0] + 2:
+            motif(b, octave=24, gain=0.22)
+    elif b == NET:
+        # The groove runs to the power button, then drops away.
+        groove(b, full=True, to_beat=SLEEP[1])
+        place(keys, t_of(*SLEEP), pad(chord, BEAT * 2, cutoff=900, attack=0.2), 0.45)
+        place(drums, t_of(*SLEEP), KS, 0.6)
+    elif b < NOS:
+        # The screen is off: a muffled heartbeat until the answer arrives, then it brightens.
         woke = b >= WOKE[0]
         place(keys, start, pad(chord, BAR, cutoff=2000 if woke else 900, attack=0.3), 0.5)
         place(drums, start, KS, 0.6)
@@ -243,25 +257,44 @@ for b in range(BARS):
             motif(b, octave=24, gain=0.3)
             for s in range(8):
                 place(drums, start + s * BEAT / 2, shaker(0.8), 1.0)
-        if b == CODE - 1:
+        if b == NOS - 1:
             place(fx, start + 2 * BEAT, riser(2 * BEAT), 0.7)
     elif b < BARS - 1:
         groove(b, full=True)
-        if b < NOS or b >= END:
-            motif(b, octave=12 if b < NOS else 24, gain=0.22)
+        if b >= END:
+            motif(b, octave=24, gain=0.22)
     # A swell into each cut.
-    if b in (PICK, START, LAPTOP, CODE, NOS, END):
+    if b in (CHIPS, START, NPU, NET, NOS, END):
         place(fx, start - 0.55, swell(), 1.0)
 
 # The moments.
+place(lead, t_of(*COLD), fm(CHORDS[1][0] - 12, 1.6, index=2.2, decay=2), 0.3)  # the die goes cold
 place(fx, t_of(LOGO), thump(1.0), 0.9)
+for i in range(4):  # a card a beat: CPU, GPU, then the two NPUs, brighter
+    at = t_of(CHIPS, 1 + i)
+    place(fx, at, thump(0.35 if i < 2 else 0.5), 0.55)
+    place(fx, at, bell((72, 76, 79, 84)[i], 0.9), 0.5 if i < 2 else 0.75)
+for secs, note in zip(TTFT, (84, 77, 72)):  # each chart bar stops on a bell; the NPU first and brightest
+    place(fx, t_of(*CHART_GO) + secs, bell(note, 1.2), 0.8 if note == 84 else 0.5)
+tap(t_of(*SERVING) - (9.9 - 6.15) / 2)  # ad.html's tap on Start, before the sped-up loading
 place(fx, t_of(*SERVING), thump(0.6), 0.7)
 place(fx, t_of(*SERVING), bell(84), 0.8)
-place(fx, t_of(*ANSWER), bell(81), 0.7)
-place(fx, t_of(SLEEP), thump(0.4), 0.5)
+# Send, the NPU at work (a soft tick on each half beat, as the ember pulses), and the reply done.
+tap(t_of(*SEND))
+for k in range(int(NPU_TOOK / (BEAT / 2))):
+    place(fx, t_of(*SEND) + k * BEAT / 2, rim(), 0.3)
+done = t_of(*SEND) + NPU_TOOK
+place(fx, done, bell(81, 1.4), 0.85)
+place(fx, done + 0.6, bell(84, 0.8), 0.45)  # the app's own figures, one a beat apart
+place(fx, done + 0.6 + BEAT, bell(88, 0.8), 0.45)
+# The power button, the other device's send, and the answer arriving with the screen off.
+tap(t_of(*SLEEP), 0.3)
+place(fx, t_of(*SLEEP), thump(0.4), 0.5)
+asleep = json.loads((HERE / 'assets/clips/npu-poco-asleep.json').read_text())['marks']
+tap(t_of(*WOKE) - (asleep['firstText'] - asleep['sent']), 0.2)
 place(fx, t_of(*WOKE), bell(84, 1.6), 0.9)
 place(fx, t_of(*WOKE) + BEAT / 2, bell(88, 1.2), 0.5)
-for i, at in enumerate((0, 1, 2)):  # the three lines, a beat apart; 'Just your phone' on the next bar
+for i, at in enumerate((0, 1, 2)):  # the three lines, a beat apart; the last on the next bar
     place(fx, t_of(NOS, at), thump(0.55), 0.6)
     place(fx, t_of(NOS, at), bell(77 + i * 4, 0.9), 0.6)
 place(fx, t_of(NOS + 1), bell(84, 1.4), 0.8)
@@ -271,20 +304,15 @@ place(keys, t_of(BARS - 1), pad(CHORDS[0] + [77], BAR + 2.6, cutoff=2400, attack
 place(lead, t_of(BARS - 1), fm(CHORDS[0][2] + 12, 2.4, decay=3), 0.35)
 place(fx, t_of(BARS - 1), thump(0.6), 0.6)
 
-# The code scene's real tokens, each a soft tick at the moment it arrived (record.py). ad.html
-# starts replaying them at the same moment: CODE_STREAM there.
-CODE_STREAM = t_of(CODE, 2) + 1.6
-stream = HERE / 'assets/stream.json'
-if stream.exists():
-    for k, tok in enumerate(json.loads(stream.read_text())['tokens']):
-        place(fx, CODE_STREAM + tok['t'], fm(91 + (k % 2) * 5, 0.08, index=0.8, decay=40), 0.1)
-
 # Sidechain: the kick gently ducks the melodic parts wherever the groove runs.
 duck = np.ones(N)
+hush = (t_of(*SLEEP), t_of(*WOKE))
 for b in range(BARS):
-    if b < LOGO or b == START or SLEEP <= b < CODE:
+    if b < LOGO or b == START:
         continue
     for k in range(4):
+        if hush[0] <= t_of(b, k) < hush[1]:
+            continue
         i, n = int(t_of(b, k) * SR), int(BEAT * SR)
         curve = 1 - 0.5 * np.exp(-np.arange(n) / SR * 12)
         duck[i:i + n] = np.minimum(duck[i:i + n], curve[: len(duck[i:i + n])])

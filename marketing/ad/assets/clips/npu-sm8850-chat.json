@@ -1,0 +1,12 @@
+{
+ "device": "Snapdragon 8 Elite Gen 5 (SM8850), Qualcomm Device Cloud, Android 16",
+ "app": "ExecuServe 0.1.0 release, branch npu-backends",
+ "recorded": "2026-10-06",
+ "how": "the phone's own screenrecord of the in-app Chat tab; the prompt was typed with adb input text before recording, then Send was tapped",
+ "prompt": "Notes from Thursday planning, mobile team. Release 4.2 moves from October 14 to October 21. The payment screen crash on older phones is fixed in testing. Maria will test the fix on real devices and share results on Monday. The offline mode beta now has 1,200 testers. Sync conflicts are down sixty percent since the new merge logic. Battery use while syncing is down eighteen percent. Daniel will fix photos that upload twice when added offline. Priya will fix the sync banner that stays on screen after syncing. Marketing needs offline mode screenshots by October 18. Next planning is Thursday at ten. Summarise these notes in three short bullet points, with owners and dates.",
+ "model": "qwen3-1.7b-qnn-hybrid-4k",
+ "processor": "NPU (Qualcomm QNN HTP)",
+ "footer": "Prefill 1098 tok/s \u00b7 Decode 26.5 tok/s \u00b7 3.29 s",
+ "reply": "Message qwen3-1.7b-qnn",
+ "note": "Earlier takes on longer notes were discarded: the 1.7B model misstated a fact in each; this wording was chosen so the summary is correct."
+}

@@ -1,0 +1,12 @@
+{
+ "device": "Snapdragon 8 Elite Gen 5 (SM8850), Qualcomm Device Cloud, Android 16",
+ "app": "ExecuServe 0.1.0 release, branch npu-backends",
+ "recorded": "2026-10-06",
+ "how": "the phone's own screenrecord of the in-app Chat tab; the prompt was typed with adb input text before recording, then Send was tapped",
+ "prompt": "Notes from Thursday planning, mobile team. Release 4.2 moves from October 14 to October 21. The payment screen crash on older phones is fixed in testing. Maria will test the fix on real devices and share results on Monday. The offline mode beta now has 1,200 testers. Sync conflicts are down sixty percent since the new merge logic. Battery use while syncing is down eighteen percent. Daniel will fix photos that upload twice when added offline. Priya will fix the sync banner that stays on screen after syncing. Marketing needs offline mode screenshots by October 18. Next planning is Thursday at ten. Summarise these notes in three short bullet points, with owners and dates.",
+ "model": "qwen3-1.7b-8da4w-gptq-4k",
+ "processor": "CPU (XNNPACK)",
+ "footer": "Prefill 377 tok/s \u00b7 Decode 42.8 tok/s \u00b7 3.00 s",
+ "reply": "- Release 4.2 is scheduled for October 14 to 21, with a fix for the payment screen crash on older phones tested by Maria on Monday.  \n- Offline mode beta now has 1,200 testers, and sync conflicts have decreased by 60%, with battery use down by 18%.  \n- Fixes pending: Daniel will address photo upload issues, and Priya will resolve the sync banner issue, with marketing needing screenshots by October 18.",
+ "note": "The CPU reply says the release is scheduled for October 14 to 21; the notes say it moved to October 21."
+}

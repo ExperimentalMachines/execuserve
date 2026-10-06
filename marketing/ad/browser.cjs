@@ -4,6 +4,7 @@
 // encoded into assets/clips/<name>.mp4 at the pace they were taken; clips.sh turns that back into
 // frames for the ad.
 //   EXECUSERVE_BASE=http://192.168.100.171:8080 EXECUSERVE_KEY=... node browser.cjs <name> "<prompt>"
+// PASTE=1 pastes the prompt at once, as a person pastes a long document, instead of typing it.
 // Writes assets/clips/<name>.mp4 and assets/clips/<name>.json (what was asked and answered, and
 // when, in seconds from the start of the clip: connected, sent, first text, done).
 const { chromium } = require('playwright');
@@ -42,8 +43,14 @@ function phoneState() {
     while (filming) {
       const t = at();
       const file = `${tmp}/${String(shots.length).padStart(5, '0')}.jpg`;
-      await p.screenshot({ path: file, type: 'jpeg', quality: 92 });
-      shots.push({ t, file });
+      // A frame Chromium cannot capture (mid-navigation, say) is skipped, not fatal: the
+      // encoder holds the previous one until the next.
+      try {
+        await p.screenshot({ path: file, type: 'jpeg', quality: 92 });
+        shots.push({ t, file });
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
     }
   })();
   const marks = {};
@@ -57,7 +64,8 @@ function phoneState() {
   await p.locator('#connect-dialog').waitFor({ state: 'hidden' });
   marks.connected = at();
   await p.waitForTimeout(600);
-  await p.locator('#prompt').pressSequentially(prompt, { delay: 30 });
+  if (process.env.PASTE) await p.locator('#prompt').fill(prompt);
+  else await p.locator('#prompt').pressSequentially(prompt, { delay: 30 });
   await p.waitForTimeout(300);
   await p.locator('#send').click();
   marks.sent = at();

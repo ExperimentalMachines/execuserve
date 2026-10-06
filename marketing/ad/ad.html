@@ -41,20 +41,7 @@
   .laptop .bar .url { margin-left: 18px; height: 28px; padding: 0 16px; border-radius: 8px; background: #fff; display: flex; align-items: center; font: 400 17px PlexMono, monospace; color: var(--ink-2); }
   .laptop .view { position: relative; overflow: hidden; background: #fff; border-radius: 0 0 4px 4px; }
   .laptop .view img { position: absolute; left: 0; top: 0; width: 100%; display: block; }
-  .laptop .base { height: 26px; margin: 0 -70px; border-radius: 4px 4px 22px 22px; background: linear-gradient(#3A3A40, #1C1C20); box-shadow: 0 30px 60px rgba(0,0,0,0.4); }
-  .laptop .base::after { content: ''; display: block; width: 180px; height: 9px; margin: 0 auto; border-radius: 0 0 10px 10px; background: #111113; }
   .ripple { position: absolute; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%; border: 6px solid var(--ember); z-index: 9; }
-  .ring { position: absolute; border: 5px solid var(--ember); box-shadow: 0 0 0 10px rgba(238,76,44,0.15); z-index: 8; }
-
-  /* code */
-  .win { position: absolute; border-radius: 22px; background: var(--night-2); box-shadow: 0 40px 100px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08) inset; overflow: hidden; }
-  .win .bar { height: 50px; display: flex; align-items: center; gap: 10px; padding: 0 22px; background: #29292D; font: 500 20px PlexMono, monospace; color: var(--dim); }
-  .win .bar i { width: 13px; height: 13px; border-radius: 50%; background: #45454B; display: block; }
-  .win .bar span { margin-left: 16px; }
-  .code { font: 400 25px/1.5 PlexMono, monospace; color: #E9EAEE; white-space: pre; padding: 28px 36px; }
-  .k { color: #F2836B; } .f { color: #A9C2FF; } .str { color: #E9C29A; }
-  .term { font: 400 26px/1.5 PlexMono, monospace; color: #E9EAEE; white-space: pre-wrap; padding: 26px 36px; }
-  .term .p { color: var(--ember); } .term .out { color: #FFFFFF; font-weight: 500; }
 
   /* bits */
   .chip { position: absolute; display: inline-flex; align-items: center; gap: 14px; height: 72px; padding: 0 32px; border-radius: 999px; font-weight: 600; font-size: 32px; white-space: nowrap; letter-spacing: -0.01em; background: var(--ink); color: var(--paper); }
@@ -71,6 +58,22 @@
   .wipe { position: absolute; inset: 0; z-index: 90; pointer-events: none; }
   .flash { position: absolute; inset: 0; background: #fff; z-index: 95; opacity: 0; }
   .black { position: absolute; inset: 0; background: #000; z-index: 96; opacity: 0; }
+
+  /* the processors */
+  .card { position: absolute; width: 390px; height: 330px; padding: 34px 34px 30px; border-radius: 30px; background: #fff; box-shadow: 0 30px 70px rgba(38,38,38,0.10), 0 0 0 2px var(--line) inset; }
+  .card .kind { font-weight: 600; font-size: 86px; letter-spacing: -0.04em; line-height: 1; }
+  .card .be { margin-top: 18px; font: 500 28px/1.3 PlexMono, monospace; color: var(--ink); }
+  .card .where { position: absolute; left: 34px; right: 34px; bottom: 30px; font-size: 28px; line-height: 1.3; color: var(--ink-2); }
+  .card.npu { background: var(--ink); color: var(--paper); box-shadow: 0 30px 70px rgba(38,38,38,0.25); }
+  .card.npu .kind { color: var(--ember); } .card.npu .be { color: var(--paper); } .card.npu .where { color: var(--dim); }
+  .bars .row { position: absolute; left: 0; height: 104px; display: flex; align-items: center; }
+  .bars .lab { width: 170px; font-weight: 600; font-size: 52px; letter-spacing: -0.02em; }
+  .bars .bar { height: 76px; border-radius: 14px; background: #C9CCD3; }
+  .bars .bar.npu { background: var(--ember); }
+  .bars .val { margin-left: 26px; font: 500 46px PlexMono, monospace; white-space: nowrap; }
+  .shot { position: absolute; border-radius: 34px; background: #0E0E10; padding: 12px; box-shadow: 0 50px 120px rgba(0,0,0,0.45), 0 0 0 2px #303035 inset; }
+  .shot .screen { position: relative; overflow: hidden; border-radius: 24px; background: #fff; }
+  .shot .screen img { position: absolute; left: 0; top: 0; width: 100%; display: block; }
 </style>
 </head>
 <body>
@@ -80,7 +83,7 @@
 // ---------------------------------------------------------------------------------------
 // Time: 112 BPM, scenes on bar lines; music.py writes the same grid and the same moments.
 const BEAT = 60 / 112, BAR = 4 * BEAT, bar = (n, beat = 0) => (n * 4 + beat) * BEAT;
-const LENGTH = 27 * BAR + 2.6;
+const LENGTH = 25 * BAR + 2.6;
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const prog = (t, a, b) => clamp((t - a) / (b - a));
 const lerp = (a, b, x) => a + (b - a) * x;
@@ -93,9 +96,9 @@ const E = {
   outBack: (x) => { if (x <= 0) return 0; const c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); },
 };
 const pulse = (t, from, every = BEAT, k = 7) => (t < from ? 0 : Math.exp(-((t - from) % every) * k));
-const D = window.AD_DATA; // the recordings: stream.json and the clips (data.cjs)
+const D = window.AD_DATA; // the recordings (data.cjs)
 // The story's moments, as music.py has them.
-const SERVING = bar(9, 2), ANSWER = bar(13), WOKE = bar(17), CODE_STREAM = bar(19, 2) + 1.6;
+const CHIPS = bar(5), CHART = bar(7), SERVING = bar(10), SEND = bar(12), SLEEP = bar(15, 2), WOKE = bar(18), NOS = bar(20), END = bar(22);
 
 function el(tag, cls, parent, html) {
   const e = document.createElement(tag);
@@ -125,6 +128,7 @@ function reveal(ln, t, t0, dur = 0.5, out = null) {
   ln.s.style.transform = `translateY(${y}%)`;
   ln.m.style.opacity = p > 0 ? 1 : 0;
 }
+const pop = (t, at, d = 0.4) => E.outBack(prog(t, at, at + d));
 
 // Real footage, one frame at a time. renderAt waits for each frame to decode, so the page is
 // deterministic however fast the renderer asks.
@@ -140,7 +144,7 @@ function frame(img, clip, ct) {
   }
 }
 
-// The mark, in its parts, so it can build itself.
+// The mark, in its parts, so it can build itself. It is a chip; its die is the ember.
 const PARTS = {
   lid: 'M50 6.58L96.22 32.26L50 57.93L3.78 32.26Z',
   left: 'M2 35.23L48.27 60.94L48.27 85.62L2 59.92Z',
@@ -150,12 +154,12 @@ const PARTS = {
   die: 'M50 19.92L74 33.25L50 46.58L26 33.25Z',
 };
 function mark(size, st = {}, ink = '#262626') {
-  const { lid = [0, 0], left = [0, 0], right = [0, 0], pins = [1, 1, 1, 1, 1, 1], die = 1, glow = 0, o = [1, 1, 1] } = st;
+  const { lid = [0, 0], left = [0, 0], right = [0, 0], pins = [1, 1, 1, 1, 1, 1], die = 1, glow = 0, o = [1, 1, 1], dieFill = '#EE4C2C' } = st;
   const g = (d, [dx, dy], op) => `<path d="${d}" fill="${ink}" transform="translate(${dx} ${dy})" opacity="${op}"/>`;
   const pinPaths = PARTS.pins.map((d, i) => `<path d="${d}" fill="${ink}" style="transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(${pins[i]})"/>`).join('');
   const halo = glow > 0 ? `<path d="${PARTS.die}" fill="none" stroke="#EE4C2C" stroke-width="${2 + 6 * glow}" stroke-opacity="${0.5 * glow}" style="transform-box: fill-box; transform-origin: center; transform: scale(${1 + 0.5 * glow})"/>` : '';
   return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" overflow="visible">${pinPaths}${g(PARTS.left, left, o[1])}${g(PARTS.right, right, o[2])}${g(PARTS.lid, lid, o[0])}` +
-    `<path d="${PARTS.die}" fill="#EE4C2C" style="transform-box: fill-box; transform-origin: center; transform: scale(${die})"/>${halo}</svg>`;
+    `<path d="${PARTS.die}" fill="${dieFill}" style="transform-box: fill-box; transform-origin: center; transform: scale(${die})"/>${halo}</svg>`;
 }
 // The ember: the mark's die, glowing above the phone. Where it is, the model is.
 function ember(size, glow) {
@@ -174,22 +178,20 @@ function phone(parent, w, ratio, src) {
   const off = el('div', 'off', sc);
   return { p, sc, img, off, w };
 }
-// The laptop: a browser showing the phone's own chat page, recorded at 1100 x 690 (browser.cjs).
-const LAP_W = 1180;
-function laptop(parent, address) {
+// Another device's browser showing the phone's own chat page, recorded at 1100 x 690 (browser.cjs).
+const WIN_W = 1000;
+function browser(parent, address) {
   const l = el('div', 'laptop abs', parent);
   const lid = el('div', 'lid', l);
   lid.innerHTML = `<div class="bar"><i></i><i></i><i></i><div class="url">${address}</div></div>`;
-  const view = el('div', 'view', lid); view.style.width = LAP_W + 'px'; view.style.height = Math.round(LAP_W * 690 / 1100) + 'px';
+  const view = el('div', 'view', lid); view.style.width = WIN_W + 'px'; view.style.height = Math.round(WIN_W * 690 / 1100) + 'px';
   const img = el('img', '', view); img.style.transformOrigin = '88% 50%'; // keeps the conversation column in view when zoomed
-  el('div', 'base', l);
   return { l, img };
 }
-// The answer's path from the phone to the laptop: small dots that flow while the phone answers.
-// The ember itself stays above the phone.
+// The answer's path from the phone to the device that asked: small dots that flow while it answers.
 function trace(svg, from, to, t, on) {
   if (on <= 0) { svg.innerHTML = ''; return; }
-  const [x0, y0] = from, [x1, y1] = to, cx = (x0 + x1) / 2, cy = Math.min(y0, y1) - 160;
+  const [x0, y0] = from, [x1, y1] = to, cx = (x0 + x1) / 2, cy = Math.min(y0, y1) - 60;
   let dots = '';
   for (let k = 0; k < 9; k++) {
     const u = (t * 0.9 + k / 9) % 1;
@@ -199,6 +201,13 @@ function trace(svg, from, to, t, on) {
   }
   svg.innerHTML = `<path d="M${x0} ${y0} Q ${cx} ${cy} ${x1} ${y1}" fill="none" stroke="#EE4C2C" stroke-width="2" stroke-dasharray="2 14" opacity="${0.5 * on}"/>${dots}`;
 }
+function svgLayer(r) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', 1920); svg.setAttribute('height', 1080);
+  svg.style.cssText = 'position:absolute;left:0;top:0;overflow:visible';
+  r.appendChild(svg);
+  return svg;
+}
 
 const stage = document.getElementById('stage');
 const scenes = [];
@@ -207,65 +216,32 @@ function scene(start, end, cls, build, render) {
   scenes.push({ start, end, root, ctx: build(root), render });
 }
 
-// The laptop scenes share one arrangement: the laptop left, the phone serving it on the right,
-// the ember above the phone.
-const LAP = { x: 150, y: 215 }, PH = { x: 1500, y: 300, w: 290 };
-const EMBER_AT = [PH.x + 12 + PH.w / 2, PH.y - 70];
-const LAP_EDGE = [LAP.x + 16 + LAP_W - 40, LAP.y + 330];
-function serveRig(r, clipName, address) {
-  const lap = laptop(r, address);
-  const ph = phone(r, PH.w, 2772 / 1280, 'assets/phone-01-hosting.png');
-  const em = el('div', 'abs', r);
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('width', 1920); svg.setAttribute('height', 1080);
-  svg.style.cssText = 'position:absolute;left:0;top:0;overflow:visible';
-  r.appendChild(svg);
-  return { lap, ph, em, svg, clipName };
-}
-function renderRig(c, t, { clipTime, inAt, flow, glow, off = 0, zoom = 0 }) {
-  // The camera leans into the conversation while it answers, so the reply can be read.
-  c.lap.img.style.transform = `scale(${1 + 0.32 * E.inOutCubic(zoom)})`;
-  const q = E.outExpo(prog(t, inAt, inAt + 0.8));
-  put(c.lap.l, { x: LAP.x, y: LAP.y + (1 - q) * 60, o: q });
-  put(c.ph.p, { x: PH.x + (1 - q) * 300, y: PH.y + Math.sin(t * 1.2) * 5, ry: -8, o: q });
-  c.ph.off.style.opacity = off;
-  frame(c.lap.img, c.clipName, clipTime);
-  c.em.innerHTML = ember(90, glow);
-  put(c.em, { x: EMBER_AT[0] - 45, y: EMBER_AT[1] - 25 + Math.sin(t * 2.1) * 4, o: q });
-  trace(c.svg, [EMBER_AT[0] - 20, EMBER_AT[1] + 4], LAP_EDGE, t, flow);
-}
-
 // ---------------------------------------------------------------------------------------
-// 1. The hook: an answer arrives on a laptop, and the ember shows where it came from.
-const CH = D.chat.marks, AS = D.asleep.marks;
+// 1. The hook: the chip every phone has, and the apps that never reach it.
 scene(0, bar(3), 'dark', (r) => {
-  const rig = serveRig(r, 'chat', D.chat.address);
-  const h = line(r, 'This answer didn’t come from the cloud.', 'h1', 150, 48, 76, 'color:var(--paper)');
-  const h2 = line(r, 'It came from the phone next to it.', 'h1', 150, 48, 76, 'color:var(--paper)');
-  const ring = el('div', 'ring', r);
-  return { rig, h, h2, ring };
+  const chip = el('div', 'abs', r);
+  const h = line(r, 'Your phone has a chip built for AI.', 'h1', 150, 250, 84, 'color:var(--paper)');
+  const h2 = line(r, 'Most apps never get to use it.', 'h1', 150, 380, 84, 'color:var(--dim)');
+  return { chip, h, h2 };
 }, (t, c) => {
-  // The reply streams from the moment it was sent, at its recorded pace.
-  // It holds on the finished answer two seconds after the reply is done.
-  const clip = Math.min(CH.done + 2, CH.sent + 0.4 + Math.max(0, t - 0.25));
-  const streaming = clip >= CH.firstText && clip <= CH.done + 0.3;
-  renderRig(c.rig, t, { clipTime: clip, inAt: 0, flow: streaming ? 1 : 0, glow: pulse(t, 0, BEAT, 4), zoom: 1 });
-  reveal(c.h, t, 0.5, 0.55, bar(1, 2) - 0.35);
+  // The die glows on the beat while the first line stands, then goes cold: unused.
+  const cold = E.inOutCubic(prog(t, bar(1, 2), bar(1, 3)));
+  const glow = (1 - cold) * pulse(t, 0.3, BEAT, 3);
+  const fill = cold > 0.5 ? '#3A3A40' : '#EE4C2C';
+  c.chip.innerHTML = mark(400, { glow, dieFill: fill }, '#2B2B30');
+  const q = E.outExpo(prog(t, 0, 1.2));
+  put(c.chip, { x: 1400, y: 520 + (1 - q) * 60 + Math.sin(t * 1.4) * 6, o: q });
+  reveal(c.h, t, 0.4, 0.55);
   reveal(c.h2, t, bar(1, 2), 0.55);
-  // A ring settles round the phone as the second line lands.
-  const q = E.outBack(prog(t, bar(1, 2.5), bar(1, 2.5) + 0.5));
-  c.ring.style.width = PH.w + 64 + 'px'; c.ring.style.height = Math.round(PH.w * 2772 / 1280) + 64 + 'px';
-  c.ring.style.borderRadius = '70px';
-  put(c.ring, { x: PH.x - 20, y: PH.y - 20, s: q > 0 ? 0.92 + 0.08 * q : 1, o: q > 0 ? 1 : 0 });
 });
 
 // 2. The drop: the mark builds itself on the beat.
-scene(bar(3), bar(5), 'paper', (r) => {
+scene(bar(3), CHIPS, 'paper', (r) => {
   el('div', 'lattice', r);
   const burst = el('div', 'abs', r);
   const logo = el('div', 'abs', r); logo.style.left = '800px'; logo.style.top = '110px';
   const word = centred(line(r, '<img src="assets/wordmark.svg" style="height:136px;display:inline-block">', '', 0, 500, 136));
-  const tag = centred(line(r, 'Turn your Android phone into an AI server.', 'sub grey', 0, 700, 50));
+  const tag = centred(line(r, 'An AI server for any Android phone.', 'sub grey', 0, 700, 50));
   const pills = ['Free', 'Open source'].map((w) => el('div', 'chip abs', r, CHECK(30) + w));
   return { burst, logo, word, tag, pills };
 }, (t, c) => {
@@ -283,53 +259,64 @@ scene(bar(3), bar(5), 'paper', (r) => {
   const gap = 24, widths = c.pills.map((p) => p.offsetWidth);
   let x = 960 - (widths[0] + widths[1] + gap) / 2;
   c.pills.forEach((p, i) => {
-    const q = E.outBack(prog(t, bar(4, 0.5 + i * 0.5), bar(4, 0.5 + i * 0.5) + 0.4));
+    const q = pop(t, bar(4, 0.5 + i * 0.5));
     put(p, { x, y: 820 + (1 - q) * 40, s: Math.max(0.001, q), o: q > 0 ? 1 : 0 });
     x += widths[i] + gap;
   });
 });
 
-// 3. Pick a model: the app's catalog, a download, installed. The phone's own screen recording.
-const DL = D.download; // in the recording: its scene changes, and the Installed chip
-const DL_IN = DL.expand - 0.5, DL_FAST = 2, DL_RUN = 1.7; // start, the speed until the download, the download's screen time
-function dlClip(s) { // seconds into the scene -> seconds into the recording
-  const a = (s - 0.25) * DL_FAST + DL_IN, tapEnd = DL.get + 0.2;
-  if (a <= tapEnd) return Math.max(DL_IN, a);
-  const s1 = 0.25 + (tapEnd - DL_IN) / DL_FAST;
-  return Math.min(DL.installed + 1, tapEnd + (s - s1) * ((DL.installed + 0.2 - tapEnd) / DL_RUN));
-}
-const sceneOf = (clip) => 0.25 + (clip - DL_IN) / DL_FAST;
-scene(bar(5), bar(8), 'paper', (r) => {
+// 3. Any chip: the four delegates one app runs, each landing on a beat (music.py has a hit per card).
+const PROCESSORS = [
+  { kind: 'CPU', be: 'XNNPACK', where: 'Every Android phone' },
+  { kind: 'GPU', be: 'Vulkan', where: 'Phones whose GPU can run it' },
+  { kind: 'NPU', be: 'Qualcomm QNN', where: 'Snapdragon', npu: true },
+  { kind: 'NPU', be: 'MediaTek<br>NeuroPilot', where: 'Dimensity', npu: true },
+];
+scene(CHIPS, CHART, 'paper', (r) => {
   el('div', 'lattice', r);
-  const h = line(r, 'Pick a model.', 'h1', 150, 300, 118);
-  const sub = line(r, 'Open models, one tap from the catalog.', 'sub grey', 156, 460, 44);
-  const ph = phone(r, 600, 2400 / 1080);
-  const rip = el('div', 'ripple abs', ph.p);
-  const tag = el('div', 'tag light abs', r, 'Download sped up, joined at 95%');
-  return { h, sub, ph, rip, tag };
+  const h = line(r, 'It runs on the chip you have.', 'h1', 150, 90, 104);
+  const sub = line(r, 'The app offers your phone the builds compiled for its own chip.', 'sub grey', 156, 805, 40);
+  const cards = PROCESSORS.map((p) => el('div', `card${p.npu ? ' npu' : ''}`, r, `<div class="kind">${p.kind}</div><div class="be">${p.be}</div><div class="where">${p.where}</div>`));
+  return { h, sub, cards };
 }, (t, c) => {
-  const t0 = bar(5), s = t - t0;
-  reveal(c.h, t, t0 + 0.2, 0.55);
-  reveal(c.sub, t, t0 + 0.6, 0.55);
-  const q = E.outExpo(prog(t, t0, t0 + 0.7));
-  put(c.ph.p, { x: 1110 + (1 - q) * 400, y: 70, ry: -6, o: q });
-  frame(c.ph.img, 'download', dlClip(s));
-  // Taps where they happened, in the recording's 1080-wide coordinates.
-  const k = c.ph.w / 1080, taps = [[DL.expand, 347, 990], [DL.get, 903, 1641]];
-  let shown = false;
-  for (const [at, x, y] of taps) {
-    const since = s - sceneOf(at);
-    if (since >= 0 && since < 0.45) {
-      put(c.rip, { x: 12 + x * k, y: 12 + y * k, s: 0.4 + since * 1.6, o: 1 - since / 0.45 });
-      shown = true;
-    }
-  }
-  if (!shown) c.rip.style.opacity = 0;
-  const running = dlClip(s) > DL.get + 0.3 && dlClip(s) < DL.installed;
-  put(c.tag, { x: 156, y: 560, o: running ? 1 : 0 });
+  reveal(c.h, t, CHIPS + 0.1, 0.55);
+  c.cards.forEach((card, i) => {
+    const q = pop(t, bar(5, 1 + i), 0.45);
+    put(card, { x: 135 + i * 420, y: 330 + (1 - q) * 60, s: Math.max(0.001, 0.9 + 0.1 * q), o: q > 0 ? 1 : 0 });
+  });
+  reveal(c.sub, t, bar(6, 1.5), 0.55);
 });
 
-// 4. Tap Start: the phone's own recording, Stopped to Working to Serving, landing on the music.
+// 4. What the right chip buys: time to the first token on one phone, each bar growing for exactly
+// as long as the processor took (docs/results/2026-10-06-npu.md).
+const TTFT = [['CPU', 2.0, '2.0 s'], ['GPU', 1.0, '1.0 s'], ['NPU', 0.41, '0.41 s']];
+scene(CHART, bar(9), 'paper', (r) => {
+  el('div', 'lattice', r);
+  const h = line(r, 'Reading a 700-token prompt', 'h1', 150, 90, 84);
+  const sub = line(r, 'Snapdragon 8 Elite Gen 5, time to the first token', 'sub grey', 156, 210, 40);
+  const bars = el('div', 'abs bars', r);
+  const rows = TTFT.map(([lab, , val]) => {
+    const row = el('div', 'row', bars, `<div class="lab">${lab}</div><div class="bar${lab === 'NPU' ? ' npu' : ''}"></div><div class="val">${val}</div>`);
+    return { row, bar: row.querySelector('.bar'), val: row.querySelector('.val') };
+  });
+  const fine = el('div', 'note abs grey', r, 'Qwen3-1.7B at a 4k window on each, served by ExecuServe. Measured 2026-10-06.');
+  return { h, sub, bars, rows, fine };
+}, (t, c) => {
+  reveal(c.h, t, CHART + 0.05, 0.5);
+  reveal(c.sub, t, CHART + 0.35, 0.5);
+  put(c.bars, { x: 160, y: 360 });
+  const go = bar(7, 1.5), PX = 1180 / 2.0;
+  c.rows.forEach((row, i) => {
+    const secs = TTFT[i][1], done = prog(t, go, go + secs);
+    row.row.style.top = i * 150 + 'px';
+    row.bar.style.width = Math.max(4, PX * secs * done) + 'px';
+    row.val.style.opacity = done >= 1 ? 1 : 0;
+    row.row.style.opacity = t >= go - 0.2 ? 1 : 0;
+  });
+  put(c.fine, { x: 160, y: 880, o: E.outCubic(prog(t, bar(8, 1), bar(8, 1) + 0.5)) });
+});
+
+// 5. Tap Start: the POCO's own recording, Stopped to Working to Serving, landing on the music.
 const ST = { tap: 6.15, serving: 9.9 }; // in the recording
 const ST_TAP_AT = SERVING - (ST.serving - ST.tap) / 2; // loading runs at double speed
 function stClip(t) {
@@ -337,167 +324,158 @@ function stClip(t) {
   if (t <= SERVING) return ST.tap + (t - ST_TAP_AT) * 2;
   return ST.serving + (t - SERVING);
 }
-scene(bar(8), bar(11), 'paper', (r) => {
+scene(bar(9), bar(11), 'paper', (r) => {
   el('div', 'lattice', r);
   const h = line(r, 'Tap Start.', 'h1', 150, 300, 118);
   const h2 = line(r, 'Now it’s a server.', 'h1', 150, 300, 118);
-  const sub = line(r, 'Your apps and devices can use it,<br>even with the app in the background.', 'sub grey', 156, 470, 44, 'line-height:1.3');
+  const sub = line(r, 'For the apps on the phone,<br>and every device on your network.', 'sub grey', 156, 470, 44, 'line-height:1.3');
   const ph = phone(r, 600, 2772 / 1280);
   const rip = el('div', 'ripple abs', ph.p);
   const em = el('div', 'abs', r);
   const tag = el('div', 'tag light abs', r, 'Loading sped up');
   return { h, h2, sub, ph, rip, em, tag };
 }, (t, c) => {
-  const t0 = bar(8);
+  const t0 = bar(9);
   reveal(c.h, t, t0 + 0.2, 0.55, SERVING - 0.3);
   reveal(c.h2, t, SERVING, 0.55);
-  reveal(c.sub, t, SERVING + 0.5, 0.55);
+  reveal(c.sub, t, SERVING + 0.4, 0.55);
   const q = E.outExpo(prog(t, t0, t0 + 0.7));
   put(c.ph.p, { x: 1110 + (1 - q) * 400, y: 70, ry: -6, o: q });
   frame(c.ph.img, 'start', stClip(t));
   const since = t - ST_TAP_AT, k = c.ph.w / 1280;
   put(c.rip, { x: 12 + 1044 * k, y: 12 + 516 * k, s: 0.4 + since * 1.6, o: since >= 0 && since < 0.45 ? 1 - since / 0.45 : 0 });
   // The ember lights above the phone the moment it serves.
-  const e = E.outBack(prog(t, SERVING, SERVING + 0.5));
+  const e = pop(t, SERVING, 0.5);
   c.em.innerHTML = ember(110, pulse(t, SERVING));
   put(c.em, { x: 1110 + 12 + 300 - 55, y: 10 + Math.sin(t * 2.1) * 4, s: Math.max(0.001, e), o: e > 0 ? 1 : 0 });
   put(c.tag, { x: 156, y: 470, o: t > ST_TAP_AT + 0.1 && t < SERVING ? 1 : 0 });
 });
 
-// 5. Open it from your laptop: the phone's own chat page, at its Wi-Fi address, recorded live.
-const CHAT_SHIFT = ANSWER - CH.firstText; // the reply starts on the music's cue
+// 6. On the NPU: the Snapdragon's own screen recording, in real time. Send lands on the bar line.
+const NP = D.npu.marks, NPU_SHIFT = SEND - NP.sent, NPU_DONE = NP.done + NPU_SHIFT;
+const SHOT = { x: 260, y: 250, w: 1400 }; // the capture is 3200 x 1440
 scene(bar(11), bar(15), 'dark', (r) => {
-  const rig = serveRig(r, 'chat', D.chat.address);
-  const h = line(r, 'Open it from your laptop.', 'h1', 150, 48, 76, 'color:var(--paper)');
-  const sub = line(r, 'Choose Your network in the app, then open its address in any browser.', 'sub dimtext', 156, 140, 36);
-  return { rig, h, sub };
+  const h = line(r, 'A document, read on the phone’s NPU.', 'h1', 150, 62, 80, 'color:var(--paper)');
+  const sub = line(r, 'Snapdragon 8 Elite Gen 5 · Qualcomm NPU · real time', 'sub dimtext', 156, 168, 36);
+  const shot = el('div', 'shot abs', r);
+  const sc = el('div', 'screen', shot); sc.style.width = SHOT.w + 'px'; sc.style.height = Math.round(SHOT.w * 1440 / 3200) + 'px';
+  const img = el('img', '', sc);
+  const rip = el('div', 'ripple abs', shot);
+  const em = el('div', 'abs', r);
+  const stats = ['Prefill 1,098 tokens/s', 'Whole reply in 3.3 s'].map((w) => el('div', 'chip abs', r, w));
+  return { h, sub, shot, img, rip, em, stats };
 }, (t, c) => {
-  const t0 = bar(11), clip = t - CHAT_SHIFT;
-  const flow = clip >= CH.firstText && clip <= CH.done + 0.3 ? 1 : 0;
-  renderRig(c.rig, t, { clipTime: clip, inAt: t0, flow, glow: pulse(t, t0), zoom: prog(clip, CH.sent - 0.2, CH.sent + 0.8) });
-  reveal(c.h, t, t0 + 0.2, 0.55);
-  reveal(c.sub, t, t0 + 0.7, 0.55);
-});
-
-// 6. The phone's screen goes off, and the next answer still comes. browser.cjs read the phone's
-// state over adb before and after the take: locked and dozing both times (asleep.json).
-const SLEEP_SHIFT = WOKE - AS.firstText;
-scene(bar(15), bar(19), 'dark', (r) => {
-  const rig = serveRig(r, 'asleep', D.asleep.address);
-  const h = line(r, 'Screen off.', 'h1', 150, 48, 76, 'color:var(--paper)');
-  const h2 = line(r, 'Still answering.', 'h1', 580, 48, 76, 'color:var(--paper)');
-  const fine = el('div', 'note abs dimtext', r, 'Recorded with the phone locked and dozing.');
-  return { rig, h, h2, fine };
-}, (t, c) => {
-  // It holds on the finished answer three seconds after the reply is done.
-  const t0 = bar(15), clip = Math.min(AS.done + 3, t - SLEEP_SHIFT);
-  const off = E.inOutCubic(prog(t, t0 + 0.2, t0 + 1.0));
-  const flow = clip >= AS.firstText && clip <= AS.done + 0.3 ? 1 : 0;
-  // While it sleeps the ember breathes slowly; when the answer comes it beats again.
-  const glow = t < WOKE ? 0.5 + 0.5 * Math.sin(t * 2.6) : pulse(t, WOKE);
-  renderRig(c.rig, t, { clipTime: clip, inAt: t0 - 5, flow, glow, off, zoom: prog(clip, AS.sent - 0.2, AS.sent + 0.8) });
-  reveal(c.h, t, t0 + 0.3, 0.55);
-  reveal(c.h2, t, WOKE, 0.55);
-  put(c.fine, { x: 156, y: 148, o: E.outCubic(prog(t, t0 + 1.2, t0 + 1.8)) });
-});
-
-// 7. Your apps use it too: a script calls the phone over Wi-Fi, and the reply is the recorded one.
-const S = D.stream;
-// The request record.py sent, parameter for parameter, and the reply it got.
-const CODE_HTML = [
-  '<span class="k">import</span> os',
-  '<span class="k">from</span> openai <span class="k">import</span> OpenAI',
-  '',
-  'phone = <span class="f">OpenAI</span>(base_url=<span class="str">"http://192.168.100.171:8080/v1"</span>,',
-  '               api_key=os.environ[<span class="str">"EXECUSERVE_KEY"</span>])',
-  'stream = phone.chat.completions.<span class="f">create</span>(',
-  '    model=<span class="str">"qwen3-1.7b-8da4w-gptq-4k"</span>, stream=<span class="k">True</span>, max_tokens=120,',
-  '    extra_body={<span class="str">"chat_template_kwargs"</span>: {<span class="str">"enable_thinking"</span>: <span class="k">False</span>}},',
-  '    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">"Write a one-line git commit message"</span>',
-  '               <span class="str">" for: fixed a crash when the download cache is empty."</span>}],',
-  ')',
-  '<span class="k">for</span> chunk <span class="k">in</span> stream:',
-  '    <span class="f">print</span>(chunk.choices[0].delta.content <span class="k">or</span> <span class="str">""</span>, end=<span class="str">""</span>)',
-].join('\n');
-scene(bar(19), bar(22), 'dark', (r) => {
-  const h = line(r, 'Your apps can use it too.', 'h1', 150, 70, 92, 'color:var(--paper)');
-  const sub = line(r, 'Compatible with OpenAI and Anthropic clients.', 'sub dimtext', 156, 196, 40);
-  const ed = el('div', 'win abs', r, `<div class="bar"><i></i><i></i><i></i><span>commit.py</span></div><div class="code">${CODE_HTML}</div>`);
-  ed.style.width = '1320px';
-  const term = el('div', 'win abs', r, '<div class="bar"><i></i><i></i><i></i><span>terminal · the reply recorded from the phone</span></div><div class="term"></div>');
-  term.style.width = '1300px'; term.style.height = '180px';
-  const tags = ['LangChain', 'Vercel AI SDK', 'Open WebUI', 'curl'].map((w) => el('div', 'tag ondark abs', r, w));
-  return { h, sub, ed, term, tags };
-}, (t, c) => {
-  const t0 = bar(19);
-  reveal(c.h, t, t0 + 0.2, 0.55);
-  reveal(c.sub, t, t0 + 0.6, 0.55);
-  const q = E.outExpo(prog(t, t0 + 0.3, t0 + 1.0));
-  put(c.ed, { x: 150, y: 270 + (1 - q) * 50, o: q });
-  const q2 = E.outExpo(prog(t, t0 + 0.8, t0 + 1.5));
-  put(c.term, { x: 150, y: 882 + (1 - q2) * 50, o: q2 });
-  const cmd = 'python commit.py', n = Math.floor(clamp((t - (CODE_STREAM - 1.0)) / 0.04, 0, cmd.length));
-  let out = `<span class="p">$</span> ${t > CODE_STREAM - 1.0 ? cmd.slice(0, n) : ''}`;
-  if (t >= CODE_STREAM) out += '\n<span class="out">' + S.tokens.filter((k) => k.t <= t - CODE_STREAM).map((k) => k.text).join('').replace(/</g, '&lt;') + '</span>';
-  c.term.querySelector('.term').innerHTML = out;
-  // The clients the README documents, in a row beside the editor.
-  let y = 300;
-  c.tags.forEach((tg, i) => {
-    const qq = E.outBack(prog(t, bar(20, 1 + i * 0.5), bar(20, 1 + i * 0.5) + 0.4));
-    put(tg, { x: 1500, y: y + (1 - qq) * 20, s: Math.max(0.001, qq), o: qq > 0 ? 1 : 0 });
-    y += 66;
+  const t0 = bar(11);
+  reveal(c.h, t, t0 + 0.15, 0.55);
+  reveal(c.sub, t, t0 + 0.5, 0.55);
+  const q = E.outExpo(prog(t, t0, t0 + 0.8));
+  put(c.shot, { x: SHOT.x, y: SHOT.y + (1 - q) * 60, o: q });
+  frame(c.img, 'npu', t - NPU_SHIFT);
+  const k = SHOT.w / 3200, since = t - SEND;
+  put(c.rip, { x: 12 + 2836 * k, y: 12 + 1258 * k, s: 0.4 + since * 1.6, o: since >= 0 && since < 0.45 ? 1 - since / 0.45 : 0 });
+  // The ember above the phone beats while the NPU works.
+  const working = t >= SEND && t <= NPU_DONE;
+  c.em.innerHTML = ember(90, working ? pulse(t, SEND, BEAT / 2, 5) : 0.15);
+  put(c.em, { x: SHOT.x + SHOT.w - 120, y: SHOT.y - 70 + Math.sin(t * 2.1) * 4, o: q });
+  // The app's own figures for this reply, lifted out of its footer.
+  c.stats.forEach((s, i) => {
+    const qq = pop(t, NPU_DONE + 0.6 + i * BEAT, 0.4);
+    const w0 = c.stats[0].offsetWidth, w1 = c.stats[1].offsetWidth, x0 = 960 - (w0 + w1 + 24) / 2;
+    put(s, { x: i ? x0 + w0 + 24 : x0, y: 940 + (1 - qq) * 30, s: Math.max(0.001, qq), o: qq > 0 ? 1 : 0 });
   });
 });
 
+// 7. Every app can use it, from anywhere on the network, with the phone asleep. browser.cjs read
+// the POCO's state over adb before and after the take: locked and dozing both times.
+const AS = D.asleep.marks, ASLEEP_SHIFT = WOKE - AS.firstText;
+const WIN = { x: 110, y: 250 }, PH = { x: 1520, y: 250, w: 280 };
+const EMBER_AT = [PH.x + 12 + PH.w / 2, PH.y - 64];
+const WIN_EDGE = [WIN.x + 16 + WIN_W - 60, WIN.y + 30]; // the address bar: over the client column, not through it
+const CLIENTS = ['OpenAI SDKs', 'Anthropic SDKs', 'LangChain', 'Vercel AI SDK', 'Open WebUI', 'Apps on the phone'];
+scene(bar(15), NOS, 'dark', (r) => {
+  const h = line(r, 'Every app can use it.', 'h1', 130, 52, 80, 'color:var(--paper)');
+  const h2 = line(r, 'Even with the screen off.', 'h1', 960, 52, 80, 'color:var(--paper)');
+  const win = browser(r, D.asleep.address);
+  const ph = phone(r, PH.w, 2772 / 1280, 'assets/phone-serving.png');
+  const em = el('div', 'abs', r);
+  const svg = svgLayer(r);
+  const tags = CLIENTS.map((w) => el('div', 'tag ondark abs', r, w));
+  const fine = el('div', 'note abs dimtext', r, 'POCO X8 Pro Max · MediaTek NPU · recorded locked and dozing');
+  return { h, h2, win, ph, em, svg, tags, fine };
+}, (t, c) => {
+  const t0 = bar(15), clip = t - ASLEEP_SHIFT;
+  reveal(c.h, t, t0 + 0.15, 0.55);
+  reveal(c.h2, t, SLEEP + 0.3, 0.55);
+  const q = E.outExpo(prog(t, t0, t0 + 0.8));
+  put(c.win.l, { x: WIN.x, y: WIN.y + (1 - q) * 60, o: q });
+  put(c.ph.p, { x: PH.x + (1 - q) * 300, y: PH.y + Math.sin(t * 1.2) * 5, ry: -8, o: q });
+  frame(c.win.img, 'asleep', clip);
+  c.win.img.style.transform = `scale(${1 + 0.3 * E.inOutCubic(prog(clip, AS.sent - 0.2, AS.sent + 0.8))})`;
+  // The power button: the phone goes dark and stays dark through the answer.
+  c.ph.off.style.opacity = E.inOutCubic(prog(t, SLEEP, SLEEP + 0.6));
+  // While it sleeps the ember breathes slowly; when the answer comes it beats again.
+  const glow = t < WOKE ? 0.5 + 0.5 * Math.sin(t * 2.6) : pulse(t, WOKE);
+  c.em.innerHTML = ember(80, glow);
+  put(c.em, { x: EMBER_AT[0] - 40, y: EMBER_AT[1] - 22 + Math.sin(t * 2.1) * 4, o: q });
+  const answering = clip >= AS.sent && clip <= AS.done + 0.6 ? 1 : 0;
+  trace(c.svg, [EMBER_AT[0] - 20, EMBER_AT[1] + 4], WIN_EDGE, t, answering);
+  // The clients the README documents, in a column between the two devices.
+  c.tags.forEach((tg, i) => {
+    const qq = pop(t, bar(16, 1 + i * 0.5), 0.4);
+    put(tg, { x: 1185 + (1 - qq) * 20, y: 300 + i * 62, s: Math.max(0.001, qq), o: qq > 0 ? 1 : 0 });
+  });
+  put(c.fine, { x: 1920 - c.fine.offsetWidth - 60, y: 1000, o: E.outCubic(prog(t, SLEEP + 0.8, SLEEP + 1.4)) });
+});
+
 // 8. What it does without.
-scene(bar(22), bar(24), 'paper', (r) => {
+scene(NOS, END, 'paper', (r) => {
   el('div', 'lattice', r);
-  const lines = ['No cloud inference.', 'No account.', 'No subscription.'].map((w, i) => line(r, w, 'h1', 150, 120 + i * 170, 140));
-  const last = line(r, 'Just your phone.', 'h1', 150, 680, 140, 'color:var(--ember)');
+  const lines = ['No cloud.', 'No account.', 'No subscription.'].map((w, i) => line(r, w, 'h1', 150, 120 + i * 170, 140));
+  const last = line(r, 'Just your phone’s own chip.', 'h1', 150, 680, 132, 'color:var(--ember)');
   const em = el('div', 'abs', r);
   return { lines, last, em };
 }, (t, c) => {
-  [0, 1, 2].forEach((at, i) => reveal(c.lines[i], t, bar(22, at), 0.45));
-  reveal(c.last, t, bar(23), 0.5);
-  const q = E.outBack(prog(t, bar(23, 0.5), bar(23, 0.5) + 0.4));
-  c.em.innerHTML = mark(260, { glow: pulse(t, bar(23, 0.5)) });
-  put(c.em, { x: 1450, y: 600 + (1 - q) * 40, s: Math.max(0.001, q), o: q > 0 ? 1 : 0 });
+  [0, 1, 2].forEach((at, i) => reveal(c.lines[i], t, bar(20, at), 0.45));
+  reveal(c.last, t, bar(21), 0.5);
+  const q = pop(t, bar(21, 0.5));
+  c.em.innerHTML = mark(260, { glow: pulse(t, bar(21, 0.5)) });
+  put(c.em, { x: 1500, y: 160 + (1 - q) * 40, s: Math.max(0.001, q), o: q > 0 ? 1 : 0 });
 });
 
 // 9. The end card.
-scene(bar(24), LENGTH, 'paper', (r) => {
+scene(END, LENGTH, 'paper', (r) => {
   el('div', 'lattice', r);
   const logo = el('div', 'abs', r);
-  const word = line(r, '<img src="assets/wordmark.svg" style="height:124px;display:block">', '', 150, 400, 124);
-  const tag = line(r, 'Your Android phone, now an AI server.<br>Free and open source.', 'sub grey', 156, 575, 46, 'line-height:1.25');
+  const word = line(r, '<img src="assets/wordmark.svg" style="height:124px;display:block">', '', 150, 390, 124);
+  const tag = line(r, 'An AI server for any Android phone.<br>CPU, GPU, and Snapdragon and MediaTek NPUs.', 'sub grey', 156, 560, 44, 'line-height:1.28');
   const url = el('div', 'urlpill abs', r, 'experimentalmachines.org/execuserve');
-  const gh = el('div', 'note abs grey', r, 'github.com/ExperimentalMachines/execuserve');
+  const gh = el('div', 'note abs grey', r, 'Free and open source · github.com/ExperimentalMachines/execuserve');
   const qr = el('div', 'qrcard abs', r, '<img src="assets/qr.svg"><p>The project page</p>');
-  const fine = el('div', 'fine abs', r, 'An independent project by Experimental Machines, not affiliated with or endorsed by the organizations named.<br>PyTorch and ExecuTorch are trademarks of the Linux Foundation. Recorded on a POCO X8 Pro Max.');
+  const fine = el('div', 'fine abs', r, 'An independent project by Experimental Machines, not affiliated with or endorsed by the organizations named. PyTorch and ExecuTorch<br>are trademarks of the Linux Foundation. Recorded on a POCO X8 Pro Max and a Snapdragon 8 Elite Gen 5 (Qualcomm Device Cloud).');
   return { logo, word, tag, url, gh, qr, fine, r };
 }, (t, c) => {
-  const t0 = bar(24);
+  const t0 = END;
   put(c.r, { s: 1 + 0.025 * E.outCubic(prog(t, t0, LENGTH)) });
   const k = (a, d = 0.45) => E.outBack(prog(t, t0 + a, t0 + a + d));
   const lid = k(0), side = k(0.06), die = Math.max(0, k(0.3, 0.35));
-  const end = bar(26), endGlow = t > end ? Math.exp(-(t - end) * 3) : 0;
+  const end = bar(24), endGlow = t > end ? Math.exp(-(t - end) * 3) : 0;
   c.logo.innerHTML = mark(200, { lid: [0, (1 - lid) * -60], left: [(1 - side) * -50, (1 - side) * 28], right: [(1 - side) * 50, (1 - side) * 28], die: die * (1 + 0.2 * endGlow), glow: endGlow, o: [clamp(lid * 3), clamp(side * 3), clamp(side * 3)] });
-  put(c.logo, { x: 150, y: 170 });
+  put(c.logo, { x: 150, y: 160 });
   reveal(c.word, t, t0 + 0.15, 0.55);
-  reveal(c.tag, t, bar(24, 1.5), 0.55);
-  const u = E.outExpo(prog(t, bar(24, 3), bar(24, 3) + 0.6));
-  put(c.url, { x: 150, y: 745 + (1 - u) * 50, o: u });
-  put(c.gh, { x: 156, y: 868, o: E.outCubic(prog(t, bar(25), bar(25) + 0.6)) });
-  const q = E.outBack(prog(t, bar(25), bar(25) + 0.5));
+  reveal(c.tag, t, bar(22, 1.5), 0.55);
+  const u = E.outExpo(prog(t, bar(22, 3), bar(22, 3) + 0.6));
+  put(c.url, { x: 150, y: 735 + (1 - u) * 50, o: u });
+  put(c.gh, { x: 156, y: 858, o: E.outCubic(prog(t, bar(23), bar(23) + 0.6)) });
+  const q = pop(t, bar(23), 0.5);
   put(c.qr, { x: 1390, y: 280 + (1 - q) * 60, s: Math.max(0.001, 0.9 + 0.1 * q), o: q > 0 ? 1 : 0 });
-  put(c.fine, { x: 150, y: 950, o: prog(t, bar(25, 2), bar(25, 2) + 0.6) });
+  put(c.fine, { x: 150, y: 950, o: prog(t, bar(23, 2), bar(23, 2) + 0.6) });
 });
 
 // ---------------------------------------------------------------------------------------
-// Cuts: an ember slab, then an ink one, sweep across at the mark's 30-degree angle. Screen off
-// (bar 15) is not a cut: the same laptop and phone carry on, and the phone goes dark.
+// Cuts: an ember slab, then an ink one, sweep across at the mark's 30-degree angle. The chart
+// follows the cards without one (same idea, carried on), and the screen going off is not a cut.
 const flash = el('div', 'flash'), black = el('div', 'black');
-const WIPES = [bar(5), bar(8), bar(11), bar(19), bar(22), bar(24)];
+const WIPES = [CHIPS, bar(9), bar(11), bar(15), NOS, END];
 const slabs = [el('div', 'wipe'), el('div', 'wipe')];
 slabs[0].style.background = 'var(--ember)'; slabs[1].style.background = 'var(--ink)';
 const HALF = 0.3, SLANT = 32.5;
@@ -523,7 +501,7 @@ window.renderAt = function (t) {
   });
   black.style.opacity = t > bar(3) - BEAT / 2 && t < bar(3) ? 1 : 0;
   const f1 = t >= bar(3) ? Math.exp(-(t - bar(3)) * 7) : 0;
-  const f2 = t >= bar(24) ? Math.exp(-(t - bar(24)) * 8) * 0.7 : 0;
+  const f2 = t >= END ? Math.exp(-(t - END) * 8) * 0.7 : 0;
   flash.style.opacity = Math.max(f1, f2);
   return Promise.all(pending);
 };
