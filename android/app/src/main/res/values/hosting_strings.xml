@@ -22,7 +22,6 @@
     <string name="host_model_details">Model details</string>
     <string name="host_diagnostics">Diagnostics</string>
     <string name="host_diagnostics_hint">Compare models and run benchmarks</string>
-    <string name="host_phase_rates">Prefill %1$s · Decode %2$s</string>
     <string name="host_model_context">%1$s-token context</string>
     <string name="host_models_note">Unloading frees memory. The model stays installed and loads again when a request needs it.</string>
     <string name="host_in_memory">In memory</string>
@@ -32,7 +31,7 @@
     <string name="host_retry">Try loading again</string>
     <string name="host_details">Details</string>
     <string name="host_hide_details">Hide details</string>
-    <string name="host_evicts">Loading it unloads %1$s: the memory limit is %2$s.</string>
+    <string name="host_evicts">The memory limit is %2$s: loading another model unloads %1$s.</string>
     <string name="host_last_request">Last request: %1$s · %2$s · %3$s</string>
     <string name="host_no_requests">No requests yet</string>
     <string name="host_model_api_on">This model\'s API, %1$s</string>

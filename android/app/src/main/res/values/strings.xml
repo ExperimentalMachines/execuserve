@@ -30,7 +30,6 @@
     <string name="action_exempt">Open list</string>
     <string name="action_ok">OK</string>
     <string name="copied">Copied</string>
-    <string name="none_yet">None yet</string>
     <string name="range_hint">%1$d to %2$d</string>
 
     <!-- The server's state: host.ServerLook -->
@@ -88,7 +87,6 @@
     <!-- Figures -->
     <string name="fig_device">Device</string>
     <string name="fig_window">%1$s window</string>
-    <string name="fig_rate">%1$s tok/s</string>
     <string name="fig_battery">Battery %1$d%%</string>
     <string name="fig_battery_charging">Battery %1$d%%, charging</string>
 
@@ -120,8 +118,8 @@
 
     <!-- Needs attention -->
     <string name="attention_title">Needs attention</string>
-    <string name="attention_restricted">Battery usage is Restricted, so Android stops the server as soon as you leave the app.</string>
-    <string name="attention_notifications">Notifications are off, so Android may stop the server without warning.</string>
+    <string name="attention_restricted">Battery usage is Restricted, so Android stops hosting as soon as you leave the app.</string>
+    <string name="attention_notifications">Notifications are off, so Android may stop hosting without warning.</string>
 
     <!-- Request log -->
     <string name="detail_model">Model</string>
@@ -353,7 +351,7 @@
     <string name="notif_wedged">The runtime stopped responding</string>
     <string name="alert_download_failed">Could not download %1$s</string>
     <string name="alert_restricted_title">ExecuServe is restricted in the background</string>
-    <string name="alert_restricted_text">Battery usage is set to Restricted, so Android stops the server when you leave the app.</string>
+    <string name="alert_restricted_text">Battery usage is set to Restricted, so Android stops hosting when you leave the app.</string>
     <string name="alert_wedged_title">The model stopped responding</string>
     <string name="alert_wedged_text">ExecuServe restarted itself to recover.</string>
     <string name="unknown_error">Unknown error</string>

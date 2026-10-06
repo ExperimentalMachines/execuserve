@@ -185,11 +185,12 @@ fun RunRow(run: JobRecord, name: String) {
                     color = muted,
                 )
             }
-            val prefill =
-                run.prefillTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.none_yet)
-            val decode =
-                run.decodeTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.none_yet)
-            Text(stringResource(R.string.host_phase_rates, prefill, decode), style = MaterialTheme.typography.bodySmall, color = muted)
+            // Only the rates that were measured: a request that failed or wrote one token has fewer.
+            val rates = listOfNotNull(
+                run.prefillTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.chat_prefill, Format.rate(it)) },
+                run.decodeTokensPerSecond.takeIf { it > 0 }?.let { stringResource(R.string.chat_decode, Format.rate(it)) },
+            )
+            if (rates.isNotEmpty()) Text(rates.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = muted)
             Text(clientName(run.client), style = MaterialTheme.typography.bodySmall, color = muted)
             if (open) RunDetail(run, checks)
         }

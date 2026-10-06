@@ -206,7 +206,7 @@ private fun InstalledRow(entry: ModelEntry, name: String, status: EngineStatus?,
         Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
                 LabMark(model, entry.lab, 32.dp)
-                Text(name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                Text(breakable(name), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                 // A state is a light and a word, as everywhere else.
                 if (loaded) {
                     Dot(tones.good.color, 8.dp)

@@ -558,3 +558,6 @@ fun PanelColumns(wide: Boolean, padding: PaddingValues, modifier: Modifier = Mod
         }
     }
 }
+
+/** A model id may break after its hyphens, never inside a word ("neuropi" / "lot"). */
+internal fun breakable(id: String) = id.replace("-", "-\u200B")

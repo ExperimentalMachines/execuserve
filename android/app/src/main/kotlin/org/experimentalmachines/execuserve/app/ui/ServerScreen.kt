@@ -118,7 +118,13 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
         if (installed.isEmpty()) {
             item(key = "empty") { EmptyModels(openModels) }
         } else if (running != null) {
-            item(key = "models-note") { Note(stringResource(R.string.host_models_note)) }
+            item(key = "models-note") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Note(stringResource(R.string.host_models_note))
+                    // At the limit, what loading another model does, said once for the list.
+                    EvictionNote(status, limit, installed)
+                }
+            }
         }
         val resident = status?.resident.orEmpty().map { it.id }.toSet()
         ModelNames.hostedOrder(installed, resident, current.defaultModel).forEach { entry ->
@@ -128,8 +134,6 @@ fun ServerScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
                     ModelNames.shown(entry, installed),
                     status,
                     running,
-                    limit,
-                    installed,
                     runs.firstOrNull { it.model == entry.id && it.api != Benchmark.API },
                     model,
                     onChat = { openChat(entry.id) },
@@ -272,8 +276,6 @@ private fun HostedModel(
     name: String,
     status: EngineStatus?,
     running: ServeHost.State.Running?,
-    limit: Int,
-    installed: List<ModelEntry>,
     last: JobRecord?,
     model: MainViewModel,
     onChat: () -> Unit,
@@ -301,7 +303,7 @@ private fun HostedModel(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             LabMark(model, entry.lab, 32.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(name, style = MaterialTheme.typography.titleMedium)
+                Text(breakable(name), style = MaterialTheme.typography.titleMedium)
                 Text(modelFacts(entry), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -311,8 +313,6 @@ private fun HostedModel(
         }
         if (job != null || loading) Progress(job, status.lane, tone.color)
         if (broken != null) Text(broken, style = MaterialTheme.typography.bodySmall, color = LocalTones.current.failed.color)
-        val loadable = broken == null && !loaded && !loading
-        if (running != null && loadable) EvictionNote(status, limit, installed)
         ModelActions(entry, running != null, loaded, loading, broken != null, job, status?.lane, ConsoleChat.canChat(entry), model, onChat, details) {
             details =
                 !details
@@ -355,11 +355,7 @@ private fun EvictionNote(status: EngineStatus?, limit: Int, installed: List<Mode
     if (resident.size < limit) return
     val evicted = resident.minByOrNull { it.lastUsedMs } ?: return
     val name = installed.firstOrNull { it.id == evicted.id }?.let { ModelNames.shown(it, installed) } ?: evicted.id
-    Text(
-        stringResource(R.string.host_evicts, name, pluralStringResource(R.plurals.memory_limit_models, limit, limit)),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    Note(stringResource(R.string.host_evicts, name, pluralStringResource(R.plurals.memory_limit_models, limit, limit)))
 }
 
 /**

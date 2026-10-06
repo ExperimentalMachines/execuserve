@@ -279,9 +279,6 @@ private fun shortProcessor(backend: String?): String = stringResource(
     },
 )
 
-/** A model id may break after its hyphens, never inside a word ("neuropilo" / "t"). */
-private fun breakable(id: String) = id.replace("-", "-​")
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Conversation(chat: ChatState, modelName: String, model: MainViewModel, target: String, modifier: Modifier, onSuggestion: (String) -> Unit) {
