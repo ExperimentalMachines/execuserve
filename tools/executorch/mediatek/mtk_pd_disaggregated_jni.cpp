@@ -243,6 +243,45 @@ static jstring NewJavaString(JNIEnv* env, const std::string& utf8) {
     return env->NewString(reinterpret_cast<const jchar*>(out.data()), static_cast<jsize>(out.size()));
 }
 
+// ExecuServe: a Java string as standard UTF-8, for the tokenizer. GetStringUTFChars gives
+// modified UTF-8, in which an emoji is two 3-byte surrogates and NUL is two bytes, so an emoji
+// from one reply would reach the next prompt as different tokens. Unpaired surrogates become
+// U+FFFD. False, with an OutOfMemoryError pending for Java, if the characters could not be had.
+static bool JavaToUtf8(JNIEnv* env, jstring text, std::string* out) {
+    out->clear();
+    if (text == nullptr) return true;
+    const jsize n = env->GetStringLength(text);
+    const jchar* chars = env->GetStringChars(text, nullptr);
+    if (chars == nullptr) return false;
+    out->reserve(static_cast<size_t>(n));
+    for (jsize i = 0; i < n; ++i) {
+        uint32_t cp = chars[i];
+        if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < n && chars[i + 1] >= 0xDC00 && chars[i + 1] <= 0xDFFF) {
+            cp = 0x10000 + ((cp - 0xD800) << 10) + (chars[i + 1] - 0xDC00);
+            ++i;
+        } else if (cp >= 0xD800 && cp <= 0xDFFF) {
+            cp = 0xFFFD;
+        }
+        if (cp < 0x80) {
+            out->push_back(static_cast<char>(cp));
+        } else if (cp < 0x800) {
+            out->push_back(static_cast<char>(0xC0 | (cp >> 6)));
+            out->push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else if (cp < 0x10000) {
+            out->push_back(static_cast<char>(0xE0 | (cp >> 12)));
+            out->push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out->push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else {
+            out->push_back(static_cast<char>(0xF0 | (cp >> 18)));
+            out->push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+            out->push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            out->push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        }
+    }
+    env->ReleaseStringChars(text, chars);
+    return true;
+}
+
 static size_t utf8_complete_prefix(const std::string& s) {
     size_t i = s.size();
     // A continuation byte is 10xxxxxx. Walk back to the last sequence start.
@@ -1103,22 +1142,17 @@ Java_org_experimentalmachines_execuserve_executorch_NeuroPilotBridge_nativeLoad(
 ) {
     executorch::runtime::runtime_init();
 
-    const char* p_opts = env->GetStringUTFChars(runner_options_json, nullptr);
-    const char* p_paths = env->GetStringUTFChars(prompt_model_paths, nullptr);
-    const char* p_emb = env->GetStringUTFChars(token_embedding_path, nullptr);
-    const char* p_cpu = env->GetStringUTFChars(cpu_model_path, nullptr);
-    const char* p_tok = env->GetStringUTFChars(tokenizer_path, nullptr);
+    // ExecuServe: each string checked as it is taken; the first that fails returns at once,
+    // its OutOfMemoryError left pending for Kotlin and no JNI call made after it.
+    std::string opts, paths, emb, cpu, tok;
+    if (!JavaToUtf8(env, runner_options_json, &opts) || !JavaToUtf8(env, prompt_model_paths, &paths) ||
+        !JavaToUtf8(env, token_embedding_path, &emb) || !JavaToUtf8(env, cpu_model_path, &cpu) ||
+        !JavaToUtf8(env, tokenizer_path, &tok)) {
+        return 0;
+    }
 
     auto session = std::make_unique<DisaggregatedSession>();
-    // ExecuServe: a null here is an OutOfMemoryError already pending for Java.
-    bool ok = p_opts && p_paths && p_emb && p_cpu && p_tok &&
-        session->Load(p_opts, p_paths, p_emb, p_cpu, p_tok, (float)temperature);
-
-    if (p_opts) env->ReleaseStringUTFChars(runner_options_json, p_opts);
-    if (p_paths) env->ReleaseStringUTFChars(prompt_model_paths, p_paths);
-    if (p_emb) env->ReleaseStringUTFChars(token_embedding_path, p_emb);
-    if (p_cpu) env->ReleaseStringUTFChars(cpu_model_path, p_cpu);
-    if (p_tok) env->ReleaseStringUTFChars(tokenizer_path, p_tok);
+    bool ok = session->Load(opts, paths, emb, cpu, tok, (float)temperature);
 
     if (!ok) {
         LOGE("DisaggregatedBridge: nativeLoad failed");
@@ -1138,11 +1172,9 @@ Java_org_experimentalmachines_execuserve_executorch_NeuroPilotBridge_nativePrefi
     auto session = reinterpret_cast<DisaggregatedSession*>(handle);
     if (!session) return 0;
 
-    const char* p_text = env->GetStringUTFChars(prompt, nullptr);
-    if (!p_text) return 0;
-    int tokens = session->Prefill(p_text);
-    env->ReleaseStringUTFChars(prompt, p_text);
-    return tokens;
+    std::string text;
+    if (!JavaToUtf8(env, prompt, &text)) return 0;
+    return session->Prefill(text);
 }
 
 /** Why the last nativeGenerate or nativePrefill on [handle] failed: 0 none, 1 window, 2 runtime. */
@@ -1169,10 +1201,8 @@ Java_org_experimentalmachines_execuserve_executorch_NeuroPilotBridge_nativeGener
     auto session = reinterpret_cast<DisaggregatedSession*>(handle);
     if (!session) return nullptr;
 
-    const char* p_text = env->GetStringUTFChars(prompt, nullptr);
-    if (!p_text) return nullptr;
-    std::string prompt_str(p_text);
-    env->ReleaseStringUTFChars(prompt, p_text);
+    std::string prompt_str;
+    if (!JavaToUtf8(env, prompt, &prompt_str)) return nullptr;
 
     // ExecuServe: a callback without onToken(String): Boolean (R8 removed it, say) is a
     // failure here, not a reply generated into nothing; its NoSuchMethodError is thrown.
@@ -1274,10 +1304,8 @@ Java_org_experimentalmachines_execuserve_executorch_PdDecodeProbeNative_nativePr
     jint threads,
     jboolean hold_lifetime_lock
 ) {
-    const char* path_chars = env->GetStringUTFChars(cpu_model_path, nullptr);
-    if (!path_chars) return nullptr;
-    const std::string path(path_chars);
-    env->ReleaseStringUTFChars(cpu_model_path, path_chars);
+    std::string path;
+    if (!JavaToUtf8(env, cpu_model_path, &path)) return nullptr;
 
     const size_t pool = size_delegate_pool(threads);
     const auto performant = ::executorch::extension::cpuinfo::get_num_performant_cores();

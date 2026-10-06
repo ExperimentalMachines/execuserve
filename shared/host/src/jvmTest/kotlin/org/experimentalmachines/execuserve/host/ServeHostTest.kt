@@ -107,7 +107,8 @@ class ServeHostTest {
                 ModelEntry("b", ModelFiles("/m/b.pte", "/m/b.json"), "qwen3"),
             ),
         )
-        val platform = FakePlatform(runtime, interrupted = "a")
+        // The runtime records the file it had open; the host maps it to the model.
+        val platform = FakePlatform(runtime, interrupted = "/m/a.pte")
         val startupHost = ServeHost(platform, startupStore, startupLibrary, history, scope)
         try {
             startupHost.start(onWedged = {})

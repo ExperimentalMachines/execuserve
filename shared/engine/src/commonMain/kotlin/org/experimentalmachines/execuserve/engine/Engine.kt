@@ -127,7 +127,7 @@ class Engine(
 
         data object TrimResidents : Action
 
-        data object ForgetFailures : Action
+        data class ForgetFailures(val keep: Set<String>) : Action
 
         /** Marks [id] failed with [reason], or forgets its failure when [reason] is null. */
         data class SetFailure(val id: String, val reason: String?) : Action
@@ -228,8 +228,11 @@ class Engine(
     /** Frees memory: idle models without waiting requests, or all of them when [force]d. */
     suspend fun evictIdle(force: Boolean) = command(Action.EvictIdle(force))
 
-    /** Forgets load failures, after the model files were replaced. */
-    suspend fun forgetFailures() = command(Action.ForgetFailures)
+    /**
+     * Forgets load failures, after the model files were replaced, except those of [keep]: in
+     * one step, so no request can slip in between forgetting one and recording it again.
+     */
+    suspend fun forgetFailures(keep: Set<String> = emptySet()) = command(Action.ForgetFailures(keep))
 
     /**
      * Marks [id] as failed, as a load failure would: it is refused with [reason] until
@@ -772,9 +775,9 @@ class Engine(
                         .forEach(::evict)
                 }
                 Action.TrimResidents -> trimResidents()
-                Action.ForgetFailures -> {
-                    broken.clear()
-                    _status.update { it.copy(broken = emptyMap()) }
+                is Action.ForgetFailures -> {
+                    broken.keys.retainAll(action.keep)
+                    _status.update { it.copy(broken = broken.toMap()) }
                 }
                 is Action.SetFailure -> {
                     if (action.reason == null) broken.remove(action.id) else broken[action.id] = action.reason

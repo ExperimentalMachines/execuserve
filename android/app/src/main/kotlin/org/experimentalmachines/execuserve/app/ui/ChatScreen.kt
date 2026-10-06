@@ -76,6 +76,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import org.experimentalmachines.execuserve.app.BuildConfig
 import org.experimentalmachines.execuserve.app.R
 import org.experimentalmachines.execuserve.app.text.Format
@@ -480,8 +482,10 @@ private fun Composer(running: Boolean, model: MainViewModel, onSend: (String) ->
     var focused by remember { mutableStateOf(false) }
     val dictating by model.dictation.state.collectAsState()
     val speechError by model.reader.error.collectAsState()
-    // Leaving the chat while listening must not keep the microphone or type into nothing.
+    // Leaving the chat, or the app (Home, the lock button), while listening must not keep the
+    // microphone or type into a draft no one is looking at.
     DisposableEffect(Unit) { onDispose { model.dictation.stop() } }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { model.dictation.stop() }
     val border by animateColorAsState(
         if (focused || dictating.listening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
         label = "composer border",

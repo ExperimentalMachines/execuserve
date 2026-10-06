@@ -17,7 +17,7 @@ LIBS="${1:?directory with arm64-v8a/*.so}"
 MTK_LIBS="${2:-}"
 RELEASE=1.5.1
 # A rebuilt binary is a new version: Gradle and anyone holding the old file must not mistake one for the other.
-VERSION="$RELEASE-execuserve.2"
+VERSION="$RELEASE-execuserve.3"
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 DEST="$ROOT/android/executorch/maven/org/experimentalmachines/executorch/executorch-android/$VERSION"
 WORK=$(mktemp -d)

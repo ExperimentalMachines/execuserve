@@ -165,7 +165,7 @@ class Downloader(
                     offset = 0
                 }
                 // Nothing left to send: complete, if a digest or a size can say so (checked below).
-                RANGE_NOT_SATISFIABLE -> if (remote.sha256 == null && remote.sizeBytes == null) {
+                RANGE_NOT_SATISFIABLE -> if (remote.sha256 == null && (remote.sizeBytes ?: 0) <= 0) {
                     part.delete()
                     throw IOException("${destination.name} could not be resumed; try again to download it from the start.")
                 }

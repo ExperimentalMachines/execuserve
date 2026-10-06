@@ -61,6 +61,9 @@ object NativeCrashGuard {
         }
     }
 
-    /** The install id a model's files belong to: the folder an install created for it. */
-    fun idOf(modelPath: String): String = File(modelPath).parentFile?.name ?: File(modelPath).nameWithoutExtension
+    /**
+     * What a running model is recorded as: its file, which the host maps to the installed
+     * model; a folder name would name every loose model in the models folder the same.
+     */
+    fun idOf(modelPath: String): String = modelPath
 }

@@ -55,6 +55,9 @@ object ContentReport {
     /** Long enough for any reply the console asks for, short enough for a share intent. */
     const val MAX_REPLY_CHARS = 8_000
 
+    /** Where a mailed report goes: the contact the README and the privacy policy publish. */
+    const val CONTACT = "alpha@experimentalmachines.org"
+
     /**
      * The report's text: a heading, labelled fields (blank ones left out), the model's
      * reasoning when it showed any (it is on screen, so it can be what is wrong), then the reply.
@@ -82,10 +85,15 @@ object ContentReport {
 
     private fun clip(text: String): String = text.trim().let { if (it.length > MAX_REPLY_CHARS) it.take(MAX_REPLY_CHARS) + "…" else it }
 
-    /** The share sheet, with the report as plain text; nothing is sent until the person picks. */
+    /**
+     * The share sheet, with the report as plain text; nothing is sent until the person picks.
+     * A mail app gets the project's published contact as its recipient (README, privacy
+     * policy), so a report has somewhere to go; any other app is the person's choice.
+     */
     fun share(context: Context, subject: String, text: String, chooserTitle: String) {
         val send = Intent(Intent.ACTION_SEND)
             .setType("text/plain")
+            .putExtra(Intent.EXTRA_EMAIL, arrayOf(CONTACT))
             .putExtra(Intent.EXTRA_SUBJECT, subject)
             .putExtra(Intent.EXTRA_TEXT, text)
         context.startActivity(Intent.createChooser(send, chooserTitle))

@@ -34,7 +34,7 @@ ktor-server-test-host = { group = "io.ktor", name = "ktor-server-test-host", ver
 
 # ExecuTorch's 1.5.1 Android library rebuilt with QNN beside XNNPACK and Vulkan, and the
 # runner fixes in tools/executorch/patch_qnn.py; the suffix counts rebuilds of one release.
-executorch-android = { group = "org.experimentalmachines.executorch", name = "executorch-android", version = "1.5.1-execuserve.2" }
+executorch-android = { group = "org.experimentalmachines.executorch", name = "executorch-android", version = "1.5.1-execuserve.3" }
 # Qualcomm's HTP drivers. 2.39 is the first release with the Hexagon v81 (Snapdragon 8 Elite
 # Gen 5) skeleton; it loads context binaries compiled with QAIRT 2.37.
 qnn-runtime = { group = "com.qualcomm.qti", name = "qnn-runtime", version = "2.39.0" }

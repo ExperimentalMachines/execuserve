@@ -153,11 +153,11 @@ class SpeechReader(private val context: Context) {
     private var generation = 0
     private var utterance = 0L
     private var active: String? = null
+    private var pieceIds: Set<String> = emptySet()
     private val initTimeout = Runnable { fail(R.string.speech_failed) }
 
     fun speak(id: Long, text: String) {
-        // Some engines drop an overlong request without a callback.
-        val spoken = text.forSpeech().take(TextToSpeech.getMaxSpeechInputLength())
+        val spoken = text.forSpeech()
         if (spoken.isBlank()) return
         _error.value = null
         _speaking.value = id
@@ -183,9 +183,19 @@ class SpeechReader(private val context: Context) {
                 fail(R.string.speech_no_voice)
                 return
             }
-            val id = "execuserve-reply-${++utterance}"
-            active = id
-            if (current.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, id) != TextToSpeech.SUCCESS) fail(R.string.speech_failed)
+            // In pieces the engine accepts (some drop an overlong request without a word), queued
+            // in order; reading ends when the last one does.
+            val pieces = spoken.pieces(TextToSpeech.getMaxSpeechInputLength())
+            val ids = pieces.map { "execuserve-reply-${++utterance}" }
+            active = ids.last()
+            pieceIds = ids.toSet()
+            pieces.forEachIndexed { i, piece ->
+                val mode = if (i == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                if (current.speak(piece, mode, null, ids[i]) != TextToSpeech.SUCCESS) {
+                    fail(R.string.speech_failed)
+                    return
+                }
+            }
         } catch (_: RuntimeException) {
             fail(R.string.speech_failed)
         }
@@ -199,6 +209,7 @@ class SpeechReader(private val context: Context) {
     fun stop() {
         pending = null
         active = null
+        pieceIds = emptySet()
         _speaking.value = null
         mainThread.removeCallbacks(initTimeout)
         runCatching { engine?.stop() }
@@ -264,13 +275,29 @@ class SpeechReader(private val context: Context) {
 
         @Deprecated("Required by the framework; the newer overload delegates to it.")
         override fun onError(utteranceId: String?) {
-            mainThread.post { if (active != null && utteranceId == active) fail(R.string.speech_failed) }
+            // Any piece of the current reply failing ends it; a stopped reply's pieces are gone.
+            mainThread.post { if (active != null && utteranceId in pieceIds) fail(R.string.speech_failed) }
         }
     }
 
     private companion object {
         const val INIT_TIMEOUT_MS = 10_000L
     }
+}
+
+/** [this] in pieces of at most [max] characters, cut after a sentence or a space where one is near. */
+internal fun String.pieces(max: Int): List<String> {
+    val out = mutableListOf<String>()
+    var rest = this
+    while (rest.length > max) {
+        val window = rest.substring(0, max)
+        val cut = listOf(window.lastIndexOf(". "), window.lastIndexOf('\n'), window.lastIndexOf(' '))
+            .firstOrNull { it > max / 2 }?.plus(1) ?: max
+        out += rest.substring(0, cut).trim()
+        rest = rest.substring(cut)
+    }
+    if (rest.isNotBlank()) out += rest.trim()
+    return out.filter { it.isNotEmpty() }
 }
 
 /** A reply as it should be heard: code, link targets and Markdown marks are not read out. */

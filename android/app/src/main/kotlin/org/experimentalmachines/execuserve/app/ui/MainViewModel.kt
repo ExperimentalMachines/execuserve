@@ -210,6 +210,8 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     /** Starts over; a reply still being written is stopped first. */
     fun newChat() {
+        // Its reply is about to go, and with it the button that stops reading it.
+        reader.stop()
         chatCall?.cancel()
         chatCall = null
         _chat.update { ChatState(model = it.model, thinking = it.thinking) }

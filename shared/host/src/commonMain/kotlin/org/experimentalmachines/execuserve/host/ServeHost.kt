@@ -78,7 +78,7 @@ interface HostPlatform {
     fun hosts(): Set<String>
 
     /**
-     * The model a native call was running when the process last died, and clears that record.
+     * The model file a native call was running when the process last died, and clears that record.
      * The runtime marks every open, prefill and generate itself; a process the system kills
      * inside one (an NPU build too large for the phone's memory) leaves the id behind. A
      * platform whose process cannot be killed this way keeps nothing.
@@ -170,7 +170,7 @@ class ServeHost(
         engine.start()
         // Before the listener takes a request: the last process died while this model ran, so
         // it is refused, saying why, until the person retries it.
-        platform.takeInterrupted()?.let { platform.setQuarantined(engine.resolve(it)?.id ?: it, true) }
+        platform.takeInterrupted()?.let { platform.setQuarantined(idOfFile(it, engine), true) }
         val refused = refuseQuarantined(engine)
         val listener = ExecuServer(
             ServerContext(
@@ -270,10 +270,7 @@ class ServeHost(
     suspend fun cancel(jobId: String) = act { it.cancel(jobId) }
 
     /** Sets aside ordinary failures (files may have changed); quarantined models stay refused. */
-    suspend fun forgetFailures() = act {
-        it.forgetFailures()
-        refuseQuarantined(it)
-    }
+    suspend fun forgetFailures() = act { engine -> engine.forgetFailures(keep = quarantinedIds(engine)) }
 
     /** Frees memory the system asked back; the next request reloads what it needs. */
     suspend fun evictAll() = act { it.evictIdle(force = true) }
@@ -289,8 +286,15 @@ class ServeHost(
     }
 
     /** Records every quarantined model the library still has as failed; returns their ids. */
-    private suspend fun refuseQuarantined(engine: Engine): Set<String> =
-        platform.quarantined().mapNotNull { engine.resolve(it)?.id }.onEach { runCatching { engine.recordFailure(it, INTERRUPTED) } }.toSet()
+    private suspend fun refuseQuarantined(engine: Engine): Set<String> = quarantinedIds(engine).onEach { runCatching { engine.recordFailure(it, INTERRUPTED) } }
+
+    private fun quarantinedIds(engine: Engine): Set<String> = platform.quarantined().mapNotNull { engine.resolve(it)?.id }.toSet()
+
+    /**
+     * The installed model whose file [path] is: the runtime records the file it opened, which
+     * names the model whether it has a folder of its own or lies loose beside others.
+     */
+    private fun idOfFile(path: String, engine: Engine): String = models.all().firstOrNull { it.files.model == path }?.id ?: engine.resolve(path)?.id ?: path
 
     private suspend fun act(action: suspend (Engine) -> Unit) {
         val engine = _engine.value ?: return
