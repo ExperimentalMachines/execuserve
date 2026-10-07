@@ -589,8 +589,9 @@ private fun Composer(running: Boolean, loading: Boolean, model: MainViewModel, l
                     .onFocusChanged { focused = it.isFocused },
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                // Fewer lines while typing in a short window, so the conversation keeps some room.
-                maxLines = if (typingInShortWindow()) SHORT_MAX_LINES else MAX_LINES,
+                // In a short window, keyboard or not: eight lines there pushed the field's own
+                // controls (thinking, send) half off the screen.
+                maxLines = if (shortWindow()) SHORT_MAX_LINES else MAX_LINES,
                 decorationBox = { field ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (draft.isEmpty()) {

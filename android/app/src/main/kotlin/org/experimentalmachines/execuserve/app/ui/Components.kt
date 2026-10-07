@@ -583,11 +583,15 @@ internal fun breakable(id: String) = id.replace("-", "-\u200B")
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun typingInShortWindow(): Boolean {
+fun typingInShortWindow(): Boolean = WindowInsets.isImeVisible && shortWindow()
+
+/** A window too short for a tall draft beside the conversation: a phone held sideways. */
+@Composable
+fun shortWindow(): Boolean {
     val height = with(androidx.compose.ui.platform.LocalDensity.current) {
         androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height.toDp()
     }
-    return WindowInsets.isImeVisible && height < SHORT_WINDOW
+    return height < SHORT_WINDOW
 }
 
 private val SHORT_WINDOW = 480.dp
