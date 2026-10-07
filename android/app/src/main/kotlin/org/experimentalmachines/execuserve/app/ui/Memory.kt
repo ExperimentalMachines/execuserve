@@ -40,8 +40,17 @@ fun phoneMemory(context: Context): PhoneMemory? = context.getSystemService(Activ
 
 /** "Needs 1.1 GB of memory" and, when it does not sit comfortably, what that means here. */
 @Composable
-fun MemoryNeed(need: Long?) {
-    need ?: return
+fun MemoryNeed(need: Long?, qualcomm: Boolean = false) {
+    // Always a line: a model with no figure says why, rather than leaving the reader to wonder
+    // whether memory was forgotten.
+    if (need == null) {
+        Text(
+            stringResource(if (qualcomm) R.string.memory_npu else R.string.memory_unknown),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
     val context = LocalContext.current
     val phone = remember { phoneMemory(context) }
     val tones = LocalTones.current

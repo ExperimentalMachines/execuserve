@@ -211,16 +211,13 @@ private fun InstalledRow(entry: ModelEntry, name: String, status: EngineStatus?,
                 }
             }
             Text(modelFacts(entry), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            MemoryNeed(memoryNeed(entry))
+            MemoryNeed(memoryNeed(entry), qualcomm = entry.backend == HfCatalog.QNN)
             Expandable(stringResource(R.string.host_model_details)) {
+                // Only what the row above does not say: its window, size and memory are there already.
                 Text(entry.id, style = Mono, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.gutter), modifier = Modifier.padding(top = 4.dp)) {
-                    entry.contextLength?.let { Fact(stringResource(R.string.fact_window), Format.window(it)) }
-                    Fact(stringResource(R.string.fact_size), Format.bytes(entry.sizeBytes))
-                    // The template is named only when there is none: that is a limit a client meets.
-                    if (!ConsoleChat.canChat(entry)) {
-                        Fact(stringResource(R.string.fact_template), stringResource(R.string.model_raw), valueColor = tones.attention.color)
-                    }
+                // The template is named only when there is none: that is a limit a client meets.
+                if (!ConsoleChat.canChat(entry)) {
+                    Fact(stringResource(R.string.fact_template), stringResource(R.string.model_raw), valueColor = tones.attention.color)
                 }
                 Text(
                     entry.source?.let { stringResource(R.string.model_from, it) } ?: stringResource(R.string.model_from_computer),
@@ -322,8 +319,11 @@ private fun VariantRow(variant: CatalogVariant, installed: Boolean, download: Do
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             // What it takes to run, not to download: decided before the gigabytes move.
-            MemoryNeed(memoryNeed(variant))
-            if (variant.fitsPhoneBudget == false) {
+            val need = memoryNeed(variant)
+            MemoryNeed(need, qualcomm = variant.backend == HfCatalog.QNN)
+            // The exporter's own warning only where this app has no figure of its own: two
+            // memory warnings on one row said the same thing twice.
+            if (need == null && variant.fitsPhoneBudget == false) {
                 Text(stringResource(R.string.catalog_over_budget), style = MaterialTheme.typography.bodySmall, color = tones.attention.color)
             }
             // An export outside what this runtime is promised to load may load and misbehave;

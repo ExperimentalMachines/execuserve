@@ -163,8 +163,6 @@
     <string name="models_none">Nothing installed yet. Get a model from the catalog below.</string>
     <string name="model_raw">Raw prompts only</string>
     <string name="fact_template">Chat template</string>
-    <string name="fact_window">Window</string>
-    <string name="fact_size">Size</string>
     <string name="model_from">From %1$s</string>
     <string name="model_from_computer">Added from a computer</string>
     <string name="model_did_not_load">Did not load: %1$s</string>
@@ -431,6 +429,8 @@
     </plurals>
     <string name="chat_latest">Jump to the latest message</string>
     <string name="memory_needs">Needs %1$s of memory to run</string>
+    <string name="memory_unknown">Memory needed to run: not known for this build</string>
+    <string name="memory_npu">Runs in the NPU\'s own memory, which this app can\'t measure</string>
     <string name="memory_tight">Tight: Android may close other apps to make room.</string>
     <string name="memory_wont_fit">More than this phone can spare (%1$s): it won\'t load. Try a smaller window.</string>
     <string name="catalog_download_size">%1$s download</string>
