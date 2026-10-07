@@ -39,7 +39,8 @@ function phoneState() {
   const t0 = Date.now();
   const at = () => (Date.now() - t0) / 1000;
   // The camera: screenshots back to back, each stamped with when it was taken.
-  const camera = (async () => {
+  const camera = {};
+  camera.done = (async () => {
     while (filming) {
       const t = at();
       const file = `${tmp}/${String(shots.length).padStart(5, '0')}.jpg`;
@@ -48,7 +49,11 @@ function phoneState() {
       try {
         await p.screenshot({ path: file, type: 'jpeg', quality: 92 });
         shots.push({ t, file });
-      } catch {
+      } catch (e) {
+        if (!camera.warned) {
+          camera.warned = true;
+          console.error('a frame was skipped:', e.message.split('\n')[0]);
+        }
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
     }
@@ -76,7 +81,7 @@ function phoneState() {
   marks.done = at();
   await p.waitForTimeout(3000);
   filming = false;
-  await camera;
+  await camera.done;
   const reply = await body.innerText();
   const meta = await p.locator('.message.assistant').getByText(/s elapsed/).last().innerText();
   await b.close();

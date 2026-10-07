@@ -2,12 +2,12 @@
  "address": "192.168.100.171:8091/models/lfm2.5-1.2b-instruct-neuropilot-a16w8-2k/",
  "prompt": "Translate into Spanish for a traveller: Where is the train station, and when does the last train to the airport leave tonight?",
  "reply": "¿Dónde está la estación de tren y cuándo sale el último tren hacia el aeropuerto esta noche?",
- "meta": "Prefill 41.5 tok/s · Decode 33.3 tok/s · 1.65 s elapsed",
+ "meta": "Prefill 42.6 tok/s · Decode 44.2 tok/s · 1.72 s elapsed",
  "marks": {
-  "connected": 3.159,
-  "sent": 8.758,
-  "firstText": 10.059,
-  "done": 10.842
+  "connected": 2.916,
+  "sent": 8.738,
+  "firstText": 10.037,
+  "done": 10.834
  },
  "size": [
   1100,
@@ -17,12 +17,12 @@
   "before": {
    "wakefulness": "Dozing",
    "locked": true,
-   "at": "2026-10-06T10:12:00.333Z"
+   "at": "2026-10-07T07:34:50.484Z"
   },
   "after": {
    "wakefulness": "Dozing",
    "locked": true,
-   "at": "2026-10-06T10:12:14.915Z"
+   "at": "2026-10-07T07:35:05.047Z"
   }
  }
 }

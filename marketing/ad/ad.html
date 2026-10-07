@@ -316,8 +316,8 @@ scene(CHART, bar(9), 'paper', (r) => {
   put(c.fine, { x: 160, y: 880, o: E.outCubic(prog(t, bar(8, 1), bar(8, 1) + 0.5)) });
 });
 
-// 5. Tap Start: the Snapdragon's own recording, Stopped to Starting, Working and Serving in real
-// time (its NPU build loads in about half a second), Serving landing on the music.
+// 5. Tap Start: the Snapdragon's own recording, Stopped to Hosting, loading its NPU build and
+// ready for requests in real time (about two thirds of a second), Ready landing on the music.
 const ST = D.start.marks; // in the recording
 const ST_TAP_AT = SERVING - (ST.serving - ST.tap);
 const stClip = (t) => t - SERVING + ST.serving;
@@ -357,7 +357,7 @@ scene(bar(11), bar(15), 'dark', (r) => {
   const img = el('img', '', sc);
   const rip = el('div', 'ripple abs', shot);
   const em = el('div', 'abs', r);
-  const stats = ['Prefill 1,121 tokens/s', 'Whole reply in 3.3 s'].map((w) => el('div', 'chip abs', r, w));
+  const stats = ['Prefill 1,172 tokens/s', 'Whole reply in 3.2 s'].map((w) => el('div', 'chip abs', r, w));
   return { h, sub, shot, img, rip, em, stats };
 }, (t, c) => {
   const t0 = bar(11);
