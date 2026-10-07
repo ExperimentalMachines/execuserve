@@ -57,10 +57,21 @@
   <dialog id="connect-dialog" aria-labelledby="connect-title">
     <form id="connect-form">
       <div class="dialog-heading"><svg class="mark" width="40" height="40" aria-hidden="true"><use href="#mark"/></svg><button type="button" class="icon-button" id="close-connect" aria-label="Close connection settings">×</button></div>
-      <h2 id="connect-title">Connect to your model</h2>
-      <p>The models are served by the phone hosting this page. Use a key from <strong>ExecuServe → Settings → API keys</strong>.</p>
-      <label for="api-key">API key</label><input id="api-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your key" maxlength="4096">
-      <p class="field-note">Kept in memory for this tab only. Reloading or disconnecting clears it.</p>
+      <h2 id="connect-title">Connect to your phone</h2>
+      <p id="connect-help">On the phone, open <strong>ExecuServe → Hosting</strong> and tap <strong>Show sign&#8209;in code</strong> under Chat in a browser. Then scan it here.</p>
+      <div class="connect-ways">
+        <button type="button" class="way" id="scan-camera"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Scan with camera</span></button>
+        <button type="button" class="way" id="scan-upload"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9.5" r="1.5"/><path d="m20 15-4.5-4.5L6 20"/></svg><span>Upload a picture</span></button>
+        <input type="file" id="scan-file" accept="image/*" hidden>
+      </div>
+      <div class="scanner" id="scanner" hidden>
+        <video id="scan-video" playsinline muted aria-label="Camera view"></video>
+        <div class="scanner-bar"><span id="scan-status">Hold the phone’s code inside the frame.</span><button type="button" class="text-button" id="scan-stop">Stop</button></div>
+      </div>
+      <p class="scan-note" id="scan-note" role="status" hidden></p>
+      <button type="button" class="text-button scan-open" id="scan-open" hidden></button>
+      <label for="api-key">Or paste the key</label><input id="api-key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your key" maxlength="4096">
+      <p class="field-note">Also under Settings → API keys on the phone. You can paste or drop a picture of the code here too. The key stays in this tab’s memory; reloading or disconnecting clears it.</p>
       <p class="connection-error" id="connection-error" role="alert" hidden></p>
       <div class="dialog-actions"><button type="button" class="text-button" id="disconnect" hidden>Disconnect</button><button type="submit" class="primary-button" id="connect-submit">Connect</button></div>
     </form>

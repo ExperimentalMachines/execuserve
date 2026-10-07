@@ -181,6 +181,12 @@
     <string name="models_computer_push">Or push Name.pte and Name.tokenizer.json into:</string>
     <string name="catalog_title">Catalog</string>
     <string name="catalog_source">experimentalmachines on Hugging Face</string>
+    <string name="catalog_recommended">Start with these</string>
+    <string name="catalog_recommended_note">CPU builds: no special chip needed. Each says the memory it takes. The whole catalog is below.</string>
+    <string name="recommended_quick">Quick, for everyday chat and long documents</string>
+    <string name="recommended_stronger">Stronger answers, a little slower</string>
+    <string name="recommended_compact">Small and widely used</string>
+    <string name="recommended_thinks">Can think a problem through before it answers</string>
     <string name="catalog_browse">Browse the catalog</string>
     <string name="catalog_unreachable_title">Could not reach Hugging Face</string>
     <plurals name="catalog_variants">
@@ -312,7 +318,6 @@
     <string name="alert_wedged_title">The model stopped responding</string>
     <string name="alert_wedged_text">ExecuServe restarted itself to recover.</string>
     <string name="unknown_error">Unknown error</string>
-    <string name="connect_browser_chat">Browser chat</string>
     <string name="action_show_qr">Show QR</string>
     <string name="copied_on_phone">Copied on phone</string>
     <string name="copy_failed">Copy failed</string>
@@ -406,7 +411,7 @@
     <string name="chat_prefill">Prefill %1$s tok/s</string>
     <string name="chat_decode">Decode %1$s tok/s</string>
     <string name="settings_performance">Performance</string>
-    <string name="settings_connection_note">The address, key and an example request, and who can connect, are on Hosting under Connect an app.</string>
+    <string name="settings_connection_note">Who can connect, the browser sign-in code, and the address, key and an example request for apps are on Hosting under Connect.</string>
     <string name="chat_switch_unloads">loads, unloading %1$s</string>
     <string name="chat_no_template_title">No installed model can chat</string>
     <string name="chat_no_template_note">These models have no chat template, so they answer raw prompts only, through the Completions API. Get a chat model from the Library.</string>

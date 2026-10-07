@@ -10,7 +10,7 @@
     <string name="host_unload">Unload from memory</string>
     <string name="host_unload_after">Unload after this reply</string>
     <string name="host_model_id">Model ID</string>
-    <string name="host_connection">Connect an app</string>
+    <string name="host_connection">Connect</string>
     <string name="host_no_key">Create an API key in Settings.</string>
     <string name="host_device">Device health</string>
     <string name="host_memory_free">Free memory</string>
@@ -81,7 +81,7 @@
     <string name="host_read_this_request">read, this request</string>
     <string name="host_last_phase">last request, %1$s</string>
     <string name="host_waiting_for_phase">not yet</string>
-    <string name="connect_intro">Any app that works with OpenAI or Anthropic can use the models on this phone. Give it the address, the key and a model, or copy the example below.</string>
+    <string name="connect_intro">Chat with these models from a browser on another device, or let any app that works with OpenAI or Anthropic use them.</string>
     <string name="connect_api">The app speaks</string>
     <string name="connect_address">Address (%1$s)</string>
     <string name="connect_key">Key</string>
@@ -91,6 +91,13 @@
     <string name="connect_copy_request">Copy request</string>
     <string name="connect_share_setup">Share address, key and model</string>
     <string name="connect_more">More ways to connect</string>
-    <string name="connect_more_hint">Every model, the browser chat, other addresses</string>
+    <string name="connect_more_hint">Every model, other addresses</string>
     <string name="connect_other_address">Address on %1$s</string>
+    <string name="connect_browser_title">Chat in a browser</string>
+    <string name="connect_browser_open">On a laptop or another phone connected to the network named below, open this address in a browser.</string>
+    <string name="connect_browser_scan">The page asks for a key. Show the sign-in code and scan it from that page, or point the other phone\'s camera at it to open the chat already signed in.</string>
+    <string name="connect_browser_code">Show sign-in code</string>
+    <string name="connect_browser_code_title">Sign-in code</string>
+    <string name="connect_browser_needs_network">Only this device can reach it now. To chat from a laptop, set Who can connect to Your network.</string>
+    <string name="connect_app_title">Connect an app</string>
 </resources>

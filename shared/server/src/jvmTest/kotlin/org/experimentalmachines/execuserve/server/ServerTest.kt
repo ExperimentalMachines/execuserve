@@ -64,7 +64,10 @@ class ServerTest {
         val ctx = ServerContext(engine, settings, StaticKeys(listOf(key)), { setOf("192.168.1.20") }, "test", { 1_700_000_000 })
         application { execuServe(ctx) }
         // Real HTTP/1.1 clients always send Host; Ktor's in-memory test client does not.
-        http = createClient { defaultRequest { if (HttpHeaders.Host !in headers) headers.append(HttpHeaders.Host, "localhost:8080") } }
+        http = createClient {
+            followRedirects = false
+            defaultRequest { if (HttpHeaders.Host !in headers) headers.append(HttpHeaders.Host, "localhost:8080") }
+        }
         block()
     }
 
@@ -90,7 +93,12 @@ class ServerTest {
         assertFalse(key.secret in page.bodyAsText())
         assertTrue("connect-src 'self'" in page.headers["Content-Security-Policy"]!!)
         assertEquals("DENY", page.headers["X-Frame-Options"])
-        for ((path, type) in listOf("chat.css" to "text/css", "chat.js" to "application/javascript", "mark.svg" to "image/svg+xml")) {
+        for ((path, type) in listOf(
+            "chat.css" to "text/css",
+            "chat.js" to "application/javascript",
+            "qr.js" to "application/javascript",
+            "mark.svg" to "image/svg+xml",
+        )) {
             val asset = http.get("/chat/assets/$path")
             assertEquals(HttpStatusCode.OK, asset.status)
             assertTrue(asset.headers["Content-Type"]!!.startsWith(type))
@@ -99,6 +107,31 @@ class ServerTest {
             assertFalse(key.secret in asset.bodyAsText())
         }
         assertEquals(HttpStatusCode.Unauthorized, http.get("/v1/models").status)
+    }
+
+    @Test
+    fun aBrowserOpeningAnApiAddressIsSentToTheChatPage() = serve {
+        val html = "text/html,application/xhtml+xml,*/*;q=0.8"
+        val sent = listOf(
+            "/v1" to "/",
+            "/v1/" to "/",
+            "/v1/models" to "/",
+            "/models/qwen3-1.7b/v1/models" to "/models/qwen3-1.7b/",
+            "/models/nope/" to "/",
+        )
+        for ((path, target) in sent) {
+            val page = http.get(path) { header(HttpHeaders.Accept, html) }
+            assertEquals(HttpStatusCode.Found, page.status, path)
+            assertEquals(target, page.headers[HttpHeaders.Location], path)
+        }
+        // A client that asks for JSON, or presents a key, gets the error it would have.
+        assertEquals(HttpStatusCode.Unauthorized, http.get("/v1/models") { header(HttpHeaders.Accept, "application/json") }.status)
+        val withKey = http.get("/v1/models") {
+            header(HttpHeaders.Accept, html)
+            header(HttpHeaders.Authorization, "Bearer nope")
+        }
+        assertEquals(HttpStatusCode.Unauthorized, withKey.status)
+        assertEquals(HttpStatusCode.NotFound, http.post("/v1/nothing") { header(HttpHeaders.Accept, html) }.status)
     }
 
     @Test
@@ -115,7 +148,7 @@ class ServerTest {
 
     @Test
     fun chatAssetsRetainHostProtection() = serve {
-        for (path in listOf("/", "/chat/assets/chat.js", "/chat/assets/chat.css", "/chat/assets/mark.svg")) {
+        for (path in listOf("/", "/chat/assets/chat.js", "/chat/assets/chat.css", "/chat/assets/qr.js", "/chat/assets/mark.svg")) {
             assertEquals(HttpStatusCode.Forbidden, http.get(path) { header(HttpHeaders.Host, "attacker.example") }.status)
         }
         assertEquals(HttpStatusCode.NotFound, http.get("/chat/assets/missing.js").status)

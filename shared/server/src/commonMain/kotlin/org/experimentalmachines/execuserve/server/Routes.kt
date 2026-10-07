@@ -563,12 +563,38 @@ private suspend fun ApplicationCall.respondError(error: ApiError) {
 internal fun ApplicationCall.speaksAnthropic(): Boolean =
     request.headers["anthropic-version"] != null || request.local.uri.substringBefore('?').contains("/v1/messages")
 
+/**
+ * A person who opened an API address in a browser (the base URL, or `/v1/models`) is sent to
+ * the chat page, which asks for the key, rather than shown a 401 or 404 in JSON. Only page
+ * loads that carry no credential: an SDK asks for JSON, and a request with a key wants its
+ * error. The target is this server's own path, never one taken from the request.
+ */
+private suspend fun ApplicationCall.pageInstead(error: ApiError): Boolean {
+    val path = request.local.uri.substringBefore('?')
+    val page = request.local.method == HttpMethod.Get &&
+        error.status in setOf(HttpStatus.UNAUTHORIZED, HttpStatus.NOT_FOUND) &&
+        request.headers[HttpHeaders.Accept].orEmpty().contains("text/html") &&
+        request.headers[HttpHeaders.Authorization] == null &&
+        request.headers["x-api-key"] == null
+    if (!page) return false
+    // A model's own API sends to that model's page; everything else to the root.
+    val mount = MODEL_MOUNT.find(path)?.value
+    val target = if (mount != null && path.startsWith(mount + "v1")) mount else "/"
+    if (target == path) return false
+    response.header(HttpHeaders.Location, target)
+    response.header("Cache-Control", "no-store")
+    respondText("", status = HttpStatusCode.Found)
+    return true
+}
+
+private val MODEL_MOUNT = Regex("^/models/[^/]+/")
+
 /** Runs a handler and turns anything it throws into OpenAI's error shape. */
 internal suspend fun ApplicationCall.handle(block: suspend ApplicationCall.() -> Unit) {
     try {
         block()
     } catch (error: ApiError) {
-        respondError(error)
+        if (!pageInstead(error)) respondError(error)
     } catch (refusal: Refusal) {
         respondError(refusalError(refusal))
     } catch (malformed: IllegalArgumentException) {

@@ -9,6 +9,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -595,6 +596,9 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
         if (running == null) {
             Text(stringResource(R.string.host_address_when_running), style = MaterialTheme.typography.bodySmall, color = muted)
         } else {
+            BrowserAccess(running, key)
+            Divider()
+            Text(stringResource(R.string.connect_app_title), style = MaterialTheme.typography.titleSmall)
             ConnectSetup(running, key, installed, model)
             MoreWaysToConnect(running, installed, settings, model)
         }
@@ -612,6 +616,40 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
             },
             dismissButton = { TextButton(onClick = { confirming = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
+    }
+}
+
+/**
+ * The chat page for a laptop or another phone: the address to open, and a sign-in code that
+ * carries the key, for the page's Scan button or a phone camera. Only on a network address:
+ * the loopback one opens nowhere but here.
+ */
+@Composable
+private fun BrowserAccess(running: ServeHost.State.Running, key: ApiKey?) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val endpoint = running.endpoints.firstOrNull { it.network != NetworkKind.THIS_DEVICE }
+    var showing by remember { mutableStateOf(false) }
+    Text(stringResource(R.string.connect_browser_title), style = MaterialTheme.typography.titleSmall)
+    if (endpoint == null) {
+        // Bound to the network but with no address yet, the panel above already says why.
+        if (running.settings.bind == BindMode.LOOPBACK) {
+            Text(stringResource(R.string.connect_browser_needs_network), style = MaterialTheme.typography.bodySmall, color = muted)
+        }
+        return
+    }
+    val page = ModelEndpoints.page(endpoint.url)
+    Text(stringResource(R.string.connect_browser_open), style = MaterialTheme.typography.bodyMedium)
+    CopyRow(page, label = stringResource(R.string.connect_address, stringResource(endpoint.network.words)), prominent = true)
+    if (key == null) {
+        Text(stringResource(R.string.host_no_key), style = MaterialTheme.typography.bodySmall)
+        return
+    }
+    Text(stringResource(R.string.connect_browser_scan), style = MaterialTheme.typography.bodySmall, color = muted)
+    OutlineButton(stringResource(R.string.connect_browser_code), onClick = { showing = true })
+    if (showing) {
+        ValueQrDialog(ModelEndpoints.signIn(endpoint.url, key.secret), stringResource(R.string.connect_browser_code_title), sensitive = true) {
+            showing = false
+        }
     }
 }
 
@@ -670,15 +708,18 @@ private fun ConnectSetup(running: ServeHost.State.Running, key: ApiKey?, install
     )
 
     Text(stringResource(R.string.connect_example), style = MaterialTheme.typography.titleSmall)
-    // Shown with the key cut short; copied whole.
+    // Shown with the key cut short; copied whole. One line per part of the command, never
+    // wrapped mid-header: it slides sideways instead.
     Text(
         ExampleRequest.curl(api, base, masked, modelId),
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .horizontalScroll(rememberScrollState())
             .padding(12.dp),
         style = Mono,
+        softWrap = false,
     )
     FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
         Action(stringResource(R.string.connect_copy_request), { copy(context, ExampleRequest.curl(api, base, key?.secret, modelId), sensitive = true) })
@@ -688,7 +729,7 @@ private fun ConnectSetup(running: ServeHost.State.Running, key: ApiKey?, install
 
 /**
  * Everything past the three fields, in one place: every model and what asking for it does,
- * the browser chat, the device's other addresses, an address per model for apps that cannot
+ * the device's other addresses, an address per model for apps that cannot
  * choose one, and the setting Android apps need for plain HTTP.
  */
 @Composable
@@ -697,7 +738,6 @@ private fun MoreWaysToConnect(running: ServeHost.State.Running, installed: List<
     val first = running.endpoints.first()
     Expandable(stringResource(R.string.connect_more), stringResource(R.string.connect_more_hint)) {
         ApiModels(installed, model, settings.memoryLimit, first.url)
-        CopyRow(first.url.removeSuffix("/v1").trimEnd('/') + "/", label = stringResource(R.string.connect_browser_chat), qr = true)
         running.endpoints.drop(1).forEach { endpoint ->
             CopyRow(endpoint.url, label = stringResource(R.string.connect_other_address, stringResource(endpoint.network.words)), qr = true)
         }

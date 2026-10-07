@@ -14,6 +14,7 @@ internal fun Route.webChat() {
         "/" to (WebAssets.html to ContentType.Text.Html),
         "/chat/assets/chat.css" to (WebAssets.css to ContentType.Text.CSS),
         "/chat/assets/chat.js" to (WebAssets.js to ContentType.Application.JavaScript),
+        "/chat/assets/qr.js" to (WebAssets.qr to ContentType.Application.JavaScript),
         "/chat/assets/mark.svg" to (WebAssets.mark to ContentType.parse("image/svg+xml")),
     )
     assets.forEach { (path, asset) ->

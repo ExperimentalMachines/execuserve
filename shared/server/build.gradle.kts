@@ -40,8 +40,21 @@ val generateWebAssets = tasks.register("generateWebAssets") {
             buildString {
                 appendLine("package org.experimentalmachines.execuserve.server")
                 appendLine("internal object WebAssets {")
-                mapOf("html" to "index.html", "css" to "chat.css", "js" to "chat.js", "mark" to "mark.svg").forEach { (name, file) ->
-                    appendLine("    val $name: String = ${literal(source.file(file).asFile.readText())}")
+                // A class file holds no string constant over 64 KB, so each asset is written in
+                // pieces joined at first use (the QR reader is about 130 KB).
+                mapOf("html" to "index.html", "css" to "chat.css", "js" to "chat.js", "qr" to "qr.js", "mark" to "mark.svg").forEach { (name, file) ->
+                    val text = source.file(file).asFile.readText()
+                    val parts = mutableListOf<String>()
+                    var start = 0
+                    while (start < text.length) {
+                        var end = minOf(start + 16_000, text.length)
+                        // Never between the halves of a surrogate pair.
+                        if (end < text.length && text[end - 1].isHighSurrogate()) end--
+                        parts += text.substring(start, end)
+                        start = end
+                    }
+                    val pieces = parts.joinToString(",\n        ") { literal(it) }
+                    appendLine("    val $name: String by lazy {\n        listOf(\n        $pieces,\n        ).joinToString(\"\")\n    }")
                 }
                 appendLine("}")
             },

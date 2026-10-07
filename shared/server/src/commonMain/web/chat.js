@@ -3,6 +3,10 @@
 (() => {
   const $ = id => document.getElementById(id);
   const ui = Object.fromEntries(["model", "prompt", "messages", "welcome", "history", "send", "thinking", "notice", "retry"].map(id => [id, $(id)]));
+  // A sign-in link (the phone's QR code) carries the key after "#": read once, then taken out
+  // of the address bar and this history entry so it is not left on screen or bookmarked.
+  const linkKey = new URLSearchParams(location.hash.slice(1)).get("key");
+  if (linkKey !== null) history.replaceState(history.state, "", location.pathname + location.search);
   const scopePath = location.pathname.match(/^\/models\/([^/]+)\/?$/);
   const apiBase = scopePath ? "/models/" + scopePath[1] + "/v1" : "/v1";
   const chats = [];
@@ -420,7 +424,7 @@
     if (!prompt) return;
     if (!connected) { pendingSend = true; openConnection(); return; }
     const model = selectedModel();
-    if (!model) { notice("No chat model is available. Install one in the phone’s Models tab, then reconnect.", true); return; }
+    if (!model) { notice("No chat model is available. Install one from the phone’s Library, then reconnect.", true); return; }
     const settings = generationSettings();
     if (!settings) return;
     if (!active) newChat();
@@ -432,17 +436,32 @@
   }
 
   function openConnection() {
-    $("connection-error").hidden = true;
+    $("connection-error").hidden = true; scanNote();
     $("api-key").value = "";
     $("api-key").placeholder = connected ? "Leave blank to keep the current key" : "Paste your key";
     dialog.showModal();
   }
 
-  $("connect-form").addEventListener("submit", async event => {
-    event.preventDefault(); if (connecting) return;
+  $("connect-form").addEventListener("submit", event => {
+    event.preventDefault();
+    // What is typed now wins over a picture still being read.
+    cancelScans();
+    const typed = $("api-key").value.trim();
+    if (!typed) {
+      if (connected) void connect(key); else showConnectError("Paste a key, or scan the sign-in code from the phone.");
+      return;
+    }
+    const code = readCodeText(typed);
+    if (code.kind === "key") void connect(code.key); else showConnectError(codeProblem(code));
+  });
+
+  function showConnectError(text) { $("connection-error").textContent = text; $("connection-error").hidden = false; }
+
+  /** Tries [candidate]; a newer attempt replaces one still in flight, which then says nothing. */
+  async function connect(candidate) {
+    connecting?.abort();
     const operation = new AbortController(); connecting = operation;
     const timeout = setTimeout(() => operation.abort(), 20000);
-    const candidate = $("api-key").value.trim() || (connected ? key : "");
     $("connect-submit").disabled = true; $("connect-submit").textContent = "Connecting…";
     $("connection-error").hidden = true;
     try {
@@ -469,18 +488,212 @@
       key = candidate; connected = true; $("api-key").value = ""; connecting = null;
       const sendAfterConnect = pendingSend; pendingSend = false;
       dialog.close(); controls();
-      notice(models.length ? "" : "No chat models are installed. Add a model in the phone’s Models tab, then reconnect.");
+      notice(models.length ? "" : "No chat models are installed. Add a model from the phone’s Library, then reconnect.");
       if (sendAfterConnect) submit();
     } catch (error) {
-      if (dialog.open) {
-        $("connection-error").textContent = operation.signal.aborted ? "Connection timed out. Check that the phone’s server is running." : error instanceof TypeError ? "Cannot reach the phone. Check your network and the server." : error.message;
-        $("connection-error").hidden = false;
+      if (dialog.open && connecting === operation) {
+        showConnectError(operation.signal.aborted ? "Connection timed out. Check that the phone’s server is running." : error instanceof TypeError ? "Cannot reach the phone. Check your network and the server." : error.message);
       }
     } finally {
-      clearTimeout(timeout); if (connecting === operation) connecting = null;
-      $("connect-submit").disabled = false; $("connect-submit").textContent = "Connect";
+      clearTimeout(timeout);
+      if (connecting === operation) { connecting = null; $("connect-submit").disabled = false; $("connect-submit").textContent = "Connect"; }
     }
+  }
+
+  // ---- Sign-in code: the phone shows a QR code of this page's address with the key after "#".
+
+  /**
+   * What a scanned or pasted code holds: a key (a bare key, or a sign-in link for this page's
+   * own server), the address of another server, an address with no key, or nothing usable.
+   * A key in a link for another server is never sent here: that server's key is its own.
+   */
+  function readCodeText(text) {
+    const value = String(text).trim();
+    if (/^https?:\/\//i.test(value)) {
+      let url;
+      try { url = new URL(value); } catch { return { kind: "unreadable" }; }
+      const found = new URLSearchParams(url.hash.slice(1)).get("key");
+      if (!found) return { kind: "address" };
+      if (url.origin !== location.origin) return { kind: "elsewhere", url };
+      return { kind: "key", key: found };
+    }
+    return /^\S{1,4096}$/.test(value) ? { kind: "key", key: value } : { kind: "unreadable" };
+  }
+
+  function codeProblem(code) {
+    if (code.kind === "address") return "That is the server’s address, not a sign-in code. On the phone, tap Show sign-in code.";
+    if (code.kind === "elsewhere") return "That sign-in code is for " + code.url.host + ", not this page. Open that address to use it, or paste this server’s key.";
+    return "That is not a key or a sign-in code.";
+  }
+
+  function scanNote(text = "", error = false, elsewhere = null) {
+    const note = $("scan-note"); note.textContent = text; note.hidden = !text; note.classList.toggle("error", error);
+    // A code for another address of this phone (or another phone) opens there, where it belongs.
+    otherServer = elsewhere; $("scan-open").hidden = !elsewhere;
+    if (elsewhere) $("scan-open").textContent = "Open " + elsewhere.host;
+  }
+  let otherServer = null;
+  $("scan-open").addEventListener("click", () => { if (otherServer && /^https?:$/.test(otherServer.protocol)) location.assign(otherServer.href); });
+
+  // Every scan (camera or picture) has a turn; closing the dialog, stopping, or starting another
+  // scan ends it, and nothing an ended turn finds is used.
+  let scanTurn = 0;
+  function cancelScans() { scanTurn++; stopCamera(); }
+  const current = turn => turn === scanTurn && dialog.open;
+
+  let qrReader = null;
+  /** jsQR, fetched from the phone the first time a code is read (130 KB the chat itself never needs). */
+  function loadReader() {
+    if (window.jsQR) return Promise.resolve(window.jsQR);
+    qrReader ||= new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "/chat/assets/qr.js";
+      script.onload = () => window.jsQR ? resolve(window.jsQR) : reject(new Error("The QR reader did not start."));
+      script.onerror = () => { qrReader = null; script.remove(); reject(new Error("The QR reader did not load. Check that the phone is reachable.")); };
+      document.head.append(script);
+    });
+    return qrReader;
+  }
+
+  const scanCanvas = document.createElement("canvas");
+  /** The text of a QR code in [source], drawn at most [longest] pixels on its long side; null when none is found. */
+  function readCode(reader, source, width, height, longest) {
+    const scale = Math.min(1, longest / Math.max(width, height));
+    const w = Math.max(1, Math.round(width * scale)), h = Math.max(1, Math.round(height * scale));
+    scanCanvas.width = w; scanCanvas.height = h;
+    const context = scanCanvas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(source, 0, 0, w, h);
+    return reader(context.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: "attemptBoth" })?.data ?? null;
+  }
+
+  /** Connects with what a code held, or says why it cannot. */
+  function useCode(text) {
+    const code = readCodeText(text);
+    if (code.kind !== "key") { scanNote(codeProblem(code), true, code.kind === "elsewhere" ? code.url : null); return; }
+    cancelScans(); scanNote("Code read. Connecting…"); $("api-key").value = "";
+    void connect(code.key).then(() => { if (!connected) scanNote(); });
+  }
+
+  /** Width and height from a PNG, GIF, WebP or JPEG header, read before anything is decoded; null for other formats. */
+  async function pictureSize(file) {
+    const head = new Uint8Array(await file.slice(0, 262144).arrayBuffer());
+    const view = new DataView(head.buffer), text = (from, to) => String.fromCharCode(...head.subarray(from, to));
+    if (head.length < 30) return null;
+    if (text(1, 4) === "PNG") return [view.getUint32(16), view.getUint32(20)];
+    if (text(0, 3) === "GIF") return [view.getUint16(6, true), view.getUint16(8, true)];
+    if (text(0, 4) === "RIFF" && text(8, 12) === "WEBP") {
+      const chunk = text(12, 16), u24 = at => head[at] | head[at + 1] << 8 | head[at + 2] << 16;
+      if (chunk === "VP8X") return [1 + u24(24), 1 + u24(27)];
+      if (chunk === "VP8 ") return [view.getUint16(26, true) & 0x3fff, view.getUint16(28, true) & 0x3fff];
+      if (chunk === "VP8L") { const bits = view.getUint32(21, true); return [(bits & 0x3fff) + 1, ((bits >>> 14) & 0x3fff) + 1]; }
+      return null;
+    }
+    if (head[0] === 0xff && head[1] === 0xd8) {
+      // The first start-of-frame marker holds the size; every segment before it says its length.
+      for (let at = 2; at + 9 < head.length;) {
+        if (head[at] !== 0xff) return null;
+        const marker = head[at + 1];
+        if (marker === 0xff) { at++; continue; }
+        if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) { at += 2; continue; }
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) return [view.getUint16(at + 7), view.getUint16(at + 5)];
+        at += 2 + view.getUint16(at + 2);
+      }
+    }
+    return null;
+  }
+
+  // 24 MP (a 6000 × 4000 photo) is about 96 MB decoded; one picture is decoded at a time.
+  const MAX_PICTURE_BYTES = 25 * 1024 * 1024, MAX_PICTURE_PIXELS = 24e6;
+  let decoding = Promise.resolve();
+  async function readPicture(file) {
+    cancelScans();
+    const turn = scanTurn;
+    if (!file || !file.type.startsWith("image/")) { scanNote("Choose a picture: a screenshot or photo of the sign-in code.", true); return; }
+    if (file.size > MAX_PICTURE_BYTES) { scanNote("That picture is over 25 MB. Use a screenshot of the code instead.", true); return; }
+    scanNote("Reading the picture…");
+    let bitmap, release = null;
+    try {
+      // Sized from its header first: a small file can describe an image too large to decode.
+      const size = await pictureSize(file);
+      if (!current(turn)) return;
+      if (!size) { scanNote("Use a PNG, JPEG, WebP or GIF picture of the code.", true); return; }
+      if (!size[0] || !size[1] || size[0] * size[1] > MAX_PICTURE_PIXELS) { scanNote("That picture is too large to read. Use a screenshot of the code instead.", true); return; }
+      const reader = await loadReader();
+      if (!current(turn)) return;
+      // Waits for the picture before it, which a newer turn makes give up at its next check.
+      const before = decoding;
+      decoding = new Promise(resolve => { release = resolve; });
+      await before;
+      if (!current(turn)) return;
+      bitmap = await createImageBitmap(file);
+      if (!current(turn)) return;
+      // Small first (fast, and a screenshot reads at any size); larger for a photo of a distant screen.
+      for (const longest of [800, 1600, 3200]) {
+        const text = readCode(reader, bitmap, bitmap.width, bitmap.height, longest);
+        if (text) { useCode(text); return; }
+        if (longest >= Math.max(bitmap.width, bitmap.height)) break;
+      }
+      scanNote("No QR code found in that picture. Try a sharper, closer one, or paste the key.", true);
+    } catch (error) {
+      if (current(turn)) scanNote(error instanceof DOMException || error instanceof TypeError ? "This browser cannot open that picture. Use a PNG or JPEG." : error.message, true);
+    } finally { bitmap?.close?.(); release?.(); }
+  }
+
+  let camera = null, cameraTimer = 0;
+  const touch = matchMedia("(pointer: coarse)");
+  async function startCamera() {
+    cancelScans(); scanNote();
+    const turn = scanTurn;
+    // Browsers give the camera only to secure pages; this page comes over plain HTTP unless
+    // opened at localhost. A phone's browser can still take a photo through the file picker.
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      if (touch.matches) { $("scan-file").setAttribute("capture", "environment"); $("scan-file").click(); return; }
+      scanNote("Browsers allow the camera only on secure (https) pages, and this page comes straight from the phone over your network. Upload a screenshot or photo of the code instead, or paste the key.", true);
+      return;
+    }
+    try {
+      // The reader first, so a camera is never opened that a failed load would leave running.
+      const reader = await loadReader();
+      if (!current(turn)) return;
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      // Stopped, closed or replaced while the browser asked for permission: let go of it.
+      if (!current(turn)) { stream.getTracks().forEach(track => track.stop()); return; }
+      camera = stream;
+      const video = $("scan-video"); video.srcObject = stream; $("scanner").hidden = false;
+      await video.play();
+      const tick = () => {
+        if (camera !== stream) return;
+        if (video.readyState >= 2 && video.videoWidth) {
+          const text = readCode(reader, video, video.videoWidth, video.videoHeight, 720);
+          if (text) { useCode(text); if (camera !== stream) return; }
+        }
+        cameraTimer = setTimeout(tick, 200);
+      };
+      tick();
+    } catch (error) {
+      if (!current(turn)) return;
+      stopCamera();
+      scanNote(error?.name === "NotAllowedError" ? "Camera access was declined. Allow it in the browser’s site settings, or upload a picture." : error?.name === "NotFoundError" ? "No camera found. Upload a picture of the code, or paste the key." : error.message || "The camera did not start.", true);
+    }
+  }
+  function stopCamera() {
+    clearTimeout(cameraTimer);
+    camera?.getTracks().forEach(track => track.stop()); camera = null;
+    const video = $("scan-video"); video.pause(); video.srcObject = null; $("scanner").hidden = true;
+  }
+
+  $("scan-camera").addEventListener("click", () => void startCamera());
+  $("scan-stop").addEventListener("click", cancelScans);
+  $("scan-upload").addEventListener("click", () => { cancelScans(); $("scan-file").removeAttribute("capture"); $("scan-file").click(); });
+  $("scan-file").addEventListener("change", () => { const file = $("scan-file").files?.[0]; $("scan-file").value = ""; if (file) void readPicture(file); });
+  // A screenshot pasted anywhere in the dialog, or a picture dropped on it.
+  dialog.addEventListener("paste", event => {
+    const file = Array.from(event.clipboardData?.files || []).find(item => item.type.startsWith("image/"));
+    if (file) { event.preventDefault(); void readPicture(file); }
   });
+  dialog.addEventListener("dragover", event => { if (event.dataTransfer?.types.includes("Files")) { event.preventDefault(); dialog.classList.add("dropping"); } });
+  dialog.addEventListener("dragleave", event => { if (event.target === dialog) dialog.classList.remove("dropping"); });
+  dialog.addEventListener("drop", event => { event.preventDefault(); dialog.classList.remove("dropping"); void readPicture(event.dataTransfer?.files?.[0]); });
 
   $("disconnect").addEventListener("click", () => {
     if (request) { request.stopped = true; request.controller.abort(); }
@@ -488,7 +701,7 @@
     ui.model.replaceChildren(node("option", "", "Connect to choose a model"));
     dialog.close(); notice("Disconnected. Your conversations remain in this tab."); controls();
   });
-  dialog.addEventListener("close", () => { connecting?.abort(); $("api-key").value = ""; pendingSend = false; });
+  dialog.addEventListener("close", () => { connecting?.abort(); cancelScans(); $("api-key").value = ""; pendingSend = false; });
   $("open-settings").addEventListener("click", () => $("settings-dialog").showModal());
   $("close-settings").addEventListener("click", () => $("settings-dialog").close());
   $("close-connect").addEventListener("click", () => dialog.close());
@@ -535,4 +748,9 @@
   }
   window.visualViewport?.addEventListener("resize", viewport); window.addEventListener("resize", viewport);
   viewport(); themeLabel(); drawer(false); controls();
+  // Opened from the sign-in code: connect at once, in the dialog, so a refusal is explained there.
+  if (linkKey !== null) {
+    openConnection();
+    if (/^\S{1,4096}$/.test(linkKey)) void connect(linkKey); else showConnectError("That link has no key in it. Scan the sign-in code again, or paste the key.");
+  }
 })();

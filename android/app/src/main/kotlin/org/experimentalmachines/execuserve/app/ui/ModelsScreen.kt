@@ -35,6 +35,7 @@ import org.experimentalmachines.execuserve.app.text.Format
 import org.experimentalmachines.execuserve.catalog.CatalogVariant
 import org.experimentalmachines.execuserve.catalog.HfCatalog
 import org.experimentalmachines.execuserve.catalog.Labs
+import org.experimentalmachines.execuserve.catalog.Recommended
 import org.experimentalmachines.execuserve.catalog.runtimeMismatch
 import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.engine.ModelEntry
@@ -149,25 +150,7 @@ fun ModelsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean, op
                     OutlineButton(stringResource(R.string.action_retry), onClick = { model.loadCatalog() })
                 }
             }
-            is CatalogState.Loaded -> {
-                item(key = "catalog-title") {
-                    Column(Modifier.padding(top = Dimens.row, start = 4.dp, end = 4.dp)) {
-                        PanelTitle(stringResource(R.string.catalog_title))
-                        Text(
-                            stringResource(R.string.catalog_source),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                // Collected, so a GPU refusal recorded since the catalog loaded takes this
-                // phone's GPU builds off the screen without a reload (codex QA).
-                val runnable = state.repos.map { repo -> repo.copy(variants = repo.variants.filter { model.runnableHere(it, gpu, npu) }) }
-                    .filter { it.variants.isNotEmpty() }
-                items(runnable, key = { "r-" + it.repo }) { repo ->
-                    RepoPanel(model, repo, installed, downloads, model::download)
-                }
-            }
+            is CatalogState.Loaded -> loadedCatalog(model, state, CatalogContext(installed, downloads, gpu, npu))
         }
     }
     PanelColumns(wide, padding, main = main, side = side)
@@ -266,6 +249,67 @@ private fun DownloadRow(download: DownloadState, onCancel: () -> Unit) {
             }, modifier = Modifier.fillMaxWidth(), color = tones.working.color, trackColor = tones.working.container)
         }
     }
+}
+
+/** What the catalog rows read besides the catalog itself. */
+private class CatalogContext(val installed: List<ModelEntry>, val downloads: Map<String, DownloadState>, val gpu: Boolean, val npu: Boolean)
+
+/** The loaded catalog: the builds to start with, then every repository this phone can run. */
+private fun LazyListScope.loadedCatalog(model: MainViewModel, state: CatalogState.Loaded, c: CatalogContext) {
+    // Collected, so a GPU refusal recorded since the catalog loaded takes this
+    // phone's GPU builds off the screen without a reload (codex QA).
+    val runnable = state.repos.map { repo -> repo.copy(variants = repo.variants.filter { model.runnableHere(it, c.gpu, c.npu) }) }
+        .filter { it.variants.isNotEmpty() }
+    val picks = Recommended.from(runnable.flatMap { it.variants })
+    // Until every pick is installed: then the list has done its job.
+    if (picks.any { (_, variant) -> c.installed.none { it.id == variant.installId } }) {
+        item(key = "recommended") { RecommendedPanel(model, picks, c.installed, c.downloads) }
+    }
+    item(key = "catalog-title") {
+        Column(Modifier.padding(top = Dimens.row, start = 4.dp, end = 4.dp)) {
+            PanelTitle(stringResource(R.string.catalog_title))
+            Text(
+                stringResource(R.string.catalog_source),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    items(runnable, key = { "r-" + it.repo }) { repo ->
+        RepoPanel(model, repo, c.installed, c.downloads, model::download)
+    }
+}
+
+/** The builds to start with, by name and why, each with its own Get. */
+@Composable
+private fun RecommendedPanel(
+    model: MainViewModel,
+    picks: List<Pair<Recommended.Pick, CatalogVariant>>,
+    installed: List<ModelEntry>,
+    downloads: Map<String, DownloadState>,
+) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Panel(stringResource(R.string.catalog_recommended)) {
+        Text(stringResource(R.string.catalog_recommended_note), style = MaterialTheme.typography.bodySmall, color = muted)
+        picks.forEach { (pick, variant) ->
+            Divider()
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
+                LabMark(model, variant.lab, 32.dp)
+                Column(Modifier.weight(1f)) {
+                    Text(pick.name, style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(reasonWords(pick.reason)), style = MaterialTheme.typography.bodySmall, color = muted)
+                }
+            }
+            VariantRow(variant, installed.any { it.id == variant.installId }, downloads[variant.installId], model::download)
+        }
+    }
+}
+
+private fun reasonWords(reason: Recommended.Reason): Int = when (reason) {
+    Recommended.Reason.QUICK -> R.string.recommended_quick
+    Recommended.Reason.STRONGER -> R.string.recommended_stronger
+    Recommended.Reason.COMPACT -> R.string.recommended_compact
+    Recommended.Reason.THINKS -> R.string.recommended_thinks
 }
 
 /** A repository, one line until opened. */
