@@ -26,7 +26,13 @@ import java.security.SecureRandom
 private val Context.store: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 @Serializable
-private data class StoredKey(val id: String, val name: String, val secret: String)
+private data class StoredKey(
+    val id: String,
+    val name: String,
+    val secret: String,
+    /** Made for a browser signed in by the phone's camera; only the newest [SettingsStore.BROWSER_KEYS] are kept once one signs in. */
+    val browser: Boolean = false,
+)
 
 /**
  * [HostSettings] and the API keys, in DataStore. A setting is stored only while it differs
@@ -65,15 +71,42 @@ class SettingsStore(private val context: Context) : HostStore {
 
     suspend fun addKey(name: String, secret: String? = null): ApiKey {
         val key = newKey(name, secret)
-        context.store.edit { p -> p[KEYS] = encodeKeys(decodeKeys(p[KEYS]) + key) }
+        context.store.edit { p -> p[KEYS] = encodeKeys(decodeKeys(p[KEYS]) + key, p[KEYS]) }
         return key
+    }
+
+    /**
+     * A new key for one browser signed in by the phone's camera: never one another browser
+     * has. Nothing else changes until the browser has it ([keepNewestBrowserKeys]).
+     */
+    suspend fun addBrowserKey(name: String): ApiKey {
+        val key = newKey(name)
+        context.store.edit { p ->
+            val stored = decodeStored(p[KEYS]) + StoredKey(key.id, key.name, key.secret, browser = true)
+            p[KEYS] = JSON.encodeToString(ListSerializer(StoredKey.serializer()), stored)
+        }
+        return key
+    }
+
+    /**
+     * After a browser signs in: a page keeps its key only until it reloads, so each sign-in
+     * makes one, and the oldest browser keys beyond [BROWSER_KEYS] are revoked. Keys made any
+     * other way are never touched.
+     */
+    suspend fun keepNewestBrowserKeys() {
+        context.store.edit { p ->
+            val stored = decodeStored(p[KEYS])
+            val browsers = stored.filter { it.browser }
+            val dropped = browsers.take((browsers.size - BROWSER_KEYS).coerceAtLeast(0)).map { it.id }.toSet()
+            if (dropped.isNotEmpty()) p[KEYS] = JSON.encodeToString(ListSerializer(StoredKey.serializer()), stored.filterNot { it.id in dropped })
+        }
     }
 
     /** Replaces the key called [name] (the adb CLI's), or adds it. */
     suspend fun putKey(name: String, secret: String) {
         context.store.edit { p ->
             val rest = decodeKeys(p[KEYS]).filterNot { it.name == name }
-            p[KEYS] = encodeKeys(rest + newKey(name, secret))
+            p[KEYS] = encodeKeys(rest + newKey(name, secret), p[KEYS])
         }
     }
 
@@ -86,14 +119,14 @@ class SettingsStore(private val context: Context) : HostStore {
         all.firstOrNull { it.name == name }?.let { return it }
         all.firstOrNull { it.name in formerNames }?.let { old ->
             val renamed = old.copy(name = name)
-            context.store.edit { p -> p[KEYS] = encodeKeys(decodeKeys(p[KEYS]).map { if (it.id == old.id) renamed else it }) }
+            context.store.edit { p -> p[KEYS] = encodeKeys(decodeKeys(p[KEYS]).map { if (it.id == old.id) renamed else it }, p[KEYS]) }
             return renamed
         }
         return addKey(name)
     }
 
     suspend fun revokeKey(id: String) {
-        context.store.edit { p -> p[KEYS] = encodeKeys(decodeKeys(p[KEYS]).filterNot { it.id == id }) }
+        context.store.edit { p -> p[KEYS] = encodeKeys(decodeKeys(p[KEYS]).filterNot { it.id == id }, p[KEYS]) }
     }
 
     /**
@@ -136,17 +169,29 @@ class SettingsStore(private val context: Context) : HostStore {
         secret = secret ?: ("es-" + randomToken(SECRET_CHARS)),
     )
 
-    private fun decodeKeys(raw: String?): List<ApiKey> = raw?.let {
+    private fun decodeStored(raw: String?): List<StoredKey> = raw?.let {
         runCatching { JSON.decodeFromString(ListSerializer(StoredKey.serializer()), it) }.getOrNull()
-    }.orEmpty().map { ApiKey(it.id, it.name, it.secret) }
+    }.orEmpty()
 
-    private fun encodeKeys(keys: List<ApiKey>): String = JSON.encodeToString(
-        ListSerializer(StoredKey.serializer()),
-        keys.map { StoredKey(it.id, it.name, it.secret) },
-    )
+    private fun decodeKeys(raw: String?): List<ApiKey> = decodeStored(raw).map { ApiKey(it.id, it.name, it.secret) }
+
+    /**
+     * [keys] as stored, each keeping the browser mark it had in [before]: a rename or a revoke
+     * elsewhere must not turn a browser key into one that is never pruned.
+     */
+    private fun encodeKeys(keys: List<ApiKey>, before: String? = null): String {
+        val browsers = decodeStored(before).filter { it.browser }.map { it.id }.toSet()
+        return JSON.encodeToString(
+            ListSerializer(StoredKey.serializer()),
+            keys.map { StoredKey(it.id, it.name, it.secret, browser = it.id in browsers) },
+        )
+    }
 
     internal companion object {
         val DEFAULTS = HostSettings()
+
+        /** Browser keys kept; signing in one more revokes the oldest. */
+        const val BROWSER_KEYS = 8
         val KEYS = stringPreferencesKey("keys")
         val WAS_SERVING = booleanPreferencesKey("was_serving")
         val WEDGED = booleanPreferencesKey("wedged")

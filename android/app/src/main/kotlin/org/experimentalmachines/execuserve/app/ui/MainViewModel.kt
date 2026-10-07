@@ -39,6 +39,7 @@ import org.experimentalmachines.execuserve.host.TestFailure
 import org.experimentalmachines.execuserve.host.TestResult
 import org.experimentalmachines.execuserve.server.ApiKey
 import org.experimentalmachines.execuserve.server.BindMode
+import org.experimentalmachines.execuserve.server.Pairings
 
 /** One message in the console's chat. A reply fills in as it streams. */
 data class ChatMessage(
@@ -373,6 +374,26 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     fun addKey(name: String) = viewModelScope.launch { graph.settings.addKey(name) }
 
     fun revokeKey(id: String) = viewModelScope.launch { graph.settings.revokeKey(id) }
+
+    /** The browser waiting to sign in that a scanned QR code or a typed code names, or null. */
+    suspend fun findPairing(scannedOrTyped: String): Pairings.Request? = graph.host.pairings.find(scannedOrTyped)
+
+    /**
+     * Signs in the browser of [request] with a new key of its own, named for the browser and
+     * its address, so Requests says which browser asked and Settings can revoke it alone. A key
+     * is never shared: two browsers at one address, or a later device given the same address,
+     * each get their own.
+     */
+    fun approvePairing(request: Pairings.Request, onDone: (Boolean) -> Unit) = viewModelScope.launch {
+        val key = graph.settings.addBrowserKey(app.getString(R.string.pair_key_name, request.client, request.address))
+        val ok = graph.host.approvePairing(request.id, key)
+        // A browser that stopped waiting never received it: the key goes again, and every
+        // other key stays. Only a sign-in that happened retires the oldest browser keys.
+        if (ok) graph.settings.keepNewestBrowserKeys() else graph.settings.revokeKey(key.id)
+        onDone(ok)
+    }
+
+    fun declinePairing(request: Pairings.Request) = viewModelScope.launch { graph.host.pairings.decline(request.id) }
 
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L

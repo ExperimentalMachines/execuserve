@@ -596,7 +596,7 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
         if (running == null) {
             Text(stringResource(R.string.host_address_when_running), style = MaterialTheme.typography.bodySmall, color = muted)
         } else {
-            BrowserAccess(running, key)
+            BrowserAccess(running, key, model)
             Divider()
             Text(stringResource(R.string.connect_app_title), style = MaterialTheme.typography.titleSmall)
             ConnectSetup(running, key, installed, model)
@@ -620,15 +620,17 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
 }
 
 /**
- * The chat page for a laptop or another phone: the address to open, and a sign-in code that
- * carries the key, for the page's Scan button or a phone camera. Only on a network address:
+ * The chat page for a laptop or another phone: the address to open, then either this phone
+ * scans the code the page shows ([PairScanner]), or the page scans a sign-in code that
+ * carries the key (for another phone's camera). Only on a network address:
  * the loopback one opens nowhere but here.
  */
 @Composable
-private fun BrowserAccess(running: ServeHost.State.Running, key: ApiKey?) {
+private fun BrowserAccess(running: ServeHost.State.Running, key: ApiKey?, model: MainViewModel) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val endpoint = running.endpoints.firstOrNull { it.network != NetworkKind.THIS_DEVICE }
     var showing by remember { mutableStateOf(false) }
+    var scanning by remember { mutableStateOf(false) }
     Text(stringResource(R.string.connect_browser_title), style = MaterialTheme.typography.titleSmall)
     if (endpoint == null) {
         // Bound to the network but with no address yet, the panel above already says why.
@@ -640,10 +642,12 @@ private fun BrowserAccess(running: ServeHost.State.Running, key: ApiKey?) {
     val page = ModelEndpoints.page(endpoint.url)
     Text(stringResource(R.string.connect_browser_open), style = MaterialTheme.typography.bodyMedium)
     CopyRow(page, label = stringResource(R.string.connect_address, stringResource(endpoint.network.words)), prominent = true)
-    if (key == null) {
-        Text(stringResource(R.string.host_no_key), style = MaterialTheme.typography.bodySmall)
-        return
-    }
+    // A laptop's browser cannot use its camera on this plain-HTTP page, so this phone reads
+    // the code the page shows instead.
+    Text(stringResource(R.string.connect_browser_pair), style = MaterialTheme.typography.bodyMedium)
+    InkButton(stringResource(R.string.connect_browser_pair_action), onClick = { scanning = true })
+    if (scanning) PairScanner(model) { scanning = false }
+    if (key == null) return
     Text(stringResource(R.string.connect_browser_scan), style = MaterialTheme.typography.bodySmall, color = muted)
     OutlineButton(stringResource(R.string.connect_browser_code), onClick = { showing = true })
     if (showing) {

@@ -58,10 +58,21 @@
     <form id="connect-form">
       <div class="dialog-heading"><svg class="mark" width="40" height="40" aria-hidden="true"><use href="#mark"/></svg><button type="button" class="icon-button" id="close-connect" aria-label="Close connection settings">×</button></div>
       <h2 id="connect-title">Connect to your phone</h2>
-      <p id="connect-help">On the phone, open <strong>ExecuServe → Hosting</strong> and tap <strong>Show sign&#8209;in code</strong> under Chat in a browser. Then scan it here.</p>
+      <section class="pairing" id="pairing" aria-labelledby="pair-title" hidden>
+        <canvas id="pair-qr" width="232" height="232" role="img" aria-label="Code for the phone to scan"></canvas>
+        <div class="pair-text">
+          <h3 id="pair-title">Scan this with the phone</h3>
+          <p>In ExecuServe on the phone, open <strong>Hosting</strong> and tap <strong>Scan a browser’s code</strong>.</p>
+          <p class="pair-code">Code <strong id="pair-code">······</strong></p>
+          <p class="pair-status" id="pair-status" role="status">Getting a code…</p>
+          <button type="button" class="text-button" id="pair-retry" hidden>Get a new code</button>
+        </div>
+      </section>
+      <p id="connect-help">Or, on the phone, tap <strong>Show sign&#8209;in code</strong> under Chat in a browser and scan or upload it here.</p>
       <div class="connect-ways">
         <button type="button" class="way" id="scan-camera"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Scan with camera</span></button>
         <button type="button" class="way" id="scan-upload"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9.5" r="1.5"/><path d="m20 15-4.5-4.5L6 20"/></svg><span>Upload a picture</span></button>
+        <button type="button" class="way" id="show-pairing" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2"/></svg><span>Show a code for the phone</span></button>
         <input type="file" id="scan-file" accept="image/*" hidden>
       </div>
       <div class="scanner" id="scanner" hidden>

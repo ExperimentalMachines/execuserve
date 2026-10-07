@@ -143,6 +143,10 @@ android {
 
 dependencies {
     implementation(libs.zxing.core)
+    // The phone's camera reads a browser's pairing code (PairScanner).
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
     implementation(libs.markdown.renderer)
     implementation(libs.markdown.renderer.m3)
     implementation(libs.markdown.renderer.code)

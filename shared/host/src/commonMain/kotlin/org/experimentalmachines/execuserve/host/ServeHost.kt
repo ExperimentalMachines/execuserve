@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import org.experimentalmachines.execuserve.engine.Engine
 import org.experimentalmachines.execuserve.engine.EngineStatus
 import org.experimentalmachines.execuserve.engine.Environment
@@ -32,6 +34,7 @@ import org.experimentalmachines.execuserve.server.ApiKey
 import org.experimentalmachines.execuserve.server.BindMode
 import org.experimentalmachines.execuserve.server.ExecuServer
 import org.experimentalmachines.execuserve.server.KeyVerifier
+import org.experimentalmachines.execuserve.server.Pairings
 import org.experimentalmachines.execuserve.server.ServerContext
 import org.experimentalmachines.execuserve.server.ServerStartFailure
 import org.experimentalmachines.execuserve.server.StaticKeys
@@ -147,6 +150,23 @@ class ServeHost(
 
     @Volatile private var hostCache: Pair<Long, Set<String>> = 0L to emptySet()
 
+    /** Browsers waiting to sign in by this phone's camera; the same set whichever server runs. */
+    val pairings = Pairings(clock)
+
+    /**
+     * Hands [key] to the browser waiting on pairing [id], once the server accepts the key: a
+     * key just saved reaches it through the store a moment later, and a browser given a key the
+     * server does not know yet would be refused on its first request. False when the browser
+     * stopped waiting, or the key never arrived.
+     */
+    suspend fun approvePairing(id: String, key: ApiKey): Boolean {
+        val live = withTimeoutOrNull(KEY_ARRIVAL_MS) {
+            while (liveKeys.verify(key.secret) == null) delay(KEY_POLL_MS)
+            true
+        } ?: false
+        return live && pairings.approve(id, key.secret)
+    }
+
     init {
         scope.launch { store.keys.collect { keys = it } }
     }
@@ -185,6 +205,7 @@ class ServeHost(
                 runs = { history.runs.value },
                 version = platform.version,
                 nowSeconds = { clock() / Units.MS_PER_SECOND },
+                pairings = pairings,
             ),
         )
         try {
@@ -331,5 +352,9 @@ class ServeHost(
 
         /** Addresses are read for every request's `Host` check; five seconds is fresh enough. */
         const val HOST_CACHE_MS = 5_000L
+
+        /** How long a saved key may take to reach the server before a pairing gives up. */
+        const val KEY_ARRIVAL_MS = 5_000L
+        const val KEY_POLL_MS = 50L
     }
 }

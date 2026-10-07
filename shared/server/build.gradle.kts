@@ -42,7 +42,14 @@ val generateWebAssets = tasks.register("generateWebAssets") {
                 appendLine("internal object WebAssets {")
                 // A class file holds no string constant over 64 KB, so each asset is written in
                 // pieces joined at first use (the QR reader is about 130 KB).
-                mapOf("html" to "index.html", "css" to "chat.css", "js" to "chat.js", "qr" to "qr.js", "mark" to "mark.svg").forEach { (name, file) ->
+                mapOf(
+                    "html" to "index.html",
+                    "css" to "chat.css",
+                    "js" to "chat.js",
+                    "qr" to "qr.js",
+                    "qrgen" to "qrgen.js",
+                    "mark" to "mark.svg",
+                ).forEach { (name, file) ->
                     val text = source.file(file).asFile.readText()
                     val parts = mutableListOf<String>()
                     var start = 0

@@ -13,6 +13,7 @@
   let active = null, key = "", connected = false, models = [], request = null, connecting = null;
   let pendingSend = false, sequence = 0, followBottom = true;
   const scroll = $("conversation-scroll");
+  const touch = matchMedia("(pointer: coarse)");
   const dialog = $("connect-dialog");
   const mobile = matchMedia("(max-width: 760px)");
   const id = () => String(++sequence);
@@ -436,7 +437,7 @@
   }
 
   function openConnection() {
-    $("connection-error").hidden = true; scanNote();
+    $("connection-error").hidden = true; scanNote(); layoutWays();
     $("api-key").value = "";
     $("api-key").placeholder = connected ? "Leave blank to keep the current key" : "Paste your key";
     dialog.showModal();
@@ -640,13 +641,12 @@
   }
 
   let camera = null, cameraTimer = 0;
-  const touch = matchMedia("(pointer: coarse)");
   async function startCamera() {
     cancelScans(); scanNote();
     const turn = scanTurn;
     // Browsers give the camera only to secure pages; this page comes over plain HTTP unless
     // opened at localhost. A phone's browser can still take a photo through the file picker.
-    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    if (!liveCamera()) {
       if (touch.matches) { $("scan-file").setAttribute("capture", "environment"); $("scan-file").click(); return; }
       scanNote("Browsers allow the camera only on secure (https) pages, and this page comes straight from the phone over your network. Upload a screenshot or photo of the code instead, or paste the key.", true);
       return;
@@ -682,6 +682,127 @@
     const video = $("scan-video"); video.pause(); video.srcObject = null; $("scanner").hidden = true;
   }
 
+  // ---- Pairing: the page shows a code and the phone scans it with its own camera. The way in
+  // for a laptop, whose browser refuses the camera to a plain-HTTP page.
+
+  const liveCamera = () => window.isSecureContext && Boolean(navigator.mediaDevices?.getUserMedia);
+  let pairing = null;
+
+  /** Which ways in fit this device: a laptop starts with the pairing code; a phone with its camera. */
+  function layoutWays() {
+    const laptop = !touch.matches;
+    // A laptop's camera works only on a secure page; a phone's browser can still take a photo.
+    $("scan-camera").hidden = laptop && !liveCamera();
+    $("show-pairing").hidden = laptop || !$("pairing").hidden;
+    $("connect-help").replaceChildren(...(laptop
+      ? ["Or, on the phone, tap ", strong("Show sign\u2011in code"), " under Chat in a browser and upload a picture of it, or paste the key."]
+      : ["On the phone hosting the models, tap ", strong("Show sign\u2011in code"), " under Chat in a browser, then scan it here."]));
+    if (laptop && !connected) showPairing();
+  }
+  function strong(text) { return node("strong", "", text); }
+
+  function showPairing() {
+    $("pairing").hidden = false; $("show-pairing").hidden = true;
+    void startPairing();
+  }
+
+  function pairStatus(text, error = false, retry = false) {
+    $("pair-status").textContent = text; $("pair-status").classList.toggle("error", error); $("pair-retry").hidden = !retry;
+  }
+
+  let qrWriter = null;
+  function loadWriter() {
+    if (window.qrcode) return Promise.resolve(window.qrcode);
+    qrWriter ||= new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "/chat/assets/qrgen.js";
+      script.onload = () => window.qrcode ? resolve(window.qrcode) : reject(new Error("The code could not be drawn."));
+      script.onerror = () => { qrWriter = null; script.remove(); reject(new Error("The code could not be drawn. Check that the phone is reachable.")); };
+      document.head.append(script);
+    });
+    return qrWriter;
+  }
+
+  function drawPairCode(writer, text) {
+    const code = writer(0, "M"); code.addData(text); code.make();
+    const canvas = $("pair-qr"), count = code.getModuleCount(), quiet = 4;
+    // Whole device pixels per module at the size the canvas is shown, so no module blurs.
+    const shown = (canvas.getBoundingClientRect().width || 150) * (window.devicePixelRatio || 1);
+    const module = Math.max(2, Math.floor(shown / (count + quiet * 2)));
+    canvas.width = canvas.height = module * (count + quiet * 2);
+    const offset = module * quiet;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#fff"; context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "#000";
+    for (let row = 0; row < count; row++) for (let column = 0; column < count; column++) {
+      if (code.isDark(row, column)) context.fillRect(offset + column * module, offset + row * module, module, module);
+    }
+  }
+
+  /** Asks the phone for a pairing, shows it, and waits for the phone's answer. */
+  async function startPairing() {
+    if (pairing || connected) return;
+    const mine = pairing = { controller: new AbortController(), id: null, poll: null };
+    const signal = mine.controller.signal;
+    pairStatus("Getting a code…"); $("pair-code").textContent = "······";
+    try {
+      // The drawer first: a pairing is asked for only when it can be shown.
+      const writer = await loadWriter();
+      if (pairing !== mine) return;
+      // Not aborted when the dialog closes: the phone may already have made the pairing,
+      // and only its answer says which one to cancel.
+      const response = await fetch("/pair", { method: "POST", headers: { "x-execuserve-pair": "1" }, cache: "no-store" });
+      if (response.status === 429) throw new Error("Too many browsers are waiting to sign in to this phone. Try again in a few minutes.");
+      if (!response.ok) throw await responseError(response);
+      const body = await response.json();
+      // Kept at once, so whatever happens next can still cancel it on the phone.
+      mine.id = body.pairing; mine.poll = body.poll;
+      if (pairing !== mine) { cancelOnPhone(mine); return; }
+      drawPairCode(writer, body.scan); $("pair-code").textContent = body.code;
+      pairStatus("Waiting for the phone…");
+      while (pairing === mine) {
+        const reply = await fetch("/pair/" + encodeURIComponent(mine.id) + "/wait", { method: "POST", headers: { "x-execuserve-pair-poll": mine.poll }, signal, cache: "no-store" });
+        const answer = await reply.json().catch(() => ({}));
+        if (pairing !== mine) return;
+        if (answer.status === "approved" && typeof answer.key === "string") {
+          pairing = null; pairStatus("Approved on the phone. Connecting…");
+          await connect(answer.key);
+          if (!connected) pairStatus("The phone approved, but the key was not accepted. Get a new code and try again.", true, true);
+          return;
+        }
+        if (answer.status === "declined") { pairing = null; pairStatus("Declined on the phone.", true, true); return; }
+        // Expired (three minutes pass) or forgotten by a restart: a fresh code, without asking.
+        if (reply.status === 410) { pairing = null; void startPairing(); return; }
+        if (!reply.ok) throw await responseError(reply);
+      }
+    } catch (error) {
+      if (pairing !== mine || signal.aborted) return;
+      pairing = null; cancelOnPhone(mine);
+      pairStatus(error instanceof TypeError ? "Cannot reach the phone. Check that hosting is on and you are on the same network." : error.message, true, true);
+    }
+  }
+
+  /** Ends the page's pairing, here and on the phone. */
+  function stopPairing() {
+    const mine = pairing; pairing = null;
+    if (!mine) return;
+    mine.controller.abort();
+    cancelOnPhone(mine);
+  }
+  function cancelOnPhone(mine) {
+    if (!mine.id || mine.cancelled) return;
+    mine.cancelled = true;
+    void fetch("/pair/" + encodeURIComponent(mine.id) + "/cancel", { method: "POST", headers: { "x-execuserve-pair-poll": mine.poll }, keepalive: true }).catch(() => {});
+  }
+
+  $("show-pairing").addEventListener("click", showPairing);
+  $("pair-retry").addEventListener("click", () => { stopPairing(); void startPairing(); });
+  window.addEventListener("pagehide", stopPairing);
+  // Back to this page from the browser's history: the old code was cancelled on leaving.
+  window.addEventListener("pageshow", event => {
+    if (event.persisted && dialog.open && !connected && !$("pairing").hidden) void startPairing();
+  });
+
   $("scan-camera").addEventListener("click", () => void startCamera());
   $("scan-stop").addEventListener("click", cancelScans);
   $("scan-upload").addEventListener("click", () => { cancelScans(); $("scan-file").removeAttribute("capture"); $("scan-file").click(); });
@@ -701,7 +822,7 @@
     ui.model.replaceChildren(node("option", "", "Connect to choose a model"));
     dialog.close(); notice("Disconnected. Your conversations remain in this tab."); controls();
   });
-  dialog.addEventListener("close", () => { connecting?.abort(); cancelScans(); $("api-key").value = ""; pendingSend = false; });
+  dialog.addEventListener("close", () => { connecting?.abort(); cancelScans(); stopPairing(); $("pairing").hidden = true; $("api-key").value = ""; pendingSend = false; });
   $("open-settings").addEventListener("click", () => $("settings-dialog").showModal());
   $("close-settings").addEventListener("click", () => $("settings-dialog").close());
   $("close-connect").addEventListener("click", () => dialog.close());

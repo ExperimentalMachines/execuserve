@@ -63,6 +63,8 @@ import org.experimentalmachines.execuserve.engine.RuntimeFailure
 import org.experimentalmachines.execuserve.engine.Units
 
 /** Everything the routes need, supplied by whichever platform hosts the server. */
+// One field per thing a route reads; the defaulted ones are for hosts that keep their own.
+@Suppress("LongParameterList")
 class ServerContext(
     val engine: Engine,
     val settings: ServerSettings,
@@ -77,6 +79,8 @@ class ServerContext(
     val runs: () -> List<JobRecord> = { emptyList() },
     /** Responses kept for `previous_response_id`. */
     val conversations: Conversations = Conversations(clock = { nowSeconds() * Units.MS_PER_SECOND }),
+    /** Browsers waiting to sign in by the phone's camera; the host keeps one across restarts. */
+    val pairings: Pairings = Pairings(clock = { nowSeconds() * Units.MS_PER_SECOND }),
 )
 
 /** The whole HTTP surface. See ARCHITECTURE.md, "HTTP API". */
@@ -126,6 +130,7 @@ fun Application.execuServe(ctx: ServerContext) {
 
     routing {
         webChat()
+        pairingRoutes(ctx)
         get("/health") {
             val stopping = ctx.engine.status.value.admission.name == "STOPPED"
             call.respondText(

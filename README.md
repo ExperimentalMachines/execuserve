@@ -421,6 +421,7 @@ tab.
 
 [Apache License 2.0](LICENSE). ExecuTorch is used under its BSD license; models are published
 by third parties under their own licenses. The browser chat's QR reader is
-[jsQR](https://github.com/cozmo/jsQR) (Apache License 2.0). The wordmark is set in Red Hat Display (SIL Open
+[jsQR](https://github.com/cozmo/jsQR) (Apache License 2.0), and it draws its pairing code with
+[qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) (MIT License). The wordmark is set in Red Hat Display (SIL Open
 Font License, [tools/design/fonts/OFL.txt](tools/design/fonts/OFL.txt)). PyTorch, ExecuTorch
 and their logos are trademarks of the Linux Foundation.
