@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -68,10 +69,20 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) 
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                NumberRow(stringResource(R.string.settings_port), value = current.port, range = Choices.PORTS) { v -> update { it.copy(port = v) } }
+                NumberRow(
+                    stringResource(R.string.settings_port),
+                    stringResource(R.string.settings_port_note),
+                    value = current.port,
+                    range = Choices.PORTS,
+                ) { v ->
+                    update { it.copy(port = v) }
+                }
                 SwitchRow(stringResource(R.string.settings_open_loopback), stringResource(R.string.settings_open_loopback_note), current.openLoopback) { on ->
                     update { it.copy(openLoopback = on) }
                 }
+                // The keys belong with the connection they open, not a card of their own.
+                Text(stringResource(R.string.settings_keys), Modifier.padding(top = Dimens.row), style = MaterialTheme.typography.titleSmall)
+                KeysPanel(keys, model::addKey, model::revokeKey)
                 Expandable(stringResource(R.string.settings_advanced), stringResource(R.string.settings_advanced_summary)) {
                     TextRow(
                         stringResource(R.string.settings_hosts),
@@ -95,8 +106,6 @@ fun SettingsScreen(model: MainViewModel, padding: PaddingValues, wide: Boolean) 
                 }
             }
         }
-
-        item(key = "keys") { Panel { Expandable(stringResource(R.string.settings_keys)) { KeysPanel(keys, model::addKey, model::revokeKey) } } }
 
         item(key = "model") {
             Panel {

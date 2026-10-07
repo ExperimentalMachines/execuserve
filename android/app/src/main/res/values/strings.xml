@@ -19,7 +19,6 @@
     <string name="action_restart">Restart</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_copy">Copy</string>
-    <string name="action_share">Share</string>
     <string name="action_delete">Delete</string>
     <string name="action_retry">Try again</string>
     <string name="action_open">Open</string>
@@ -209,11 +208,12 @@
     <string name="settings_restart_needed">Connection changes apply when hosting restarts.</string>
     <string name="settings_connection">Connection</string>
     <string name="settings_port">Port</string>
-    <string name="settings_open_loopback">Apps on this phone need no key</string>
-    <string name="settings_open_loopback_note">Any installed app could then use the model</string>
+    <string name="settings_port_note">The number at the end of the address. Change it only if another app already uses it.</string>
+    <string name="settings_open_loopback">Apps on this phone can skip the key</string>
+    <string name="settings_open_loopback_note">Simpler to set up, but any app on this phone could then use your models.</string>
     <string name="settings_keys">API keys</string>
-    <string name="settings_keys_note">One per client: the log shows who asked, and each can be revoked alone.</string>
-    <string name="settings_key_new">New key for…</string>
+    <string name="settings_keys_note">An app sends a key with every request. Make one per app: Requests shows which app asked, and you can switch one off without the others.</string>
+    <string name="settings_key_new">New key, named for its app</string>
     <string name="settings_model">Replies</string>
     <string name="settings_reasoning">Reasoning</string>
     <string name="settings_when_unset">Used when the client does not set it</string>
@@ -255,8 +255,8 @@
     <string name="settings_queue_timeout">Longest wait in the queue</string>
     <string name="settings_request_timeout">Longest request</string>
     <string name="unit_seconds">s</string>
-    <string name="settings_advanced">More connection options</string>
-    <string name="settings_advanced_summary">Host names, browsers, other apps</string>
+    <string name="settings_advanced">Advanced</string>
+    <string name="settings_advanced_summary">Other names for this phone, web apps, starting from other apps</string>
     <string name="settings_hosts">Other names for this phone</string>
     <string name="settings_hosts_note">A Tailscale MagicDNS name, say; requests naming any other host are refused</string>
     <string name="settings_cors">Browser origins (CORS)</string>
@@ -408,7 +408,7 @@
     <string name="chat_prefill">Prefill %1$s tok/s</string>
     <string name="chat_decode">Decode %1$s tok/s</string>
     <string name="settings_performance">Performance</string>
-    <string name="settings_connection_note">Who can connect is chosen on Hosting, in Connect an app.</string>
+    <string name="settings_connection_note">The address, key and an example request, and who can connect, are on Hosting under Connect an app.</string>
     <string name="chat_switch_unloads">loads, unloading %1$s</string>
     <string name="chat_no_template_title">No installed model can chat</string>
     <string name="chat_no_template_note">These models have no chat template, so they answer raw prompts only, through the Completions API. Get a chat model from the Library.</string>

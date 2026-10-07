@@ -151,6 +151,12 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         app.startActivity(Intent.createChooser(send, app.getString(R.string.connect_share_title)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
+    /** Hands [text] to whichever app the person picks: a chat, notes, the app being set up. */
+    fun shareText(text: String) {
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+        app.startActivity(Intent.createChooser(send, app.getString(R.string.connect_share_title)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
     /** The two lines most OpenAI tools read, for pasting into a shell. */
     fun terminalExports(baseUrl: String, key: String): String = ConsoleTest.exports(baseUrl, key)
 

@@ -13,7 +13,7 @@
     <string name="runs_clear_body">Every stored request goes, on this tablet and in the API. The counters since hosting started are kept.</string>
     <string name="check_decode_clocks">The runtime\'s writing time and this tablet\'s clock differ by more than 10%%.</string>
     <string name="models_on_phone">On this tablet</string>
-    <string name="settings_open_loopback">Apps on this tablet need no key</string>
+    <string name="settings_open_loopback">Apps on this tablet can skip the key</string>
     <string name="settings_threads_note">A change unloads the models in memory; they load again with it when a request needs them. The benchmark in Requests measures which count suits this tablet.</string>
     <string name="settings_boot">Start when the tablet starts</string>
     <string name="settings_autostart">Allow it, or HyperOS will not bring the server back after the app stops unexpectedly, nor start it with the tablet. The app cannot check this setting itself.</string>
@@ -30,4 +30,6 @@
     <string name="npu_mediatek_refused">This tablet\'s NPU cannot run MediaTek builds. Try the same model\'s CPU build; it does not need the NPU.</string>
     <string name="dictation_unavailable">This tablet has no offline speech recognition, and ExecuServe will not use the online kind.</string>
     <string name="memory_wont_fit">More than this tablet can spare (%1$s): it won\'t load. Try a smaller window.</string>
+    <string name="settings_open_loopback_note">Simpler to set up, but any app on this tablet could then use your models.</string>
+    <string name="settings_advanced_summary">Other names for this tablet, web apps, starting from other apps</string>
 </resources>

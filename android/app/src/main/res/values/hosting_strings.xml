@@ -11,11 +11,7 @@
     <string name="host_unload_after">Unload after this reply</string>
     <string name="host_model_id">Model ID</string>
     <string name="host_connection">Connect an app</string>
-    <string name="host_access_key">API key</string>
-    <string name="host_access_key_hint">One key works with every installed model</string>
     <string name="host_no_key">Create an API key in Settings.</string>
-    <string name="host_all_models_endpoint">Other addresses</string>
-    <string name="host_all_models_hint">The device\'s other addresses, for any model</string>
     <string name="host_device">Device health</string>
     <string name="host_memory_free">Free memory</string>
     <string name="host_battery">Battery</string>
@@ -43,8 +39,6 @@
     <string name="host_fact_start">When hosting starts</string>
     <string name="host_start_loads">Load %1$s</string>
     <string name="host_start_none">Load nothing; models load when a request needs them</string>
-    <string name="host_api_base">OpenAI base URL, %1$s</string>
-    <string name="host_anthropic_base">Anthropic base URL (the SDK adds /v1)</string>
     <string name="host_address_when_running">The address appears here while hosting.</string>
     <string name="connect_restart_title">Change who can connect?</string>
     <string name="connect_restart_body">Hosting restarts on the new address: requests in progress are cancelled and models are unloaded.</string>
@@ -87,4 +81,16 @@
     <string name="host_read_this_request">read, this request</string>
     <string name="host_last_phase">last request, %1$s</string>
     <string name="host_waiting_for_phase">not yet</string>
+    <string name="connect_intro">Any app that works with OpenAI or Anthropic can use the models on this phone. Give it the address, the key and a model, or copy the example below.</string>
+    <string name="connect_api">The app speaks</string>
+    <string name="connect_address">Address (%1$s)</string>
+    <string name="connect_key">Key</string>
+    <string name="connect_model">Model</string>
+    <string name="connect_model_any">Model (any installed model works)</string>
+    <string name="connect_example">Example request</string>
+    <string name="connect_copy_request">Copy request</string>
+    <string name="connect_share_setup">Share address, key and model</string>
+    <string name="connect_more">More ways to connect</string>
+    <string name="connect_more_hint">Every model, the browser chat, other addresses</string>
+    <string name="connect_other_address">Address on %1$s</string>
 </resources>

@@ -8,7 +8,9 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -19,9 +21,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -63,6 +69,7 @@ import org.experimentalmachines.execuserve.engine.RunningJob
 import org.experimentalmachines.execuserve.host.Benchmark
 import org.experimentalmachines.execuserve.host.Choices
 import org.experimentalmachines.execuserve.host.ConsoleChat
+import org.experimentalmachines.execuserve.host.ExampleRequest
 import org.experimentalmachines.execuserve.host.Heat
 import org.experimentalmachines.execuserve.host.HostSettings
 import org.experimentalmachines.execuserve.host.ModelEndpoints
@@ -570,7 +577,9 @@ private fun EmptyModels(openModels: () -> Unit) {
 private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: ApiKey?, installed: List<ModelEntry>, model: MainViewModel) {
     val running = server as? ServeHost.State.Running
     var confirming by remember { mutableStateOf<BindMode?>(null) }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Panel(stringResource(R.string.host_connection)) {
+        Text(stringResource(R.string.connect_intro), style = MaterialTheme.typography.bodyMedium, color = muted)
         ChoiceRow(
             stringResource(R.string.connect_who),
             options = BindMode.entries.map { it to stringResource(it.words) },
@@ -583,38 +592,11 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
         if (running != null && running.settings.bind == BindMode.NETWORK && running.endpoints.none { it.network != NetworkKind.THIS_DEVICE }) {
             Text(stringResource(R.string.connect_no_network), style = MaterialTheme.typography.bodySmall, color = LocalTones.current.attention.color)
         }
-        if (running != null) {
-            // What a client needs, together: the base URL, a model ID and (below) the key.
-            val first = running.endpoints.first()
-            CopyRow(first.url, label = stringResource(R.string.host_api_base, stringResource(first.network.words)), qr = true)
-            // Anthropic's SDKs add /v1 themselves: given the OpenAI base they ask /v1/v1/messages.
-            CopyRow(first.url.removeSuffix("/v1"), label = stringResource(R.string.host_anthropic_base))
-            KeyRow(key)
-            ApiModels(installed, model, settings.memoryLimit, first.url)
-            CopyRow(first.url.removeSuffix("/v1").trimEnd('/') + "/", label = stringResource(R.string.connect_browser_chat), qr = true)
+        if (running == null) {
+            Text(stringResource(R.string.host_address_when_running), style = MaterialTheme.typography.bodySmall, color = muted)
         } else {
-            Text(
-                stringResource(R.string.host_address_when_running),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            KeyRow(key)
-        }
-        if (running != null) {
-            Expandable(stringResource(R.string.host_all_models_endpoint), stringResource(R.string.host_all_models_hint)) {
-                running.endpoints.drop(1).forEach { endpoint ->
-                    CopyRow(endpoint.url, label = stringResource(endpoint.network.words), qr = true)
-                    CopyRow(endpoint.url.removeSuffix("/v1").trimEnd('/') + "/", label = stringResource(R.string.connect_browser_chat), qr = true)
-                }
-                if (key != null) {
-                    val base = running.endpoints.first().url
-                    Action(stringResource(R.string.action_share), { model.shareConnection(base, key.secret, null) })
-                }
-            }
-        }
-        Expandable(stringResource(R.string.connect_local_title)) {
-            Text(stringResource(R.string.connect_local_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            CopyRow(CLEARTEXT_CONFIG)
+            ConnectSetup(running, key, installed, model)
+            MoreWaysToConnect(running, installed, settings, model)
         }
     }
     confirming?.let { mode ->
@@ -633,15 +615,95 @@ private fun ConnectPanel(server: ServeHost.State, settings: HostSettings, key: A
     }
 }
 
-/** The API key, beside the address it goes with: shown by its ends until opened. */
+/**
+ * The three things another app needs, in the words app settings use (address, key, model),
+ * and a complete request with them filled in, for OpenAI's API or Anthropic's: copy it and
+ * run it, or share the three lines to wherever the app is set up.
+ */
 @Composable
-private fun KeyRow(key: ApiKey?) {
-    Expandable(stringResource(R.string.host_access_key), stringResource(R.string.host_access_key_hint)) {
-        if (key != null) {
-            CopyRow(key.secret, label = key.name, shown = key.secret.take(KEY_HEAD) + "…" + key.secret.takeLast(KEY_TAIL), qr = true, sensitive = true)
+private fun ConnectSetup(running: ServeHost.State.Running, key: ApiKey?, installed: List<ModelEntry>, model: MainViewModel) {
+    val context = LocalContext.current
+    val status by model.status.collectAsState()
+    val base = running.endpoints.first().url
+    val ids = installed.map { requestId(it, installed) }
+    val suggested = status?.resident?.firstNotNullOfOrNull { r -> installed.firstOrNull { it.id == r.id } }?.let { requestId(it, installed) } ?: ids.first()
+    var chosen by rememberSaveable { mutableStateOf<String?>(null) }
+    val modelId = chosen?.takeIf { it in ids } ?: suggested
+    var api by rememberSaveable { mutableStateOf(ExampleRequest.Api.OPENAI) }
+    val masked = key?.let { it.secret.take(KEY_HEAD) + "…" + it.secret.takeLast(KEY_TAIL) }
+    val address = if (api == ExampleRequest.Api.OPENAI) base else base.removeSuffix("/v1")
+
+    ChoiceRow(
+        stringResource(R.string.connect_api),
+        options = listOf(ExampleRequest.Api.OPENAI to "OpenAI", ExampleRequest.Api.ANTHROPIC to "Anthropic"),
+        selected = api,
+        onSelect = { api = it },
+    )
+    CopyRow(address, label = stringResource(R.string.connect_address, stringResource(running.endpoints.first().network.words)), qr = true)
+    if (key != null) {
+        CopyRow(key.secret, label = stringResource(R.string.connect_key), shown = masked!!, sensitive = true)
+    } else {
+        Text(stringResource(R.string.host_no_key), style = MaterialTheme.typography.bodySmall)
+    }
+    // One row: the model to send, with Copy, and Change when there is more than one.
+    var picking by remember { mutableStateOf(false) }
+    CopyRow(
+        modelId,
+        label = stringResource(if (ids.size > 1) R.string.connect_model_any else R.string.connect_model),
+        extra = if (ids.size > 1) {
+            {
+                Box {
+                    Action(stringResource(R.string.action_change), { picking = true })
+                    DropdownMenu(expanded = picking, onDismissRequest = { picking = false }) {
+                        ids.forEach { id ->
+                            DropdownMenuItem(text = { Text(id, style = Mono) }, onClick = {
+                                chosen = id
+                                picking = false
+                            })
+                        }
+                    }
+                }
+            }
         } else {
-            Text(stringResource(R.string.host_no_key), style = MaterialTheme.typography.bodySmall)
+            null
+        },
+    )
+
+    Text(stringResource(R.string.connect_example), style = MaterialTheme.typography.titleSmall)
+    // Shown with the key cut short; copied whole.
+    Text(
+        ExampleRequest.curl(api, base, masked, modelId),
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(12.dp),
+        style = Mono,
+    )
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.row)) {
+        Action(stringResource(R.string.connect_copy_request), { copy(context, ExampleRequest.curl(api, base, key?.secret, modelId), sensitive = true) })
+        Action(stringResource(R.string.connect_share_setup), { model.shareText(ExampleRequest.settings(api, base, key?.secret, modelId)) })
+    }
+}
+
+/**
+ * Everything past the three fields, in one place: every model and what asking for it does,
+ * the browser chat, the device's other addresses, an address per model for apps that cannot
+ * choose one, and the setting Android apps need for plain HTTP.
+ */
+@Composable
+private fun MoreWaysToConnect(running: ServeHost.State.Running, installed: List<ModelEntry>, settings: HostSettings, model: MainViewModel) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val first = running.endpoints.first()
+    Expandable(stringResource(R.string.connect_more), stringResource(R.string.connect_more_hint)) {
+        ApiModels(installed, model, settings.memoryLimit, first.url)
+        CopyRow(first.url.removeSuffix("/v1").trimEnd('/') + "/", label = stringResource(R.string.connect_browser_chat), qr = true)
+        running.endpoints.drop(1).forEach { endpoint ->
+            CopyRow(endpoint.url, label = stringResource(R.string.connect_other_address, stringResource(endpoint.network.words)), qr = true)
         }
+        Text(stringResource(R.string.connect_local_title), style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.connect_local_body), style = MaterialTheme.typography.bodySmall, color = muted)
+        CopyRow(CLEARTEXT_CONFIG)
     }
 }
 
