@@ -66,7 +66,6 @@
         <item quantity="one">%1$s · %2$d waiting</item>
         <item quantity="other">%1$s · %2$d waiting</item>
     </plurals>
-    <string name="host_last_rates">Prefill %1$s tok/s · Decode %2$s tok/s</string>
     <string name="host_model_browser_on">This model\'s browser chat, %1$s</string>
     <string name="change_memory_limit">Change memory limit</string>
     <string name="change_startup_models">Change the models loaded when hosting starts</string>
@@ -79,4 +78,13 @@
     <string name="connect_models_queue">Requests run one at a time, whichever model they name. Loading a model takes a while, so an app that switches models waits for each load.</string>
     <string name="connect_model_address_title">For apps that can\'t choose a model</string>
     <string name="connect_model_address_note">Each model also has its own address. Requests sent there use that model whatever their \"model\" field says.</string>
+    <string name="host_prefill">Prefill</string>
+    <string name="host_decode">Decode</string>
+    <string name="fig_rate">%1$s tok/s</string>
+    <string name="host_rate_none">–</string>
+    <string name="host_reading_now">reading the prompt now</string>
+    <string name="host_writing_now">writing now</string>
+    <string name="host_read_this_request">read, this request</string>
+    <string name="host_last_phase">last request, %1$s</string>
+    <string name="host_waiting_for_phase">not yet</string>
 </resources>

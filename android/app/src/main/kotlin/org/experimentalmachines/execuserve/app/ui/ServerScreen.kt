@@ -326,6 +326,7 @@ private fun HostedModel(
             Text(state, style = MaterialTheme.typography.labelLarge, color = tone.color)
         }
         if (job != null || loading) Progress(job, status.lane, tone.color)
+        Rates(job, status?.lane, last, now)
         if (broken != null) Text(broken, style = MaterialTheme.typography.bodySmall, color = LocalTones.current.failed.color)
         ModelActions(entry, running != null, loaded, loading, broken != null, job, status?.lane, ConsoleChat.canChat(entry), model, onChat, details) {
             details =
@@ -333,6 +334,48 @@ private fun HostedModel(
         }
         if (details) ModelDetails(entry, last, running)
     }
+}
+
+/**
+ * Prefill and decode on every card, the two phases a request on a phone costs: live while
+ * this model works (the prompt read so far, tokens a second being written), else its last
+ * request's rates. Nothing for a model that has not served one yet.
+ */
+@Composable
+private fun Rates(job: RunningJob?, lane: LaneState?, last: JobRecord?, now: Long) {
+    if (job == null && last == null) return
+    val reading = job?.takeIf { lane == LaneState.PREFILLING }
+    // Once writing, this request's prompt is read: its own reading time, not the last one's.
+    val read = job?.takeIf { it.firstTokenAtMs > 0 }
+    val writing = job?.decodeRate(now)
+    FigurePair({
+        val (value, detail) = phase(
+            (reading ?: read)?.let { Format.duration(it.prefillElapsedMs(now)) },
+            if (reading != null) R.string.host_reading_now else R.string.host_read_this_request,
+            last?.prefillTokensPerSecond,
+            last?.prefillMs,
+        )
+        Figure(stringResource(R.string.host_prefill), value, listOf(detail), Modifier.weight(1f))
+    }, {
+        val (value, detail) = phase(
+            writing?.let {
+                stringResource(R.string.fig_rate, Format.rate(it))
+            },
+            R.string.host_writing_now,
+            last?.decodeTokensPerSecond,
+            last?.decodeMs,
+        )
+        Figure(stringResource(R.string.host_decode), value, listOf(detail), Modifier.weight(1f))
+    })
+}
+
+/** One phase's figure and the line under it: [live] while it happens, else the last request's rate and time. */
+@Composable
+private fun phase(live: String?, liveWords: Int, lastRate: Double?, lastMs: Long?): Pair<String, String> = when {
+    live != null -> live to stringResource(liveWords)
+    lastMs != null -> (lastRate?.takeIf { it > 0 }?.let { stringResource(R.string.fig_rate, Format.rate(it)) } ?: stringResource(R.string.host_rate_none)) to
+        stringResource(R.string.host_last_phase, Format.duration(lastMs))
+    else -> stringResource(R.string.host_rate_none) to stringResource(R.string.host_waiting_for_phase)
 }
 
 /** How far a request has read its prompt, or an indefinite bar while loading or writing. */
@@ -441,13 +484,6 @@ private fun ModelDetails(entry: ModelEntry, last: JobRecord?, running: ServeHost
             ),
             style = MaterialTheme.typography.bodySmall,
         )
-        if (last.prefillTokensPerSecond > 0 || last.decodeTokensPerSecond > 0) {
-            Text(
-                stringResource(R.string.host_last_rates, Format.rate(last.prefillTokensPerSecond), Format.rate(last.decodeTokensPerSecond)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
     CopyRow(entry.id, label = stringResource(R.string.host_model_id), qr = true)
     running?.endpoints?.forEach { endpoint ->
