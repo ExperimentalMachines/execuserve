@@ -391,7 +391,8 @@ backgrounding, exposure, every edge case and the design review log are in
 
 ## Status and what comes next
 
-Alpha. Every test tier passes, and the app serves real models on an Android 16 emulator and
+On [Google Play](https://play.google.com/store/apps/details?id=org.experimentalmachines.execuserve).
+Every test tier passes, and the app serves real models on an Android 16 emulator and
 on a POCO X8 Pro Max (Dimensity 9500s); results in
 [docs/results/2026-09-29-poco-x8-pro-max.md](docs/results/2026-09-29-poco-x8-pro-max.md). GPU
 (Vulkan) exports are served on Mali and Adreno GPUs; with Qwen3-0.6B the CPU build was the
