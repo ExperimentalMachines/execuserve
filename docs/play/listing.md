@@ -1,7 +1,10 @@
 # Play Store listing
 
 The text and assets for the store listing, in the order the Play Console asks for them. The
-screenshots and the video were captured on a POCO X8 Pro Max running the release build;
+screenshots were retaken on 31 October 2026 from the release build of 0.1.1 after the
+Diagnostics screen was removed: the phone set on a 1280 × 2772 emulator at 500 dpi with 16 KB
+pages, the tablets on the 7- and 10-inch emulators, so the speeds they show are an emulator's,
+not a phone's. The foreground-service video was recorded earlier on a POCO X8 Pro Max.
 `tools/play` makes them again (see [Remaking the assets](#remaking-the-assets)).
 
 ## Text
@@ -40,7 +43,7 @@ CONNECT
 
 KNOW WHAT HAPPENED
 • Every request with its phases, speeds and device state, kept across restarts
-• Like-for-like comparison of models, a benchmark, and CSV export
+• The whole history exported as CSV, to compare models in a spreadsheet
 
 MODELS
 • Download ready-made ExecuTorch exports from Qwen, Meta, Liquid AI and others, published by Experimental Machines on Hugging Face
@@ -77,14 +80,14 @@ An independent project by Experimental Machines. Not affiliated with, endorsed b
 2. Try any model in Chat
 3. Connect any app (Connect)
 4. Download open models (catalog)
-5. See every request (Activity)
+5. See every request (Requests)
 6. Private by design (Chat, dark theme)
 7. You decide who connects (Settings)
 8. Report any reply (the report dialog)
 
 Tablets, the same five for each size, in order: Your tablet is the server (Hosting), Try any
-model in Chat, Your models and the catalog side by side (Library), See every request and
-compare every model (Activity), You decide who connects (Settings). They were captured on two
+model in Chat, Your models and the catalog side by side (Library), See every request (Requests),
+You decide who connects (Settings). They were captured on two
 16:9 emulators, a 7-inch at 1920 × 1080 and a 10-inch at 2560 × 1440, both at 280 dpi; see
 [TESTING-ON-A-PHONE.md](../TESTING-ON-A-PHONE.md).
 

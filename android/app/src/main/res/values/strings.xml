@@ -232,7 +232,7 @@
     <string name="settings_threads_now">%1$d in use now</string>
     <string name="settings_threads_idle">Shown once a model loads</string>
     <string name="threads_auto">Automatic</string>
-    <string name="settings_threads_note">A change unloads the models in memory; they load again with it when a request needs them. The benchmark in Requests measures which count suits this phone.</string>
+    <string name="settings_threads_note">A change unloads the models in memory; they load again with it when a request needs them. Compare the prefill and decode speeds in Requests to find the count that suits this phone.</string>
     <string name="settings_background">Background operation</string>
     <string name="settings_boot">Start when the phone starts</string>
     <string name="settings_autostart_title">Autostart (HyperOS)</string>

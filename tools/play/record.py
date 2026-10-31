@@ -47,7 +47,7 @@ while time.time() - t < 90:
     if ui.find("elapsed", exact=False): break
 mark("replied"); time.sleep(3)
 ui.sh("shell", "am", "start", "-n", "org.experimentalmachines.execuserve/.app.ui.MainActivity"); time.sleep(1.5)
-ui.tap("Activity", tries=6); mark("activity"); time.sleep(5)
+ui.tap("Requests", tries=6); mark("activity"); time.sleep(5)
 mark("end")
 subprocess.run(["adb", "shell", "pkill", "-INT", "screenrecord"]); rec.wait(); time.sleep(2)
 Path("build/play").mkdir(parents=True, exist_ok=True)

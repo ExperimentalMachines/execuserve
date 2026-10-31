@@ -118,7 +118,7 @@ TABLET_SHOTS = [
     ("01-hosting.png", "Your tablet is the server", "OpenAI- and Anthropic-compatible APIs, running on-device with ExecuTorch"),
     ("02-chat.png", "Try any model in Chat", "Prefill and decode speeds on every reply"),
     ("03-library.png", "Your models and the catalog, side by side", "Ready-made ExecuTorch exports from Qwen, Meta, Liquid AI and more"),
-    ("04-activity.png", "See every request, compare every model", "Speeds, phases and device state, kept across restarts"),
+    ("04-activity.png", "See every request", "Speeds, phases and device state, kept across restarts"),
     ("05-settings.png", "You decide who connects", "This tablet only, or your network with API keys"),
 ]
 
