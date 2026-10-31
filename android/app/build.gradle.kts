@@ -90,7 +90,7 @@ android {
         applicationId = "org.experimentalmachines.execuserve"
         // Counted, not typed: see gitCommitCount. The name is editorial and stays typed.
         versionCode = gitCommitCount
-        versionName = "0.1.0"
+        versionName = "0.1.1"
         // The catalog leaves out uncensored derivatives unless a build asks for them; the Play
         // bundle never does. See CatalogRepository.
         buildConfigField("boolean", "CATALOG_UNCENSORED", (providers.gradleProperty("catalogUncensored").orNull == "true").toString())
