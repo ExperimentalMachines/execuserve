@@ -2,8 +2,10 @@
 with patch_qnn.py applied, the way scripts/build_android_library.sh builds them (its native
 half; the Java classes do not change and come from the published AAR).
 
-    modal run --detach build_aar_libs.py
+    modal run --detach build_libs.py
     modal volume get execuserve-executorch aar-libs/v1.5.1-execuserve ./out
+
+Or on any x86_64 Linux host with Docker, without Modal: docker.py.
 """
 
 from __future__ import annotations
@@ -55,6 +57,21 @@ image = (
 )
 app = modal.App("execuserve-executorch-android", image=image)
 volume = modal.Volume.from_name("execuserve-executorch", create_if_missing=True)
+# Google Play refuses a library a 16 KB-page phone cannot map. NDK r26c links with 4 KB pages
+# (r28 and later default to 16 KB, but QAIRT 2.37 is tested against r26c). r26c's toolchain file
+# appends its own linker flags (--build-id, --no-undefined) to CMAKE_SHARED_LINKER_FLAGS and
+# ignores LDFLAGS on a first configure, so the flag goes in as a cache variable (measured on
+# r26c: LDFLAGS gave 0x1000, the cache variable 0x4000 with the NDK's flags kept).
+PAGE_SIZE_FLAG = "-Wl,-z,max-page-size=16384"
+
+
+def require_16k(readelf: str, lib: pathlib.Path) -> None:
+    """Stops the build when a LOAD segment of [lib] is aligned below 16 KB."""
+    headers = subprocess.run([readelf, "-lW", str(lib)], check=True, capture_output=True, text=True).stdout
+    aligns = [int(line.split()[-1], 16) for line in headers.splitlines() if line.split()[:1] == ["LOAD"]]
+    if not aligns or min(aligns) < 0x4000:
+        raise RuntimeError(f"{lib.name}: LOAD alignment {[hex(a) for a in aligns]}, below 16 KB")
+    print(f"==> {lib.name}: LOAD alignment {hex(min(aligns))}", flush=True)
 
 
 @app.function(cpu=(16.0, 16.0), memory=(32 * 1024, 48 * 1024), timeout=3 * 3600, volumes={"/vol": volume}, retries=0)
@@ -74,7 +91,8 @@ def build() -> list[str]:
          "-DEXECUTORCH_BUILD_LLAMA_JNI=ON", "-DEXECUTORCH_BUILD_NEURON=OFF",
          "-DEXECUTORCH_BUILD_QNN=ON", f"-DQNN_SDK_ROOT=/opt/qairt-zip/qairt/{QAIRT}",
          "-DEXECUTORCH_BUILD_VULKAN=ON", "-DXNNPACK_ENABLE_ARM_SME2=ON", "-DFLATCC_ALLOW_WERROR=OFF",
-         "-DSUPPORT_REGEX_LOOKAHEAD=ON", "-DCMAKE_BUILD_TYPE=Release", "-DKLEIDIAI_SOURCE_DIR=/opt/kleidiai", f"-B{out}"]
+         "-DSUPPORT_REGEX_LOOKAHEAD=ON", "-DCMAKE_BUILD_TYPE=Release", "-DKLEIDIAI_SOURCE_DIR=/opt/kleidiai",
+         f"-DCMAKE_SHARED_LINKER_FLAGS={PAGE_SIZE_FLAG}", f"-B{out}"]
     # Configure downloads third-party sources (KleidiAI from gitlab.arm.com answered 504 once);
     # a transient failure there is retried rather than costing the build.
     for attempt in range(3):
@@ -93,10 +111,12 @@ def build() -> list[str]:
              (src / out / "lib/executorch/backends/qualcomm/libqnn_executorch_backend.so", "libqnn_executorch_backend.so")]
     for path, name in pairs:
         run([strip, "--strip-unneeded", "-o", str(dest / name), str(path)])
+        require_16k(f"{ndk}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf", dest / name)
         built.append(f"{name} {(dest / name).stat().st_size}")
     shutil.copy2("/root/patch_qnn.py", dest.parent / "patch_qnn.py")
     (dest.parent / "SOURCE.txt").write_text(
-        f"pytorch/executorch {TAG} + patch_qnn.py; NDK {NDK}; QAIRT {QAIRT} headers; XNNPACK, Vulkan, QNN, LLM JNI\n")
+        f"pytorch/executorch {TAG} + patch_qnn.py; NDK {NDK} with {PAGE_SIZE_FLAG}; QAIRT {QAIRT} headers; "
+        "XNNPACK, Vulkan, QNN, LLM JNI\n")
     volume.commit()
     print("==> built", built, flush=True)
     return built

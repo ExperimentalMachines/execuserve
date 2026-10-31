@@ -74,6 +74,17 @@ fun secret(key: String, env: String): String? = keystoreProperties.getProperty(k
 
 val uploadKeystore: String? = secret("storeFile", "EXECUSERVE_KEYSTORE")
 
+/*
+ * MediaTek's NPU runtime, left out unless a build asks for it with -PmediatekNpu=true. Its
+ * buffer allocator (libneuron_buffer_allocator.so) is MediaTek's binary, linked with 4 KB pages
+ * and laid out so that no header change can fix it: a 16 KB-page phone cannot load it and
+ * Google Play refuses an app carrying it. Without these three libraries NeuroPilotSupport
+ * finds no runtime and the catalog offers no MediaTek NPU builds; CPU and GPU are unchanged.
+ * The Play bundle never carries them (see bundleRelease below).
+ */
+val mediatekNpu = providers.gradleProperty("mediatekNpu").orNull == "true"
+val mediatekLibraries = setOf("libneuron_backend.so", "libneuron_buffer_allocator.so", "libexecutorch_pd_jni.so")
+
 android {
     defaultConfig {
         applicationId = "org.experimentalmachines.execuserve"
@@ -137,6 +148,7 @@ android {
             "**/libQnnHtpV68Skel.so",
             "**/libQnnHtpV68Stub.so",
         )
+        if (!mediatekNpu) jniLibs.excludes += mediatekLibraries.map { "**/$it" }
         resources.excludes += setOf("META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties", "META-INF/*.kotlin_module")
     }
 }
@@ -176,17 +188,33 @@ dependencies {
     testImplementation(libs.androidx.compose.ui.test.junit4)
 }
 
+// Every library packaged is 16 KB-aligned, or the build stops (NativeLibraryAlignment, which
+// also raises the Hexagon skeletons' alignment field). Checked after stripping, the last step
+// before the APK and the bundle are written. Only a -PmediatekNpu=true build may carry MediaTek's
+// 4 KB allocator, and that build never goes to Play.
+val alignmentExempt = if (mediatekNpu) setOf("libneuron_buffer_allocator.so") else emptySet()
+tasks.matching { Regex("strip\\w*DebugSymbols").matches(it.name) }.configureEach {
+    NativeLibraryAlignment.enforceAfter(this, alignmentExempt)
+}
+
 // The bundle is what goes to Play, and Play rejects one signed with the debug key; better to
 // stop before building it than to find out at upload.
 val hasUploadKey = uploadKeystore != null
 tasks.matching { it.name == "bundleRelease" }.configureEach {
-    // A local, not the script's property: the configuration cache cannot store the script.
+    // Locals, not the script's properties: the configuration cache cannot store the script.
     val keyed = hasUploadKey
+    val withMediatek = mediatekNpu
     doFirst {
         if (!keyed) {
             throw GradleException(
                 "bundleRelease needs the upload key: add keystore.properties (storeFile, storePassword, keyAlias, " +
                     "keyPassword) or set EXECUSERVE_KEYSTORE and its three companions. See docs/RELEASING.md.",
+            )
+        }
+        if (withMediatek) {
+            throw GradleException(
+                "bundleRelease refuses -PmediatekNpu=true: MediaTek's buffer allocator is 4 KB-aligned and Google Play " +
+                    "refuses an app carrying it. Build the bundle without the property.",
             )
         }
     }

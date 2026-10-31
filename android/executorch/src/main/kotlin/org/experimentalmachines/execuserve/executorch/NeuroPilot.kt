@@ -1,6 +1,7 @@
 package org.experimentalmachines.execuserve.executorch
 
 import android.os.Build
+import dalvik.system.BaseDexClassLoader
 import org.experimentalmachines.execuserve.engine.ContextOverflow
 import org.experimentalmachines.execuserve.engine.LlmSession
 import org.experimentalmachines.execuserve.engine.ModelFacts
@@ -62,16 +63,24 @@ object NeuroPilotSupport {
     /** This phone's chip as Android names it (`MT6991`), or null when it does not say. */
     val soc: String? get() = Build.SOC_MODEL.takeIf { it.isNotBlank() && it != Build.UNKNOWN }
 
-    /** True when the adapter, the Neuron backend and the runner all load in this process. */
+    /**
+     * True when this build carries the runtime (a -PmediatekNpu=true build; the Play bundle does
+     * not, see android/app/build.gradle.kts) and the adapter, the Neuron backend and the runner
+     * all load in this process.
+     */
     val usable: Boolean by lazy {
         Build.SOC_MANUFACTURER.equals("Mediatek", ignoreCase = true) &&
             soc != null &&
+            bundled() &&
             runCatching {
                 System.loadLibrary("neuronusdk_adapter.mtk")
                 System.loadLibrary("neuron_backend")
                 System.loadLibrary("executorch_pd_jni")
             }.isSuccess
     }
+
+    /** Whether the app carries the MediaTek runtime, asked without loading the phone's adapter for nothing. */
+    private fun bundled(): Boolean = (NeuroPilotSupport::class.java.classLoader as? BaseDexClassLoader)?.findLibrary("neuron_backend") != null
 }
 
 /**

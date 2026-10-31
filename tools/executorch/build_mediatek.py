@@ -8,6 +8,8 @@ including its check that the MediaTek project linked the archives just built, no
     modal run --detach build_mediatek.py
     modal volume get execuserve-executorch mediatek-libs/v1.5.1-execuserve ./out
 
+Or on any x86_64 Linux host with Docker, without Modal: docker.py.
+
 Produces libexecutorch_pd_jni.so, libneuron_backend.so and MediaTek's
 libneuron_buffer_allocator.so (from the NeuroPilot Express SDK, which permits shipping it in
 object form inside an application). The NeuroPilot adapter itself is the phone's own copy.
@@ -51,6 +53,18 @@ image = (
 )
 app = modal.App("execuserve-executorch-mediatek", image=image)
 volume = modal.Volume.from_name("execuserve-executorch", create_if_missing=True)
+# As in build_libs.py: 16 KB pages for Google Play, as a cache variable, which r26c's toolchain
+# file appends to its own linker flags (it ignores LDFLAGS on a first configure).
+PAGE_SIZE_FLAG = "-Wl,-z,max-page-size=16384"
+
+
+def require_16k(readelf: str, lib: pathlib.Path) -> None:
+    """Stops the build when a LOAD segment of [lib] is aligned below 16 KB."""
+    headers = subprocess.run([readelf, "-lW", str(lib)], check=True, capture_output=True, text=True).stdout
+    aligns = [int(line.split()[-1], 16) for line in headers.splitlines() if line.split()[:1] == ["LOAD"]]
+    if not aligns or min(aligns) < 0x4000:
+        raise RuntimeError(f"{lib.name}: LOAD alignment {[hex(a) for a in aligns]}, below 16 KB")
+    print(f"==> {lib.name}: LOAD alignment {hex(min(aligns))}", flush=True)
 
 
 def find_one(root: pathlib.Path, name: str) -> pathlib.Path:
@@ -81,7 +95,7 @@ def build() -> list[str]:
     sub = out / "examples/mediatek"
     toolchain = f"{ndk}/build/cmake/android.toolchain.cmake"
     common = [f"-DCMAKE_TOOLCHAIN_FILE={toolchain}", "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-26",
-              "-DCMAKE_BUILD_TYPE=Release", "-G", "Ninja"]
+              "-DCMAKE_BUILD_TYPE=Release", f"-DCMAKE_SHARED_LINKER_FLAGS={PAGE_SIZE_FLAG}", "-G", "Ninja"]
     configure = ["cmake", "-S", str(src), "-B", str(out), *common,
                  f"-DEXECUTORCH_BUILD_PRESET_FILE={src}/tools/cmake/preset/llm.cmake",
                  "-DEXECUTORCH_BUILD_NEURON=ON", f"-DCMAKE_INSTALL_PREFIX={out}", "-DKLEIDIAI_SOURCE_DIR=/opt/kleidiai"]
@@ -123,11 +137,16 @@ def build() -> list[str]:
     for path, name in ((sub / "libexecutorch_pd_jni.so", "libexecutorch_pd_jni.so"),
                        (out / "backends/mediatek/libneuron_backend.so", "libneuron_backend.so")):
         run([strip, "--strip-unneeded", "-o", str(dest / name), str(path)])
+        require_16k(f"{ndk}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf", dest / name)
         built.append(f"{name} {(dest / name).stat().st_size}")
+    # MediaTek's own binary, linked with 4 KB pages and a layout no header patch can fix, so a
+    # 16 KB-page phone cannot load it: the app leaves these libraries out of the Play bundle
+    # (android/app/build.gradle.kts, mediatekNpu).
     shutil.copy2(allocator, dest / "libneuron_buffer_allocator.so")
     built.append(f"libneuron_buffer_allocator.so {(dest / 'libneuron_buffer_allocator.so').stat().st_size}")
     (dest.parent / "SOURCE.txt").write_text(
-        f"pytorch/executorch {TAG} + mediatek/executorch-pd.patch (OpenWeights); NDK {NDK}; NeuroPilot SDK {SDK_SHA256[:12]}\n")
+        f"pytorch/executorch {TAG} + mediatek/executorch-pd.patch (OpenWeights); NDK {NDK} with {PAGE_SIZE_FLAG}; "
+        f"NeuroPilot SDK {SDK_SHA256[:12]}\n")
     volume.commit()
     print("==> built", built, flush=True)
     return built

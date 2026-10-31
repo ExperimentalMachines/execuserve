@@ -325,6 +325,10 @@ To report a vulnerability, see [SECURITY.md](SECURITY.md).
   window decodes). A MediaTek install needs more memory while it loads than it downloads:
   Qwen3 at 4k did not fit a 12 GB phone. Results in
   [docs/results/2026-10-06-npu.md](docs/results/2026-10-06-npu.md).
+- MediaTek NPU builds need an app built with `-PmediatekNpu=true`; the Google Play app and the
+  default build leave the MediaTek runtime out. Its buffer allocator is MediaTek's own binary,
+  linked for 4 KB memory pages, and Play refuses an app that a 16 KB-page phone cannot load.
+  On a Dimensity phone the Play app runs CPU and GPU builds.
 - Memory for the models you keep resident: each costs about its file size plus its window.
   The LFM2.5 exports are 761 MB (1.2B) and 1.7 GB (2.6B) at a 4k window.
 
@@ -345,7 +349,7 @@ cd execuserve
 | Toolchain | JDK 21 (compiling to Java 17), Android SDK platform 37, NDK 29 |
 | Targets | minSdk 31, targetSdk 36, compileSdk 37, `arm64-v8a` only |
 | Stack | Kotlin 2.3.21, Ktor 3.6 (CIO), kotlinx.coroutines and serialization, Jetpack Compose, DataStore, ExecuTorch 1.5 |
-| Checks | `./gradlew verify` runs ktlint, detekt and Android lint, every JVM and Android host test, assembles the debug build and compiles the shared modules for iOS; every Kotlin warning fails the build |
+| Checks | `./gradlew verify` runs ktlint, detekt and Android lint, every JVM and Android host test, assembles the debug build and compiles the shared modules for iOS; every Kotlin warning fails the build, and so does any 64-bit native library aligned below 16 KB |
 | Without a phone | `./gradlew :jvm:devserver:installDist` builds the real server over a scripted model; `tools/compat/` holds the OpenAI, Anthropic and edge-case suites to run against it or a phone |
 | On a phone | [docs/TESTING-ON-A-PHONE.md](docs/TESTING-ON-A-PHONE.md) |
 | Release | `versionCode` is the commit count; `bundleRelease` needs the upload key; the **Release** workflow builds main and publishes to a Play track ([docs/RELEASING.md](docs/RELEASING.md)) |

@@ -12,7 +12,7 @@ on 2 October 2026.
 | Upload signing | From `keystore.properties` or the environment, never the repository | `keytool -printcert -jarfile app-release.aab` names the upload key |
 | Version code | The commit count on `main`, ratcheted by `versionCodeFloor` | `aapt2 dump badging` on the APK |
 | `targetSdk` 36 | Done | `aapt2 dump badging` |
-| 16 KB page alignment | All native libraries, ExecuTorch included, have 16 KB `LOAD` alignment, and the APK passes `zipalign -c -P 16` | Checked on the release APK |
+| 16 KB page alignment | Every `arm64-v8a` library has 16 KB `LOAD` alignment: ExecuTorch is linked with `-Wl,-z,max-page-size=16384` (tools/executorch), Qualcomm's Hexagon skeletons have their alignment field raised at build time, and MediaTek's 4 KB runtime is left out unless `-PmediatekNpu=true` (which `bundleRelease` refuses) | Every build: `NativeLibraryAlignment` stops it after stripping if any library is below 16 KB. Once, on a 16 KB-page emulator (`system-images;android-36;google_apis_ps16k;arm64-v8a`): no "isn't 16 KB compatible" dialog at launch, and a model loads |
 | Minified release runs | R8 with resource shrinking; the release build is what serves on the test phone | On device |
 | Generative-AI reporting | **Report this reply** on every reply in the console's Chat | `ReportDialogTest`, `ContentReportTest` |
 | Uncensored models | The catalog leaves out Heretic and other abliterated derivatives unless built with `-PcatalogUncensored=true`; the Play bundle never is | `CatalogTest.uncensoredDerivativesAreKnownByName` |
