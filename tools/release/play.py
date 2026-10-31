@@ -518,17 +518,47 @@ def publish_command(args: argparse.Namespace) -> None:
         name = args.name or f"{version_name()} ({code})"
         body = release_body(args.track, code, name, notes, args.rollout)
         edits.tracks().update(packageName=PACKAGE, editId=edit_id, track=args.track, body=body).execute(num_retries=3)
-        # The default would cancel whatever is already in review, a listing change made in the
-        # Console included, and resubmit it with this release. Stop and say so instead.
-        edits.commit(
-            packageName=PACKAGE, editId=edit_id, changesInReviewBehavior="ERROR_IF_IN_REVIEW",
-        ).execute(num_retries=3)
+        sent = commit_edit(edits, edit_id)
         edit_id = None
     finally:
         if edit_id:
             edits.delete(packageName=PACKAGE, editId=edit_id).execute(num_retries=3)
     rollout = "" if args.rollout >= 100 else f", staged to {args.rollout:g}% of users"
-    summary(f"## Released {name} to {args.track}{rollout}\n\n```\n{notes}\n```\n")
+    if sent:
+        summary(f"## Released {name} to {args.track}{rollout}\n\n```\n{notes}\n```\n")
+    else:
+        print(f"::warning::{name} is on {args.track} but not sent for review: send it from the Play Console")
+        summary(
+            f"## {name} is on {args.track}{rollout}, not yet sent for review\n\n"
+            "Play would not send this edit for review from the API, as after a rejection or a removal. "
+            "In the Play Console, **Publishing overview**, send the changes for review; nothing reaches "
+            f"anyone until then.\n\n```\n{notes}\n```\n"
+        )
+
+
+# Play's refusal when an edit may not go to review from the API (after a rejection or a removal):
+# it asks for this query parameter, and the changes then wait for Send for review in the Console.
+NOT_SENT_FOR_REVIEW = "changesNotSentForReview"
+
+
+def commit_edit(edits, edit_id: str) -> bool:
+    """
+    Commits the edit. True when Play took it for review or publishing; False when Play would
+    only take it held back, so it waits in the Console for somebody to send it for review.
+    """
+    try:
+        # The default would cancel whatever is already in review, a listing change made in the
+        # Console included, and resubmit it with this release. Stop and say so instead.
+        edits.commit(
+            packageName=PACKAGE, editId=edit_id, changesInReviewBehavior="ERROR_IF_IN_REVIEW",
+        ).execute(num_retries=3)
+        return True
+    except Exception as error:  # googleapiclient's HttpError, which only the workflow installs
+        if NOT_SENT_FOR_REVIEW not in str(error):
+            raise
+    # Held back, nothing is sent to review, so nothing already in review is cancelled either.
+    edits.commit(packageName=PACKAGE, editId=edit_id, changesNotSentForReview=True).execute(num_retries=3)
+    return False
 
 
 def upload(edits, edit_id: str, bundle_path: str, mapping_path: str | None) -> int:

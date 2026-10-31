@@ -133,6 +133,10 @@ again with the text typed in.
 - **Main only.** A branch builds a lower commit count, and Play refuses a code that goes down.
 - **Nothing already in review is cancelled.** The edit is committed with `ERROR_IF_IN_REVIEW`,
   so a listing change waiting in review stops the run instead of being resubmitted with it.
+- **After a rejection or a removal, the Console sends it.** Play then refuses to take an edit for
+  review from the API. The run commits it held back (`changesNotSentForReview`) and says so on
+  its summary; the release reaches nobody until somebody presses Send for review in the
+  Console's Publishing overview.
 - **No third-party action sees the Play key.** The upload is Google's own Python client,
   pinned in `tools/release/requirements.txt`.
 - **A dry run uploads nothing.** It checks the secrets, Play access, the version code, the

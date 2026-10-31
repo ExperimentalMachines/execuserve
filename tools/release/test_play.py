@@ -292,5 +292,45 @@ class NotesTest(unittest.TestCase):
         self.assertTrue(prompt.rstrip().endswith("[...]"))
 
 
+class CommitEditTest(unittest.TestCase):
+    """How an edit is committed: for review when Play allows it, held for the Console when not."""
+
+    class Edits:
+        def __init__(self, *answers):
+            self.answers, self.calls = list(answers), []
+
+        def commit(self, **params):
+            self.calls.append(params)
+            answer = self.answers.pop(0)
+
+            def execute(num_retries=0):
+                if isinstance(answer, Exception):
+                    raise answer
+                return {"id": params["editId"]}
+            return SimpleNamespace(execute=execute)
+
+    def test_an_edit_goes_for_review_without_cancelling_one_in_review(self):
+        edits = self.Edits("ok")
+        self.assertTrue(play.commit_edit(edits, "e1"))
+        self.assertEqual(edits.calls, [{"packageName": play.PACKAGE, "editId": "e1", "changesInReviewBehavior": "ERROR_IF_IN_REVIEW"}])
+
+    def test_after_a_removal_the_edit_is_held_for_the_console(self):
+        # Play's answer on 2026-10-31, with the app removed for a policy violation.
+        refused = Exception(
+            '<HttpError 400 returned "Changes cannot be sent for review automatically. Please set the query '
+            'parameter changesNotSentForReview to true.">'
+        )
+        edits = self.Edits(refused, "ok")
+        self.assertFalse(play.commit_edit(edits, "e2"))
+        self.assertEqual(edits.calls[1], {"packageName": play.PACKAGE, "editId": "e2", "changesNotSentForReview": True})
+
+    def test_any_other_refusal_stops_the_release(self):
+        in_review = Exception('<HttpError 400 returned "You already have changes in review.">')
+        edits = self.Edits(in_review)
+        with self.assertRaises(Exception):
+            play.commit_edit(edits, "e3")
+        self.assertEqual(len(edits.calls), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
