@@ -12,20 +12,34 @@
 # the emulator, CPU and GPU only) and the POM's dependencies come from ExecuTorch's published
 # executorch-android-vulkan AAR at the same release; only arm64-v8a's libexecutorch.so is
 # replaced and the QNN backend library added.
+#
+# The base is pinned, file and digest, so the same VERSION is always built from the same base;
+# changing either is a new VERSION. Upstream's release workflow
+# (.github/workflows/android-release-artifacts.yml) puts each flavor's AAR on S3 when a release
+# is tagged and on Maven Central days later (1.5.1: 23 September and 1 October). 1.6.0 was not
+# on Maven yet, so this base is the S3 build of the tag: Gradle's debug variant, whose classes
+# differ from Maven's only in the suffix Kotlin gives internal names
+# (toJniArrays$executorch_android_debug; javap shows nothing else). Its POM is POM_FROM's on
+# Maven, an earlier release whose dependencies are the same: extension/android's build.gradle
+# and gradle/libs.versions.toml declare the same ones at v1.5.1 and v1.6.0.
 set -euo pipefail
 LIBS="${1:?directory with arm64-v8a/*.so}"
 MTK_LIBS="${2:-}"
-RELEASE=1.5.1
+RELEASE=1.6.0
 # A rebuilt binary is a new version: Gradle and anyone holding the old file must not mistake one for the other.
-VERSION="$RELEASE-execuserve.4"
+VERSION="$RELEASE-execuserve.1"
+BASE_URL="https://ossci-android.s3.amazonaws.com/executorch/release/$RELEASE-vulkan/executorch.aar"
+BASE_SHA256=c2c15d39d6f33f01444671c1bfcec55b2c88b1f93de0c11f11b46ffece610d9f
+POM_FROM=1.5.1
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 DEST="$ROOT/android/executorch/maven/org/experimentalmachines/executorch/executorch-android/$VERSION"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-base="https://repo1.maven.org/maven2/org/pytorch/executorch-android-vulkan/$RELEASE/executorch-android-vulkan-$RELEASE"
-curl -fsSL "$base.aar" -o "$WORK/upstream.aar"
-curl -fsSL "$base.pom" -o "$WORK/upstream.pom"
+curl -fsSL "$BASE_URL" -o "$WORK/upstream.aar"
+echo "$BASE_SHA256  $WORK/upstream.aar" | shasum -a 256 -c -
+curl -fsSL "https://repo1.maven.org/maven2/org/pytorch/executorch-android-vulkan/$POM_FROM/executorch-android-vulkan-$POM_FROM.pom" \
+  -o "$WORK/upstream.pom"
 mkdir -p "$WORK/aar" && (cd "$WORK/aar" && unzip -q ../upstream.aar)
 for lib in libexecutorch.so libqnn_executorch_backend.so; do
   [ -f "$LIBS/arm64-v8a/$lib" ] || { echo "missing $LIBS/arm64-v8a/$lib" >&2; exit 1; }
@@ -44,7 +58,7 @@ mkdir -p "$DEST"
 mv "$WORK/out.aar" "$DEST/executorch-android-$VERSION.aar"
 # Our coordinates, upstream's dependencies. The Gradle-metadata marker goes: this artifact
 # publishes no .module file, and Gradle would otherwise look for one.
-python3 - "$WORK/upstream.pom" "$DEST/executorch-android-$VERSION.pom" "$RELEASE" "$VERSION" <<'PY2'
+python3 - "$WORK/upstream.pom" "$DEST/executorch-android-$VERSION.pom" "$POM_FROM" "$VERSION" <<'PY2'
 import sys
 src, dst, release, version = sys.argv[1:5]
 pom = src and open(src).read()

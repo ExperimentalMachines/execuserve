@@ -28,7 +28,7 @@ object VulkanSupport {
     private const val VULKAN_1_1 = (1 shl 22) or (1 shl 12)
 
     /** The runtime release the record belongs to; see the class comment. */
-    private const val RUNTIME = "1.5.1"
+    private const val RUNTIME = ExecuTorchRuntime.VERSION
     private const val PREFS = "vulkan_support"
     private const val KEY_REFUSED = "refused:$RUNTIME"
 
@@ -68,14 +68,16 @@ object VulkanSupport {
 
     /**
      * What ExecuTorch's Vulkan runtime says when this device cannot run its shaders at all:
-     * a shader needing a feature or extension the driver lacks (vk_api/Exception.cpp), or no
-     * usable Vulkan device. Matched in the failure's message chain, which the Android wrapper
-     * fills with the runtime's recent log. Out of device memory is deliberately absent: that
-     * is this model being too large for this GPU, and a smaller one may run.
+     * a shader needing a feature or extension the driver lacks (vk_api/Exception.cpp), a graph
+     * whose bool tensors need 8-bit storage buffers the device lacks (VulkanBackend.cpp, from
+     * 1.6.0), or no usable Vulkan device. Matched in the failure's message chain, which the
+     * Android wrapper fills with the runtime's recent log. Out of device memory is deliberately
+     * absent: that is this model being too large for this GPU, and a smaller one may run.
      */
     private val INCOMPATIBLE = listOf(
         "not compatible with device",
         "physical device feature",
+        "require 8-bit storage buffer support",
         "VulkanBackend is not available",
         "VulkanBackend is not registered",
         "VK_ERROR_INITIALIZATION_FAILED",

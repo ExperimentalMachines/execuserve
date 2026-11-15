@@ -1,4 +1,7 @@
-"""ExecuTorch v1.5.1: make Qualcomm's LLM runner servable through the Android LlmModule.
+"""ExecuTorch v1.6.0: make Qualcomm's LLM runner servable through the Android LlmModule.
+
+Written against v1.5.1; v1.6.0 left the runner (examples/qualcomm/oss_scripts/llama/runner) and
+jni_layer_llama.cpp byte for byte the same, so the five edits and their results carry over.
 
     python patch_qnn.py <executorch-checkout>
 
@@ -11,7 +14,9 @@ building something that only looks patched.
    the window filled. It now rewinds to position 0; the attention masks are rebuilt from the
    position on every call (token_generator.cpp init_attention_mask), so stale cache entries
    past it are never attended.
-3. A prompt that does not fit the window aborted the process (ET_CHECK_MSG). It now returns
+3. A prompt that does not fit the window aborted the process (ET_CHECK_MSG), in two places:
+   the runner's check against the window, and the prompt processor's stricter one, which keeps
+   one prefill block free (a prompt may end at context_len - ar_len at most). Both now return
    an error whose log line names the overflow, as the XNNPACK runner's does.
 4. prefill(): not implemented (IRunner's default returns NotSupported). Text-only prefill at
    the current position, so a long prompt can be fed in pieces.
@@ -140,6 +145,36 @@ Result<uint64_t> Runner::prefill(
 }
 
 Error Runner::generate(
+""",
+)])
+
+# The prompt processor's own window check is stricter than the runner's: its cache holds
+# context_len - ar_len positions, so a prompt ending in the last prefill block (3,969 to 4,095
+# of a 4,096 window at AR-128) passed the runner and aborted here.
+edit(R / "prompt_processor.cpp", [(
+    """    int64_t end_pos = 0;
+    ET_CHECK_MSG(
+        !c10::add_overflows(
+            start_pos, static_cast<int64_t>(num_prompt_tokens), &end_pos) &&
+            end_pos <= static_cast<int64_t>(metadata_.context_len) -
+                    static_cast<int64_t>(metadata_.ar_len),
+        "The sequence length exceeds the maximum limit that the prompt processor can handle.");
+""",
+    """    int64_t end_pos = 0;
+    if (c10::add_overflows(
+            start_pos, static_cast<int64_t>(num_prompt_tokens), &end_pos) ||
+        end_pos > static_cast<int64_t>(metadata_.context_len) -
+                static_cast<int64_t>(metadata_.ar_len)) {
+      ET_LOG(
+          Error,
+          "Prompt exceeds KV cache capacity: %lld held + %d new > %d (window %d less one prefill block of %d)",
+          static_cast<long long>(start_pos),
+          num_prompt_tokens,
+          metadata_.context_len - metadata_.ar_len,
+          metadata_.context_len,
+          metadata_.ar_len);
+      return executorch::runtime::Error::InvalidArgument;
+    }
 """,
 )])
 

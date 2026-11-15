@@ -12,7 +12,7 @@ about 64 GB of memory (each build runs make -j16), and about 100 GB of disk.
     sudo docker run --rm -v /srv/vol:/vol execuserve-native /root/run.sh build_libs
     sudo docker run --rm -v /srv/vol:/vol execuserve-native /root/run.sh build_mediatek
 
-Then /srv/vol/aar-libs/v1.5.1-execuserve and /srv/vol/mediatek-libs/v1.5.1-execuserve are what
+Then /srv/vol/aar-libs/v1.6.0-execuserve and /srv/vol/mediatek-libs/v1.6.0-execuserve are what
 assemble.sh takes. Importing the scripts needs the `modal` package (no account).
 """
 
@@ -43,12 +43,12 @@ print(job.build.local())
 
 
 def dockerfile() -> str:
-    assert libs.TAG == mtk.TAG and libs.NDK == mtk.NDK and libs.KLEIDIAI == mtk.KLEIDIAI
+    assert libs.TAG == mtk.TAG and libs.TORCH == mtk.TORCH and libs.NDK == mtk.NDK and libs.KLEIDIAI == mtk.KLEIDIAI
     return f"""# The Modal images of build_libs.py and build_mediatek.py as one image (debian_slim, Python 3.11).
 FROM python:3.11-slim-bookworm
 RUN apt-get update && apt-get install -y git cmake ninja-build build-essential unzip wget curl xz-utils && rm -rf /var/lib/apt/lists/*
 RUN pip install --upgrade pip
-RUN pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
+RUN pip install torch=={libs.TORCH} --index-url https://download.pytorch.org/whl/cpu
 RUN pip install pyyaml ruamel.yaml zstd certifi tomli setuptools wheel requests tqdm
 RUN pip install 'cmake>=3.29,<4' ninja && cmake --version | head -1
 RUN curl -sSfL -o /tmp/ndk.zip https://dl.google.com/android/repository/android-ndk-{libs.NDK}-linux.zip && unzip -q /tmp/ndk.zip -d /opt && rm /tmp/ndk.zip

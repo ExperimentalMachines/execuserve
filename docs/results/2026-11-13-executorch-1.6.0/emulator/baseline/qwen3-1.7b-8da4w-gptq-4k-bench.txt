@@ -1,0 +1,4 @@
+turn 1 (cold, long prompt)   prompt= 2279 cached=    0 prefill= 34833ms (  65.4 tok/s) decode=  12 tok @   5.4 tok/s  wall=37.13s  finish=stop
+turn 2 (same conversation)   prompt= 2313 cached= 2290 prefill=   621ms (  37.0 tok/s) decode=  12 tok @   5.2 tok/s  wall= 2.95s  finish=stop
+turn 3 (long answer)         prompt= 2349 cached= 2324 prefill=   781ms (  32.0 tok/s) decode= 193 tok @  15.5 tok/s  wall=13.25s  finish=stop
+fresh short prompt, 256 out  prompt=   26 cached=    0 prefill=   105ms ( 247.6 tok/s) decode= 205 tok @  42.8 tok/s  wall= 4.90s  finish=stop

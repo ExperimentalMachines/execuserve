@@ -1,0 +1,8 @@
+1 baseline qwen3-1.7b-8da4w-gptq-4k 23 'nandu cafe naive'
+1 baseline lfm2.5-1.2b-instruct-8da4w-gptq-4k 24 'Ñandú café naïve'
+2 candidate qwen3-1.7b-8da4w-gptq-4k 25 'ñandú café naïve'
+2 candidate lfm2.5-1.2b-instruct-8da4w-gptq-4k 24 'Ñandú café naïve'
+3 candidate qwen3-1.7b-8da4w-gptq-4k 25 'ñandú café naïve'
+3 candidate lfm2.5-1.2b-instruct-8da4w-gptq-4k 24 'Ñandú café naïve'
+4 baseline qwen3-1.7b-8da4w-gptq-4k 23 'nandu cafe naive'
+4 baseline lfm2.5-1.2b-instruct-8da4w-gptq-4k 24 'Ñandú café naïve'

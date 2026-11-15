@@ -1,12 +1,12 @@
-"""Build the MediaTek NPU runtime (NPU prefill, CPU decode) for ExecuTorch v1.5.1 on Modal.
+"""Build the MediaTek NPU runtime (NPU prefill, CPU decode) for ExecuTorch v1.6.0 on Modal.
 
 The runner and its JNI layer are OpenWeights' (tools/npu there), carried in mediatek/: the
-release/1.4 patch they were cut against applies to v1.5.1 unchanged, and the JNI entry points
+release/1.4 patch they were cut against applies to v1.6.0 unchanged, and the JNI entry points
 are renamed to this app's NeuroPilotBridge. The steps are OpenWeights' build_pd_libs.sh,
 including its check that the MediaTek project linked the archives just built, not stale ones.
 
     modal run --detach build_mediatek.py
-    modal volume get execuserve-executorch mediatek-libs/v1.5.1-execuserve ./out
+    modal volume get execuserve-executorch mediatek-libs/v1.6.0-execuserve ./out
 
 Or on any x86_64 Linux host with Docker, without Modal: docker.py.
 
@@ -24,7 +24,8 @@ import subprocess
 
 import modal
 
-TAG = "v1.5.1"
+TAG = "v1.6.0"
+TORCH = "2.15.0"
 NDK = "r26c"
 # execupack's config/versions.env: NeuroPilot Express SDK 8.0.8, checked against this digest.
 SDK_URL = "https://s3.ap-southeast-1.amazonaws.com/mediatek.neuropilot.com/b1c485de-fca8-4b20-836a-8b33152a3609.gz"
@@ -38,7 +39,7 @@ image = (
     .apt_install("git", "build-essential", "unzip", "wget", "curl", "xz-utils")
     .run_commands(
         "pip install --upgrade pip",
-        "pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu",
+        f"pip install torch=={TORCH} --index-url https://download.pytorch.org/whl/cpu",
         "pip install pyyaml ruamel.yaml zstd certifi tomli setuptools wheel requests tqdm",
         "pip install 'cmake>=3.29,<4' ninja && cmake --version | head -1",
         f"curl -sSfL -o /tmp/ndk.zip https://dl.google.com/android/repository/android-ndk-{NDK}-linux.zip"
@@ -130,7 +131,7 @@ def build() -> list[str]:
         if not filecmp.cmp(built, installed, shallow=False):
             raise RuntimeError(f"installed {installed.name} differs from the one just built")
 
-    dest = pathlib.Path("/vol/mediatek-libs/v1.5.1-execuserve/arm64-v8a")
+    dest = pathlib.Path(f"/vol/mediatek-libs/{TAG}-execuserve/arm64-v8a")
     dest.mkdir(parents=True, exist_ok=True)
     strip = f"{ndk}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
     built = []

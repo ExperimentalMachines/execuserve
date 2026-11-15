@@ -1,0 +1,41 @@
+== 1 baseline qwen3-1.7b-8da4w-gptq-4k load=10.53 14.00 18.49
+turn 1 (cold, long prompt)   prompt= 2279 cached=    0 prefill= 30569ms (  74.5 tok/s) decode=  12 tok @   8.5 tok/s  wall=32.08s  finish=stop
+turn 2 (same conversation)   prompt= 2313 cached= 2290 prefill=   456ms (  50.4 tok/s) decode=  12 tok @   7.2 tok/s  wall= 2.14s  finish=stop
+turn 3 (long answer)         prompt= 2349 cached= 2324 prefill=   672ms (  37.2 tok/s) decode= 193 tok @   1.9 tok/s  wall=104.84s  finish=stop
+fresh short prompt, 256 out  prompt=   26 cached=    0 prefill=   171ms ( 152.0 tok/s) decode= 205 tok @   9.6 tok/s  wall=21.62s  finish=stop
+== 1 baseline lfm2.5-1.2b-instruct-8da4w-gptq-4k load=18.26 15.49 18.24
+turn 1 (cold, long prompt)   prompt= 2077 cached=    0 prefill= 15584ms ( 133.3 tok/s) decode=  12 tok @  30.8 tok/s  wall=16.02s  finish=stop
+turn 2 (same conversation)   prompt= 2106 cached= 2088 prefill=   190ms (  94.7 tok/s) decode=  12 tok @  33.0 tok/s  wall= 0.57s  finish=stop
+turn 3 (long answer)         prompt= 2139 cached= 2117 prefill=   237ms (  92.8 tok/s) decode=  41 tok @  15.8 tok/s  wall= 2.84s  finish=stop
+fresh short prompt, 256 out  prompt=   23 cached=    0 prefill=   362ms (  63.5 tok/s) decode= 256 tok @  39.2 tok/s  wall= 6.91s  finish=length
+== 2 candidate qwen3-1.7b-8da4w-gptq-4k load=16.49 15.29 18.07
+turn 1 (cold, long prompt)   prompt= 2279 cached=    0 prefill= 27998ms (  81.4 tok/s) decode=  12 tok @   8.2 tok/s  wall=29.53s  finish=stop
+turn 2 (same conversation)   prompt= 2313 cached= 2290 prefill=   475ms (  48.4 tok/s) decode=  12 tok @   7.7 tok/s  wall= 2.04s  finish=stop
+turn 3 (long answer)         prompt= 2349 cached= 2324 prefill=   519ms (  48.2 tok/s) decode= 193 tok @   6.3 tok/s  wall=31.35s  finish=stop
+fresh short prompt, 256 out  prompt=   26 cached=    0 prefill=   290ms (  89.7 tok/s) decode= 223 tok @  23.6 tok/s  wall= 9.74s  finish=stop
+== 2 candidate lfm2.5-1.2b-instruct-8da4w-gptq-4k load=12.57 14.32 17.45
+turn 1 (cold, long prompt)   prompt= 2077 cached=    0 prefill= 14302ms ( 145.2 tok/s) decode=  12 tok @  34.0 tok/s  wall=14.70s  finish=stop
+turn 2 (same conversation)   prompt= 2106 cached= 2088 prefill=   172ms ( 104.7 tok/s) decode=  12 tok @  33.4 tok/s  wall= 0.54s  finish=stop
+turn 3 (long answer)         prompt= 2139 cached= 2117 prefill=   207ms ( 106.3 tok/s) decode=  41 tok @  15.2 tok/s  wall= 2.92s  finish=stop
+fresh short prompt, 256 out  prompt=   23 cached=    0 prefill=   286ms (  80.4 tok/s) decode= 252 tok @  27.8 tok/s  wall= 9.40s  finish=stop
+== 3 candidate qwen3-1.7b-8da4w-gptq-4k load=11.36 13.86 17.17
+turn 1 (cold, long prompt)   prompt= 2279 cached=    0 prefill= 28567ms (  79.8 tok/s) decode=  12 tok @   7.8 tok/s  wall=30.16s  finish=stop
+turn 2 (same conversation)   prompt= 2313 cached= 2290 prefill=   440ms (  52.3 tok/s) decode=  12 tok @   7.8 tok/s  wall= 1.98s  finish=stop
+turn 3 (long answer)         prompt= 2349 cached= 2324 prefill=   541ms (  46.2 tok/s) decode= 193 tok @   7.0 tok/s  wall=28.01s  finish=stop
+fresh short prompt, 256 out  prompt=   26 cached=    0 prefill=   620ms (  41.9 tok/s) decode= 223 tok @  10.0 tok/s  wall=22.96s  finish=stop
+== 3 candidate lfm2.5-1.2b-instruct-8da4w-gptq-4k load=13.06 13.43 16.63
+turn 1 (cold, long prompt)   prompt= 2077 cached=    0 prefill= 34075ms (  61.0 tok/s) decode=  12 tok @  12.2 tok/s  wall=39.56s  finish=stop
+turn 2 (same conversation)   prompt= 2106 cached= 2088 prefill=  1577ms (  11.4 tok/s) decode=  12 tok @  11.9 tok/s  wall= 2.67s  finish=stop
+turn 3 (long answer)         prompt= 2139 cached= 2117 prefill=   224ms (  98.2 tok/s) decode=  41 tok @  17.6 tok/s  wall= 2.65s  finish=stop
+fresh short prompt, 256 out  prompt=   23 cached=    0 prefill=  1665ms (  13.8 tok/s) decode= 252 tok @  25.0 tok/s  wall=11.81s  finish=stop
+== 4 baseline qwen3-1.7b-8da4w-gptq-4k load=17.48 14.71 16.86
+turn 1 (cold, long prompt)   prompt= 2279 cached=    0 prefill= 65993ms (  34.5 tok/s) decode=  12 tok @   6.6 tok/s  wall=67.90s  finish=stop
+turn 2 (same conversation)   prompt= 2313 cached= 2290 prefill=  2289ms (  10.0 tok/s) decode=  12 tok @   5.4 tok/s  wall= 4.51s  finish=stop
+turn 3 (long answer)         prompt= 2349 cached= 2324 prefill=  1491ms (  16.8 tok/s) decode= 193 tok @   6.2 tok/s  wall=32.39s  finish=stop
+fresh short prompt, 256 out  prompt=   26 cached=    0 prefill=   363ms (  71.6 tok/s) decode= 205 tok @  21.9 tok/s  wall= 9.74s  finish=stop
+== 4 baseline lfm2.5-1.2b-instruct-8da4w-gptq-4k load=15.17 15.04 16.74
+turn 1 (cold, long prompt)   prompt= 2077 cached=    0 prefill= 16010ms ( 129.7 tok/s) decode=  12 tok @  28.6 tok/s  wall=16.48s  finish=stop
+turn 2 (same conversation)   prompt= 2106 cached= 2088 prefill=   211ms (  85.3 tok/s) decode=  12 tok @  16.2 tok/s  wall= 0.97s  finish=stop
+turn 3 (long answer)         prompt= 2139 cached= 2117 prefill=   242ms (  90.9 tok/s) decode=  41 tok @  15.9 tok/s  wall= 2.82s  finish=stop
+fresh short prompt, 256 out  prompt=   23 cached=    0 prefill=   230ms ( 100.0 tok/s) decode= 256 tok @  36.6 tok/s  wall= 7.24s  finish=length
+done

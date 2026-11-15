@@ -1,9 +1,9 @@
-"""Build ExecuTorch v1.5.1's Android native libraries with XNNPACK, Vulkan and QNN on Modal,
+"""Build ExecuTorch v1.6.0's Android native libraries with XNNPACK, Vulkan and QNN on Modal,
 with patch_qnn.py applied, the way scripts/build_android_library.sh builds them (its native
 half; the Java classes do not change and come from the published AAR).
 
     modal run --detach build_libs.py
-    modal volume get execuserve-executorch aar-libs/v1.5.1-execuserve ./out
+    modal volume get execuserve-executorch aar-libs/v1.6.0-execuserve ./out
 
 Or on any x86_64 Linux host with Docker, without Modal: docker.py.
 """
@@ -16,11 +16,20 @@ import subprocess
 
 import modal
 
-TAG = "v1.5.1"
+TAG = "v1.6.0"
+# The PyTorch the tag pins (torch_pin.py); the build runs its code generators.
+TORCH = "2.15.0"
+# The QNN headers the backend compiles against. 1.6.0 pins QAIRT 2.51 for its own builds
+# (backends/qualcomm/scripts/qnn_config.sh); this stays at 2.37 with the HTP drivers the app
+# ships (qnn-runtime 2.39) and the context binaries already exported, so the upgrade changes
+# ExecuTorch and not the Qualcomm SDK. 1.6.0 still builds against older SDKs: version guards
+# turn off its Flexible Context Binaries (QnnSdkCompatibility.h) and HTP graph splitting
+# (HtpContextCustomConfig.cpp), neither of which an export here uses.
 QAIRT = "2.37.0.250724"
 NDK = "r26c"
 VULKAN_SDK = "1.4.341.1"
-# XNNPACK's KleidiAI pin at the v1.5.1 tag (backends/xnnpack/third-party/XNNPACK/cmake/DownloadKleidiAI.cmake).
+# XNNPACK's KleidiAI pin at the v1.6.0 tag, whose XNNPACK commit is 1.5.1's
+# (backends/xnnpack/third-party/XNNPACK/cmake/DownloadKleidiAI.cmake).
 KLEIDIAI = "b87ef9c94f45f11c81a6b1fdaed1b2b45ea58c0c"
 HERE = pathlib.Path(__file__).parent
 
@@ -29,7 +38,7 @@ image = (
     .apt_install("git", "cmake", "ninja-build", "build-essential", "unzip", "wget", "curl", "xz-utils")
     .run_commands(
         "pip install --upgrade pip",
-        "pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu",
+        f"pip install torch=={TORCH} --index-url https://download.pytorch.org/whl/cpu",
         "pip install pyyaml ruamel.yaml zstd certifi tomli setuptools wheel requests tqdm",
         # ExecuTorch 1.5's CMake uses $<BUILD_LOCAL_INTERFACE:...>, which needs CMake 3.26;
         # Debian bookworm's is 3.25. These land in /usr/local/bin, ahead of /usr/bin.
@@ -102,7 +111,7 @@ def build() -> list[str]:
     else:
         raise RuntimeError("cmake configure failed three times")
     run(["cmake", "--build", out, "-j", "16", "--target", "install", "--config", "Release"], cwd=src)
-    dest = pathlib.Path("/vol/aar-libs/v1.5.1-execuserve/arm64-v8a")
+    dest = pathlib.Path(f"/vol/aar-libs/{TAG}-execuserve/arm64-v8a")
     dest.mkdir(parents=True, exist_ok=True)
     strip = f"{ndk}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
     built = []

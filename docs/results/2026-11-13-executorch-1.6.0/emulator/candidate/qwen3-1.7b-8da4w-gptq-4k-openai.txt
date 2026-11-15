@@ -1,0 +1,18 @@
+PASS models (0.0s) 2 model(s), first lfm2.5-1.2b-instruct-8da4w-gptq-4k
+PASS chat (0.7s) finish=stop content='Hello! 🌟'
+PASS stream (1.3s) finish=stop tokens=15 text='1, 2, 3, 4, 5.'
+PASS multi-turn cache (10.8s) first finish=length second cached_tokens=0 of 96
+PASS reasoning (48.8s) finish=length reasoning=1612 chars content=''
+PASS tools (5.1s) called get_weather({"city": "Manila"}); follow-up reused 174 of 205 prompt tokens; then: 'The current weather in Manila is 31°C with clear skies.'
+PASS tools stream (2.8s) finish=tool_calls calls={0: {'name': 'get_weather', 'args': '{"city": "Manila"}'}}
+PASS errors (0.0s) 404, 400 and 401 map to the SDK's exception classes
+PASS early close (0.6s) lane idle 0.3 s after early close; last outcome=client_gone
+PASS responses (0.7s) status=completed output_text='Hello! 🌟'
+PASS responses stream (1.2s) 22 events, final status=completed, text='1, 2, 3, 4, 5.'
+PASS responses reasoning stream (123.4s) response.completed: items=['reasoning', 'message'] content_parts=2 text='Yes, 17 is a prime number. \n\n**Explanati'
+PASS responses tools (2.5s) called get_weather({"city": "Manila"}); follow-up reused 174 of 205 input tokens; then: 'The current weather in Manila is 31°C with clear skies.'
+PASS responses errors (0.0s) an unknown previous_response_id is a 400 previous_response_not_found
+PASS responses chained (0.6s) three turns by id; the third reused 44 of 65 input tokens
+PASS concurrency (49.9s) 8 concurrent requests, all finished in 49.9s (over-limit ones retried after 429)
+
+16/16 passed

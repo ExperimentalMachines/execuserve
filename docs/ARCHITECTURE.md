@@ -122,7 +122,7 @@ interface LlmSession : AutoCloseable {               // one KV cache, one sequen
 
 It is the ExecuTorch Java API reduced to what a server needs, and deliberately
 backend-general, as the iOS binding will be. On Android one runtime serves every delegate: the
-app links ExecuTorch 1.5.1 built by `tools/executorch` with XNNPACK, Vulkan and QNN in one
+app links ExecuTorch 1.6.0 built by `tools/executorch` with XNNPACK, Vulkan and QNN in one
 library and MediaTek's runtime beside it, and the session for an install is chosen by the
 backend its manifest records (`ModelFiles.backend`): the generic text runner for XNNPACK and
 Vulkan files, Qualcomm's static runner (patched to stop, reset and refuse a full window
@@ -779,6 +779,16 @@ third, on the pushed commits, confirmed those fixes and found four narrow cases:
 staying visible until a reload, ids still colliding for files named `…-vulkan`, a pull in
 flight enqueuing after a refusal, and `/v1/models` reading the backend from names. All were
 fixed (`f46833d`), and the fourth round found nothing.
+
+A seventh set (2026-11-13, codex `gpt-6-astra`, max, read-only; outputs in
+`docs/results/2026-11-13-executorch-1.6.0/codex/`) covered the move to ExecuTorch 1.6.0. It found
+no native/Java mismatch (all 31 fbjni registrations and 11 plain JNI methods match the 1.6.0
+classes) and no format change for old files. It found that Qualcomm's prompt processor still
+aborted on a prompt ending in the window's last prefill block (now an error), that
+`assemble.sh` would have rebuilt one version from a different base once Maven published (the
+base is now pinned by digest), and that Vulkan's new bool-buffer refusal was not recognized
+(now it is). The second round confirmed those and found five older Qualcomm-runner and
+log-matching defects, listed as open in the results page.
 
 ## Bundled browser chat
 

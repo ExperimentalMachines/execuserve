@@ -16,11 +16,12 @@ import org.pytorch.executorch.extension.llm.LlmModule
 import java.io.File
 
 /**
- * ExecuTorch 1.5.1 on XNNPACK, Vulkan and Qualcomm's NPU (QNN): one library carries all three
+ * ExecuTorch 1.6.0 on XNNPACK, Vulkan and Qualcomm's NPU (QNN): one library carries all three
  * delegates, and the install's recorded backend says which runner opens a file. Everything below was measured in OpenWeights on 1.4.0, which has
  * run these exports on phones since 2026-08; the comments say what each line works around.
- * 1.5.1 left the JNI LLM layer (jni_layer_llama.cpp) and the threadpool unchanged, so the
- * BOS, token-budget and stop behaviour described here carries over.
+ * 1.5.1 and 1.6.0 left the JNI LLM layer (jni_layer_llama.cpp) unchanged, and the threadpool's
+ * sizing on Android (1.6.0 caps it by CPU affinity only on other Linux), so the BOS,
+ * token-budget and stop behaviour described here carries over.
  */
 class ExecuTorchRuntime(private val allowMultipleResidents: () -> Boolean = { true }) : LlmRuntime {
 
@@ -272,7 +273,7 @@ private class ExecuTorchSession(
         var reported: String? = null
         var error: String? = null
         val config = LlmGenerationConfig.create()
-            // Set per call: the AAR otherwise defaults each call to 0.8.
+            // Set per call: the AAR otherwise defaults each call to 0.8 (the module's own from 1.6.0).
             .temperature(temperature)
             // Echo would replay the prompt through the callback as if the model wrote it.
             .echo(false)

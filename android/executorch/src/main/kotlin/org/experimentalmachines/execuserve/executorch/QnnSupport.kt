@@ -24,7 +24,7 @@ import java.io.File
  */
 object QnnSupport {
     /** The runtime release the record belongs to. */
-    private const val RUNTIME = "1.5.1"
+    private const val RUNTIME = ExecuTorchRuntime.VERSION
     private const val PREFS = "qnn_support"
     private const val KEY_REFUSED = "refused:$RUNTIME"
 

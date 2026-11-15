@@ -1,0 +1,30 @@
+PASS prompt longer than the window: 400 context_length_exceeded
+PASS max_tokens far past the window: 200 {"id":"chatcmpl-QgJ6qNPs2AhesXcXBsHgggpQ","object":"chat.completion","created":1794588539,"model":"qwen3-1.7b-8da4w-gptq-4k","choices":[{"index":0,"message":{"r
+PASS n > 1: 400 choices=0 ignored=None
+PASS unknown model: 404 model_not_found
+PASS no messages: 400 {"error":{"message":"messages must not be empty","type":"invalid_request_error","param":"messages","code":null}}
+PASS body over 4 MiB: 413
+PASS malformed JSON: 400 None
+PASS wrong auth scheme: 401
+PASS foreign Host header: 403
+PASS CORS preflight with CORS off: 404 allow-origin=None
+PASS CJK and emoji survive streaming: replacement chars=False text='你好世界 🙂 ñandú'
+PASS stop string across tokens: 'one two three four ' finish=stop
+PASS client leaves during a long prefill: lane busy 2.4s after the client left; last outcome=client_gone
+PASS two models interleaved: {'0:qwen3-1.7b-8': (200, 2.2), '2:qwen3-1.7b-8': (200, 2.5), '1:lfm2.5-1.2b-': (200, 9.3), '3:lfm2.5-1.2b-': (200, 9.5)} resident=['lfm2.5-1.2b-instruct-8da4w-gptq-4k']
+PASS one client floods the queue: statuses=[200, 200, 200, 200, 429, 429, 429, 429, 429, 429] retry-after=[(429, '11')]
+PASS assistant message last (prefill a reply): 200 continuation='The colour is **blue**.'
+PASS image content part: 400 unsupported_parameter {"error":{"message":"Content of type 'image_url' in a user message is not supported; this server reads text only.","type
+PASS response_format json_schema: 400 ignored=None
+PASS logprobs requested: 400 ignored=None
+PASS tool_choice names one function: 400 calls=[] ignored=None
+PASS keep-alive: ten requests on one connection: [200, 200, 200, 200, 200, 200, 200, 200, 200, 200]
+PASS unknown previous_response_id: 400 previous_response_not_found
+PASS a stored response continues by id and hits the cache: completed=True; third turn cached 43 of 64
+PASS apply-template renders without running: 200 '<|im_start|>user\nHi<|im_end|>\n<|im_start|>assistant\n<think>\n'
+FLAG metrics need a key and name no client: anonymous 401; 43 lines; threads line: []
+PASS runs are the caller's own and agree with themselves: 16 runs, 0 with discrepancies []
+PASS prompt progress when asked, and only then: 5 progress chunks, last {'unit': 'characters', 'total': 3669, 'processed': 2405, 'cache_tokens': 0, 'time_ms': 4406}; unasked 0
+PASS system message in the middle: 200 'Merci.'
+
+27/28 as expected; flagged: ['metrics need a key and name no client']
