@@ -1,0 +1,19 @@
+    versionCode=74 minSdk=32 targetSdk=36
+    versionName=0.1.1
+loaded lfm2.5-1.2b-instruct-8da4w-gptq-32k
+[20:40:22] lfm2.5-1.2b-instruct-8da4w-gptq-32k start thermal=0 battery=33.1C
+[20:41:44] lfm2.5-1.2b-instruct-8da4w-gptq-32k end thermal=0 battery=34.3C
+loaded qwen3-1.7b-vulkan-8da4w-gptq-4k
+[20:41:49] qwen3-1.7b-vulkan-8da4w-gptq-4k start thermal=0 battery=34.3C
+[20:45:14] qwen3-1.7b-vulkan-8da4w-gptq-4k end thermal=0 battery=38C
+loaded lfm2.5-1.2b-instruct-8da4w-gptq-32k
+loaded lfm2.5-2.6b-8da4w-gptq-32k
+[20:45:45] lfm2.5-2.6b-8da4w-gptq-32k start thermal=0 battery=38.4C
+[20:46:58] lfm2.5-2.6b-8da4w-gptq-32k end thermal= battery=
+== lfm2.5-1.2b-instruct-8da4w-gptq-32k-openai.txt: 16/16 passed
+== qwen3-1.7b-vulkan-8da4w-gptq-4k-openai.txt: 16/16 passed
+== lfm2.5-1.2b-instruct-8da4w-gptq-32k-anthropic.txt: 8/8 passed
+== qwen3-1.7b-vulkan-8da4w-gptq-4k-anthropic.txt: 8/8 passed
+== edge.txt: 27/28 as expected; flagged: ['metrics need a key and name no client']
+[20:47:49] lfm2.5-2.6b-8da4w-gptq-32k start (rerun) thermal=0 battery=39.5C
+[20:51:01] lfm2.5-2.6b-8da4w-gptq-32k end (rerun) thermal=0 battery=40.5C

@@ -1,0 +1,10 @@
+PASS create (0.6s) stop_reason=end_turn usage=(18 in, 5 out) text='Hello, world.'
+PASS system blocks (0.4s) text='Blue.'
+PASS stream (1.4s) stop_reason=end_turn usage=(16 in, 20 out) text='1. One  \n2. Two  \n3. Three  \n4. Four  \n5. Five'
+PASS multi-turn cache (8.0s) second turn: cache_read_input_tokens=0, input_tokens=96 (uncached)
+PASS tools (3.0s) called get_weather({"city": "Manila"}); follow-up read 174 cached tokens, fed 31; then: 'The current weather in Manila is 31°C with clear skies.'
+PASS tools stream (1.9s) stop_reason=tool_use tool_use=get_weather({"city": "Manila"}) via 7 events
+PASS bearer auth (0.9s) Authorization: Bearer accepted, stop_reason=end_turn
+PASS errors (0.1s) 404 NotFoundError, 401 AuthenticationError, 400 BadRequestError, 400 BadRequestError
+
+8/8 passed

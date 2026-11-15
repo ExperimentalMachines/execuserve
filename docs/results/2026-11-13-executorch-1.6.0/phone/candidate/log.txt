@@ -1,0 +1,17 @@
+    versionCode=77 minSdk=31 targetSdk=36
+    versionName=0.1.2
+loaded lfm2.5-1.2b-instruct-8da4w-gptq-32k
+[21:13:25] lfm2.5-1.2b-instruct-8da4w-gptq-32k start thermal=0 battery=35.2C
+[21:14:40] lfm2.5-1.2b-instruct-8da4w-gptq-32k end thermal=0 battery=35.3C
+loaded qwen3-1.7b-vulkan-8da4w-gptq-4k
+[21:14:45] qwen3-1.7b-vulkan-8da4w-gptq-4k start thermal=0 battery=36.5C
+[21:17:57] qwen3-1.7b-vulkan-8da4w-gptq-4k end thermal=0 battery=39C
+loaded lfm2.5-1.2b-instruct-8da4w-gptq-32k
+loaded lfm2.5-2.6b-8da4w-gptq-32k
+[21:18:28] lfm2.5-2.6b-8da4w-gptq-32k start thermal=0 battery=39C
+[21:21:35] lfm2.5-2.6b-8da4w-gptq-32k end thermal=0 battery=40.2C
+== lfm2.5-1.2b-instruct-8da4w-gptq-32k-openai.txt: 16/16 passed
+== qwen3-1.7b-vulkan-8da4w-gptq-4k-openai.txt: 16/16 passed
+== lfm2.5-1.2b-instruct-8da4w-gptq-32k-anthropic.txt: 8/8 passed
+== qwen3-1.7b-vulkan-8da4w-gptq-4k-anthropic.txt: 8/8 passed
+== edge.txt: 27/28 as expected; flagged: ['metrics need a key and name no client']

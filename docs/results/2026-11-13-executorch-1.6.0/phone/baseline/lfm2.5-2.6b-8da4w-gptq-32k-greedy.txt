@@ -1,0 +1,12 @@
+{"probe": "capital", "status": 200, "wall_s": 3.31, "text": "The capital of Japan is Tokyo.", "finish": "stop", "prompt_tokens": 21, "cached": 0, "completion_tokens": 60, "prompt_ms": 322, "prompt_tps": 65.21, "decode_n": 60, "decode_tps": 20.26}
+{"probe": "haiku", "status": 200, "wall_s": 3.34, "text": "", "finish": "length", "prompt_tokens": 17, "cached": 0, "completion_tokens": 64, "prompt_ms": 162, "prompt_tps": 104.93, "decode_n": 64, "decode_tps": 20.24}
+{"probe": "primes", "status": 200, "wall_s": 1.78, "text": "", "finish": "length", "prompt_tokens": 22, "cached": 0, "completion_tokens": 32, "prompt_ms": 215, "prompt_tps": 102.32, "decode_n": 32, "decode_tps": 20.55}
+{"probe": "multi_turn_1", "status": 200, "wall_s": 2.7, "text": "", "finish": "length", "prompt_tokens": 25, "cached": 0, "completion_tokens": 48, "prompt_ms": 240, "prompt_tps": 104.16, "decode_n": 48, "decode_tps": 19.52}
+{"probe": "multi_turn_2", "status": 200, "wall_s": 2.84, "text": "", "finish": "length", "prompt_tokens": 45, "cached": 0, "completion_tokens": 48, "prompt_ms": 403, "prompt_tps": 111.66, "decode_n": 48, "decode_tps": 19.69}
+{"probe": "max_tokens_8", "status": 200, "wall_s": 0.53, "text": "", "finish": "length", "prompt_tokens": 14, "cached": 0, "completion_tokens": 8, "prompt_ms": 172, "prompt_tps": 81.39, "decode_n": 8, "decode_tps": 22.92}
+{"probe": "stop_newline", "status": 200, "wall_s": 0.22, "text": "", "finish": "stop", "prompt_tokens": 17, "cached": 0, "completion_tokens": 2, "prompt_ms": 175, "prompt_tps": 97.14, "decode_n": 2, "decode_tps": 47.61}
+{"probe": "capital_stream", "text": "The capital of Japan is Tokyo.", "finish": "stop", "wall_s": 3.3, "matches_nonstream": true}
+{"probe": "long_prompt", "status": 200, "wall_s": 22.49, "text": "", "finish": "length", "prompt_tokens": 2077, "cached": 0, "completion_tokens": 48, "prompt_ms": 19276, "prompt_tps": 107.75, "decode_n": 48, "decode_tps": 14.94}
+{"probe": "overflow", "status": 200, "wall_s": 69.48, "text": "", "finish": "length", "prompt_tokens": 5995, "cached": 0, "completion_tokens": 16, "prompt_ms": 68033, "prompt_tps": 88.11, "decode_n": 16, "decode_tps": 11.17}
+{"probe": "capital_again", "status": 200, "wall_s": 3.35, "text": "The capital of Japan is Tokyo.", "finish": "stop", "prompt_tokens": 21, "cached": 0, "completion_tokens": 60, "prompt_ms": 220, "prompt_tps": 95.45, "decode_n": 60, "decode_tps": 19.22}
+{"probe": "reset_identical", "same": true}

@@ -1,0 +1,16 @@
+id,finished_at_ms,model,api,stream,outcome,prompt_tokens,cached_tokens,estimated_prompt_tokens,completion_tokens,queue_ms,load_ms,prefill_ms,first_token_ms,decode_ms,decode_wall_ms,total_ms,prefill_tokens_per_second,decode_tokens_per_second,threads,thermal,battery_percent,charging
+7youQu9HTFKjsncHMJSxLzPA,1794747061665,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,length,22,0,0,256,1,0,228,230,13962,13962,14192,96.49,18.26,,none,52,true
+cGv6eU3xvjkAUVtk7ks1fK4K,1794747047461,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,length,2098,2076,0,256,1,0,279,281,17946,17946,18227,78.85,14.21,,none,52,true
+ncepG4vRSugOSLDv6Q5Xd6vW,1794747029220,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,stop,2065,0,1722,12,0,0,20006,20009,751,752,20761,103.22,14.65,,none,52,true
+yo8zbObBUs2N8fmdjmvMXvwQ,1794747008428,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,length,2077,0,1752,64,2,0,20574,20578,4357,4358,24936,100.95,14.46,,none,52,true
+Ixfngzd4CaZNYdVzVONgOb2R,1794746983089,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,stop,21,0,0,60,0,0,220,221,3121,3121,3343,95.45,18.90,,none,52,true
+QVRtvlAnOcCQWTsEqTvQEJwS,1794746979736,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,length,5995,0,5714,16,0,0,68033,68038,1432,1432,69470,88.12,10.47,,none,52,true
+pEauzzyoLVHGT5ytp19QeWRe,1794746910255,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,length,2077,0,1752,48,0,0,19276,19276,3212,3212,22488,107.75,14.63,,none,52,true
+6ePKQg4MrNuscf24RJRk3cMN,1794746887763,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,true,stop,21,0,0,60,1,0,203,204,3089,3089,3294,103.45,19.10,,none,52,true
+YDnJg8ccMph5mmtyw5RJbEzh,1794746884466,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,stop,17,0,0,2,1,0,175,176,42,42,218,97.14,23.81,,none,52,true
+b77V59uEtKUKY7KuW9gLCHuc,1794746884244,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,length,14,0,0,8,1,0,172,174,349,349,524,81.40,20.06,,none,52,true
+Ht2QvG1ZE9LH1yTAvExYWBCd,1794746883712,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,length,45,0,0,48,0,0,403,403,2437,2437,2840,111.66,19.29,,none,52,true
+MFMrYXGg7zhLN0YZNjFmoltx,1794746880866,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,length,25,0,0,48,0,0,240,240,2459,2459,2699,104.17,19.11,,none,52,true
+L2ZDtU5ap4R90WXQXQalZ8Qw,1794746878162,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,length,22,0,0,32,0,0,215,216,1557,1558,1774,102.33,19.91,,none,52,true
+4UYmaBruJqJ2ZmdnZ9VldVfZ,1794746876378,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,length,17,0,0,64,0,0,162,163,3162,3163,3326,104.94,19.92,,none,52,true
+z2rDKh85ddhivV6aVhho6ICc,1794746873041,lfm2.5-2.6b-8da4w-gptq-32k,chat.completions,false,stop,21,0,0,60,0,0,322,323,2961,2962,3285,65.22,19.93,,none,52,true

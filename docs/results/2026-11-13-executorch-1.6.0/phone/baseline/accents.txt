@@ -1,0 +1,2 @@
+lfm2.5-1.2b-instruct-8da4w-gptq-32k 24 "Ñandú café naïve"
+qwen3-1.7b-vulkan-8da4w-gptq-4k 23 "nandu cafe naive"

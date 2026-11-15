@@ -117,6 +117,40 @@ Compared tag to tag (v1.5.1 3b60683, v1.6.0 4776f71):
   Qwen3-1.7B, and found that the emulator's two Android crashes that night were watchdog kills
   from host CPU starvation, on both runtimes.
 
+### On a phone, 2026-11-15
+
+The POCO X8 Pro Max (Dimensity 9500s, Mali-G925, HyperOS 3 on Android 16), over USB. The
+baseline is the Play release on it, 0.1.1 (74) on 1.5.1. The candidate is the release APK of
+0.1.2 (77) built from `939ea4f`, installed after the Play copy was removed. The bundle Play
+serves is CI's build of the same commit. Three exports, the same files on both
+(SHA-256 checked): LFM2.5-1.2B-Instruct and LFM2.5-2.6B on the CPU at a 32k window, and
+Qwen3-1.7B on the GPU (`vulkan/…-gptq-4k`, exported with 1.5.1). Thermal status stayed
+none throughout. The files, scripts and a side-by-side are in
+[phone/](2026-11-13-executorch-1.6.0/phone/).
+
+| | 1.5.1 | 1.6.0 |
+|---|---|---|
+| OpenAI SDK suite, LFM2.5-1.2B (CPU) and Qwen3-1.7B (GPU) | 16/16, 16/16 | 16/16, 16/16 |
+| Anthropic SDK suite, the same two | 8/8, 8/8 | 8/8, 8/8 |
+| Edge cases, with the interleaved-model probe | 27/28 | 27/28, the same one flagged |
+| Greedy probes identical | | LFM2.5-1.2B 10 of 11 (only the 6,000-word filler prompt differs), LFM2.5-2.6B 11 of 11, Qwen3-1.7B on the GPU 7 of 10 (a different haiku; the two-turn probe drops an emoji) |
+| Tokens reused on turns 2 and 3 | 2,088 and 2,117; 2,076 on turn 3 for LFM2.5-2.6B; 2,290 and 2,324 | the same |
+| "ñandú café naïve", Qwen3-1.7B on the GPU | 23 tokens, "nandu cafe naive" | 25 tokens, "ñandú café naïve" |
+| Native crashes | none | none |
+
+Speed, from the server's timings, one run each (cold 2k-token prompt, then a short prompt
+with 256 tokens out):
+
+| | Prefill tok/s, 1.5.1 → 1.6.0 | Decode tok/s, long prompt | Decode tok/s, short prompt |
+|---|---|---|---|
+| LFM2.5-1.2B, CPU | 262 → 275 | 35.0 → 35.4 | 42.9 → 43.1 |
+| LFM2.5-2.6B, CPU | 101 → 106 | 14.7 → 14.9 | 18.3 → 18.2 |
+| Qwen3-1.7B, GPU | 134 → 138 | 9.9 → 9.3 | 18.4 → 18.7 |
+
+No change beyond a few percent either way, which one run cannot separate from noise. During
+the baseline the USB link reset once, in LFM2.5-2.6B's 6,000-word probe; the app kept
+running, and that model's step was run again.
+
 ## What users will see
 
 The catalog reads each export folder's `config.json`, and 15 folders say ExecuTorch 1.4.0:
@@ -155,13 +189,12 @@ Snapdragon phone. Details and evidence in [codex/r2-answer.md](2026-11-13-execut
 
 ## Not done
 
-- **No phone.** The POCO (Dimensity) was not on adb and there was no Snapdragon session, so
-  Vulkan on a real GPU, Qualcomm's NPU and MediaTek's NPU ran nothing on 1.6.0. What stands
-  for them: the Vulkan and QNN payload formats did not change (schema and custom-protocol
-  header byte for byte), Qualcomm's runner is the 1.5.1 one with one more error path, and the
-  MediaTek backend and runner sources are unchanged. The first Snapdragon session should run
-  the Qwen3-1.7B NPU export through `tools/compat` and a prompt ending in the last 128
-  positions of its window.
-- **Speed on a phone**, which the emulator cannot show.
+- **The NPUs.** Qualcomm's and MediaTek's NPUs ran nothing on 1.6.0: there was no
+  Snapdragon session, and Play builds leave MediaTek's runtime out. What stands for them: the
+  QNN payload format did not change (schema and custom-protocol header byte for byte),
+  Qualcomm's runner is the 1.5.1 one with one more error path, and the MediaTek backend and
+  runner sources are unchanged. The first Snapdragon session should run the Qwen3-1.7B NPU
+  export through `tools/compat` and a prompt ending in the last 128 positions of its window.
+- **An Adreno GPU** on 1.6.0. Only the POCO's Mali ran Vulkan here.
 - **Maven's AAR.** When upstream publishes 1.6.0 to Maven Central, moving the base to it is a
   new version (`1.6.0-execuserve.2`) with its own digest in `assemble.sh`.
