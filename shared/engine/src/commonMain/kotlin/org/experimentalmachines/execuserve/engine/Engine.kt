@@ -778,7 +778,7 @@ class Engine(
                 reasoned = result.reasoning.isNotBlank(),
             )
         }
-        job.complete(JobEvent.Finished(result))
+        // Recorded before the job completes, so a client holding its answer finds it counted.
         record(
             job,
             finish,
@@ -795,6 +795,7 @@ class Engine(
                 firstTokenMs = result.timings.firstTokenMs,
             ),
         )
+        job.complete(JobEvent.Finished(result))
     }
 
     private fun runCommand(item: Item.Command) {
@@ -1008,8 +1009,8 @@ class Engine(
 
     private fun fail(job: Job, kind: FailureKind, message: String) {
         if (job.isComplete) return
-        job.complete(JobEvent.Failed(Failure(kind, message)))
         record(job, null, kind)
+        job.complete(JobEvent.Failed(Failure(kind, message)))
     }
 
     /** What one finished generation measured, for its record. */
